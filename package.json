@@ -41,6 +41,7 @@
     "docs/"
   ],
   "scripts": {
+    "prepare": "npm run build",
     "build": "rimraf dist .tsbuildinfo && tsc",
     "build:watch": "tsc --watch",
     "build:prod": "rimraf dist .tsbuildinfo && tsc --project tsconfig.prod.json",
