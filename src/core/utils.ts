@@ -1,0 +1,293 @@
+/**
+ * @fileoverview Utility Functions for StarMade Database Management
+ * 
+ * Common utility functions used across the StarMade-DB library.
+ * This includes file system operations, path validation, data formatting,
+ * and asynchronous helpers like retry and debounce.
+ * 
+ * @author InitSysRev
+ * @version 1.0.0
+ */
+
+import path from 'path';
+import fs from 'fs';
+
+/**
+ * Detects StarMade installations in common system paths or custom-provided paths.
+ * @async
+ * @param {string[]} [searchPaths] - An optional array of paths to search for a StarMade installation. If not provided, default paths are used.
+ * @returns {Promise<{found: boolean, path?: string, version?: string, availableWorlds: string[]}>} An object indicating if an installation was found, its path, version (if detectable), and a list of available worlds.
+ */
+export async function detectStarMadeInstallation(searchPaths?: string[]): Promise<{
+    found: boolean;
+    path?: string;
+    version?: string;
+    availableWorlds: string[];
+}> {
+    const defaultPaths = [
+        'C:\\Program Files (x86)\\Steam\\steamapps\\common\\StarMade\\StarMade',
+        'C:\\StarMade',
+        '/opt/starmade',
+        '/home/starmade',
+        process.env.STARMADE_DIR
+    ].filter(Boolean) as string[];
+    
+    const pathsToCheck = searchPaths || defaultPaths;
+    
+    for (const searchPath of pathsToCheck) {
+        try {
+            if (fs.existsSync(searchPath)) {
+                const availableWorlds = await detectAvailableWorlds(searchPath);
+                if (availableWorlds.length > 0) {
+                    return {
+                        found: true,
+                        path: searchPath,
+                        availableWorlds
+                    };
+                }
+            }
+        } catch (error) {
+            // Continue searching
+        }
+    }
+    
+    return {
+        found: false,
+        availableWorlds: []
+    };
+}
+
+/**
+ * Detects available world directories within a given StarMade installation directory.
+ * @async
+ * @param {string} starmadeDir - The path to the StarMade installation directory.
+ * @returns {Promise<string[]>} A promise that resolves with a list of available world names.
+ */
+export async function detectAvailableWorlds(starmadeDir: string): Promise<string[]> {
+    const worldsDir = path.join(starmadeDir, 'server-database');
+    
+    try {
+        if (!fs.existsSync(worldsDir)) {
+            return [];
+        }
+        
+        const entries = fs.readdirSync(worldsDir, { withFileTypes: true });
+        const worlds: string[] = [];
+        
+        for (const entry of entries) {
+            if (isValidWorldDirectory(path.join(worldsDir, entry.name))) {
+                worlds.push(entry.name);
+            }
+        }
+        
+        return worlds;
+    } catch (error) {
+        return [];
+    }
+}
+
+/**
+ * Validates that a given path points to a valid StarMade directory structure.
+ * @param {string} starmadeDir - The path to the StarMade installation directory.
+ * @throws {Error} If the directory does not exist or lacks the 'server-database' subdirectory.
+ */
+export function validateStarMadeDirectory(starmadeDir: string): void {
+    if (!fs.existsSync(starmadeDir)) {
+        throw new Error(`StarMade directory does not exist: ${starmadeDir}`);
+    }
+    
+    const serverDbDir = path.join(starmadeDir, 'server-database');
+    if (!fs.existsSync(serverDbDir)) {
+        throw new Error(`StarMade server-database directory not found: ${serverDbDir}`);
+    }
+}
+
+/**
+ * Formats a duration in milliseconds into a human-readable string (e.g., "1.2s", "5.0m").
+ * @param {number} ms - The duration in milliseconds.
+ * @returns {string} The formatted duration string.
+ */
+export function formatDuration(ms: number): string {
+    if (ms < 1000) {
+        return `${ms}ms`;
+    } else if (ms < 60000) {
+        return `${(ms / 1000).toFixed(1)}s`;
+    } else if (ms < 3600000) {
+        return `${(ms / 60000).toFixed(1)}m`;
+    } else {
+        return `${(ms / 3600000).toFixed(1)}h`;
+    }
+}
+
+/**
+ * Generates the HSQLDB JDBC URL for a specific StarMade world database.
+ * @param {string} starmadeDir - The path to the StarMade installation directory.
+ * @param {string} worldName - The name of the world/database to connect to.
+ * @param {object} [options] - Optional parameters for the database connection.
+ * @param {boolean} [options.readOnly] - If true, the connection will be read-only.
+ * @param {boolean} [options.ifExists] - If true, the connection will only succeed if the database already exists.
+ * @param {boolean} [options.shutdown] - If true, the database will shut down when the last connection is closed.
+ * @param {boolean} [options.disableLockFile] - If true, HSQLDB lock file (.lck) will be disabled - CRITICAL for test stability.
+ * @returns {string} The fully formed JDBC URL for the StarMade database.
+ */
+export function generateDatabaseUrl(starmadeDir: string, worldName: string, options?: {
+    readOnly?: boolean;
+    ifExists?: boolean;
+    shutdown?: boolean;
+    disableLockFile?: boolean;
+}): string {
+    const dbPath = path.join(starmadeDir, 'server-database', worldName, 'index');
+    const params: string[] = [];
+
+    // IMPORTANT: Le chemin doit finir par "/" pour HSQLDB
+    let url = `jdbc:hsqldb:file:${dbPath}/`;
+    
+    if (options?.readOnly) {
+        params.push('readonly=true');
+    }
+    else {
+        params.push('readonly=false');
+    }
+    
+    if (options?.ifExists) {
+        params.push('ifexists=true');
+    }
+    
+    if (options?.shutdown !== false) {
+        params.push('shutdown=true');
+    }
+    
+    // CRITICAL FIX: Add support for disabling HSQLDB lock file (.lck)
+    if (options?.disableLockFile) {
+        params.push('hsqldb.lock_file=false');
+    }
+    
+    if (params.length > 0) {
+        url += ';' + params.join(';');
+    }
+    
+    return url;
+}
+
+/**
+ * Checks if a given path is a valid StarMade world directory by looking for HSQLDB data files.
+ * @param {string} worldPath - The path to the potential world directory.
+ * @returns {boolean} True if the directory is a valid StarMade world, false otherwise.
+ */
+export function isValidWorldDirectory(worldPath: string): boolean {
+    try {
+        if (!fs.existsSync(worldPath)) {
+            return false;
+        }
+        
+        const stat = fs.statSync(worldPath);
+        if (!stat.isDirectory()) {
+            return false;
+        }
+
+        const indexDir = path.join(worldPath, 'index');
+        if (fs.existsSync(indexDir) && fs.statSync(indexDir).isDirectory()) {
+            const nestedScript = path.join(indexDir, '.script');
+            const nestedProperties = path.join(indexDir, '.properties');
+            const nestedData = path.join(indexDir, '.data');
+            
+            return fs.existsSync(nestedScript) || fs.existsSync(nestedProperties) || fs.existsSync(nestedData);
+        }
+        
+        return false;
+    } catch (error) {
+        return false;
+    }
+}
+
+/**
+ * @description A simple singleton object for managing cleanup of resources that need to be destroyed.
+ */
+export const resourceCleaner = {
+    /**
+     * @private
+     * @type {Set<{ destroy(): Promise<void> }>
+     */
+    resources: new Set<{ destroy(): Promise<void> }>(),
+
+    /**
+     * Registers a resource that has a `destroy` method.
+     * @param {{ destroy(): Promise<void> }} resource - The resource to register for cleanup.
+     */
+    register(resource: { destroy(): Promise<void> }): void {
+        this.resources.add(resource);
+    },
+
+    /**
+     * Unregisters a resource from the cleanup list.
+     * @param {{ destroy(): Promise<void> }} resource - The resource to unregister.
+     */
+    unregister(resource: { destroy(): Promise<void> }): void {
+        this.resources.delete(resource);
+    },
+
+    /**
+     * Calls the `destroy` method on all registered resources.
+     * @async
+     * @returns {Promise<void>} A promise that resolves when all resources have been destroyed.
+     */
+    async cleanup(): Promise<void> {
+        const cleanupPromises = Array.from(this.resources).map(resource =>
+            resource.destroy().catch(console.error)
+        );
+        await Promise.allSettled(cleanupPromises);
+        this.resources.clear();
+    }
+};
+
+/**
+ * An async utility function to retry a promise-returning function a specified number of times.
+ * @async
+ * @template T
+ * @param {() => Promise<T>} fn - The function to retry.
+ * @param {number} [maxAttempts=3] - The maximum number of attempts.
+ * @param {number} [delay=1000] - The base delay in milliseconds between retries. The delay increases with each attempt.
+ * @returns {Promise<T>} A promise that resolves with the result of the function if it succeeds.
+ * @throws {Error} The last error encountered if all attempts fail.
+ */
+export async function retry<T>(
+    fn: () => Promise<T>,
+    maxAttempts: number = 3,
+    delay: number = 1000
+): Promise<T> {
+    let lastError: Error;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+            if (attempt === maxAttempts) {
+                throw lastError;
+            }
+            await new Promise(resolve => setTimeout(resolve, delay * attempt));
+        }
+    }
+
+    throw lastError!;
+}
+
+/**
+ * A utility function that creates a debounced version of a function.
+ * The debounced function will only be called after it has not been called for a specified delay.
+ * @template T
+ * @param {T} fn - The function to debounce.
+ * @param {number} delay - The debounce delay in milliseconds.
+ * @returns {(...args: Parameters<T>) => void} The debounced function.
+ */
+export function debounce<T extends (...args: any[]) => any>(
+    fn: T,
+    delay: number
+): (...args: Parameters<T>) => void {
+    let timeoutId: NodeJS.Timeout;
+
+    return (...args: Parameters<T>) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => fn(...args), delay);
+    };
+}

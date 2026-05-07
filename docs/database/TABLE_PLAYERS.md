@@ -1,0 +1,94 @@
+# PLAYERS Table
+
+## Overview
+**PLAYERS** is a core table in the StarMade database that stores essential player account information. This table maintains player identities, faction affiliations, and permission levels for all registered users on the server.
+
+---
+
+## Table Structure
+
+| Column            | Type            | Constraints             | Description                   |
+|-------------------|-----------------|-------------------------|-------------------------------|
+| **ID**            | `BIGINT(64)`    | `NOT NULL`              | Player unique identifier      |
+| **NAME**          | `VARCHAR(512)`  | `NOT NULL`              | Login username                |
+| **STARMADE_NAME** | `VARCHAR(512)`  | `NOT NULL`              | Display name in-game          |
+| **FACTION**       | `INTEGER(32)`   | `NOT NULL DEFAULT 0`    | Current faction affiliation   |
+| **PERMISSION**    | `BIGINT(64)`    | `NOT NULL DEFAULT 0`    | Permission bitmask for rights |
+
+**Primary Key:** `ID`  
+**Constraints:** `SYS_PK_10098` PRIMARY KEY on `ID`
+
+---
+
+## Column Details
+
+### PERMISSION{#permission}
+Faction permission bitmask that determines what actions the player can perform within their faction. This uses bitwise flags that can be combined.
+
+| Bit | Value        | Name                | Description                      | Usage                            |
+|-----|--------------|---------------------|----------------------------------|----------------------------------|
+| `0` | `1`          | `INVITE`            | Can invite players to faction    | Basic recruitment permission     |
+| `1` | `2`          | `KICK`              | Can kick players from faction    | Member management                |
+| `2` | `4`          | `EDIT_PERMISSIONS`  | Can modify permissions           | Administrative control           |
+| `3` | `8`          | `EDIT_DESCRIPTION`  | Can edit faction description     | Faction representation           |
+| `4` | `16`         | `RELATIONSHIP`      | Can manage faction relationships | Diplomacy management             |
+| `5` | `32`         | `HOMEBASE`          | Can manage homebase              | Base relocation/management       |
+| `6` | `64`         | `FOG_OF_WAR_SHARE`  | Can share fog of war             | Intelligence sharing             |
+| `7` | `128`        | `NEWS_POST`         | Can post faction news            | Communication management         |
+| -   | `0x7FFFFFFF` | `ADMIN_PERMISSIONS` | Admin level permissions          | Server admin override            |
+
+#### Common Permission Combinations
+| Value | Permissions                  | Role Description             |
+|-------|------------------------------|------------------------------|
+| `0`   | No permissions               | Regular member               |
+| `3`   | INVITE + KICK                | Basic officer                |
+| `7`   | INVITE + KICK + EDIT_PERMS   | Senior officer               |
+| `255` | All permissions              | Full faction control         |
+
+---
+
+## Integration with Other Tables
+
+### Related Entities
+Players are indirectly referenced through various game mechanics:
+
+- **ENTITIES.CREATOR**: Player name appears as entity creator
+- **ENTITIES.LAST_MOD**: Player name appears as last modifier
+- **ENTITIES.FACTION**: Players share faction with their entities
+- **FLEETS.OWNER**: Player UID appears as fleet owner
+- **TRADE_NODES.PLAYER**: Player name appears as station owner
+
+---
+
+## Example Queries
+
+see [EXEMPLE_PLAYERS.md](./EXEMPLE_PLAYERS.md) for a curated list of example queries that can be run against the **PLAYERS** table.
+
+---
+
+## Security Considerations
+
+### Data Privacy
+- Player names and IDs should be treated as personally identifiable information
+- Permission levels should only be accessible to authorized users
+- Faction affiliations may reveal strategic information
+
+### Permission Validation
+- Always validate permission bitmasks before granting access
+- Use bitwise operations to check specific permissions
+- Implement proper access control for faction management
+
+### Audit Trail
+- Track changes to player permissions
+- Monitor faction membership changes
+- Log administrative actions
+
+---
+
+## Changelog
+
+| Version | Date       | Author       | Description                                   |
+|---------|------------|--------------|-----------------------------------------------|
+| `1.0`   | 2025-01-09 | InitSysRev   | Initial creation of the PLAYERS table schema |
+
+[INDEX](./INDEX.md)

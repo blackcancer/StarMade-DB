@@ -1,0 +1,158 @@
+{
+  "name": "starmade-db",
+  "version": "1.0.0",
+  "description": "Unified module for interacting with StarMade's HSQLDB database via JDBC - Modular Architecture",
+  "type": "module",
+  "main": "dist/core/index.js",
+  "types": "dist/core/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/core/index.js",
+      "types": "./dist/core/index.d.ts"
+    },
+    "./core": {
+      "import": "./dist/core/index.js",
+      "types": "./dist/core/index.d.ts"
+    },
+    "./hsql-manager": {
+      "import": "./dist/core/HSQLManager.js",
+      "types": "./dist/core/HSQLManager.d.ts"
+    },
+    "./modules": {
+      "import": "./dist/core/modules/index.js",
+      "types": "./dist/core/modules/index.d.ts"
+    },
+    "./interfaces": {
+      "import": "./dist/core/interfaces.js",
+      "types": "./dist/core/interfaces.d.ts"
+    },
+    "./errors": {
+      "import": "./dist/core/errors.js",
+      "types": "./dist/core/errors.d.ts"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "LICENSE",
+    "package.json",
+    "docs/"
+  ],
+  "scripts": {
+    "build": "rimraf dist .tsbuildinfo && tsc",
+    "build:watch": "tsc --watch",
+    "build:prod": "rimraf dist .tsbuildinfo && tsc --project tsconfig.prod.json",
+    "clean": "rimraf dist .tsbuildinfo",
+    "dev": "npm run build:watch",
+    "start": "npm run build && node dist/core/index.js",
+    "test": "npm run build && npx tsx node_modules/mocha/bin/mocha.js tests/**/*.test.ts --timeout 30000 --exit --force-exit --require tests/root-hooks.ts --project tsconfig.test.json",
+    "test:no-build": "npx tsx node_modules/mocha/bin/mocha.js tests/**/*.test.ts --timeout 30000 --exit --project tsconfig.test.json",
+    "test:watch": "npx tsx node_modules/mocha/bin/mocha.js tests/**/*.test.ts --timeout 30000 --watch --exit --project tsconfig.test.json",
+    "test:coverage": "npm run build && nyc npx tsx node_modules/mocha/bin/mocha.js tests/**/*.test.ts --timeout 30000 --exit --project tsconfig.test.json",
+    "explore": "npm run build && node tools/StarMadeExplorer.js",
+    "explore:verbose": "npm run build && node tools/StarMadeExplorer.js --verbose",
+    "explore:export": "npm run build && node tools/StarMadeExplorer.js --export reports/schema-analysis.json --verbose",
+    "explore:table": "npm run build && node tools/StarMadeExplorer.js --table",
+    "explore:help": "npm run build && node tools/StarMadeExplorer.js --help",
+    "lint": "tsc --noEmit --pretty",
+    "type-check": "tsc --noEmit",
+    "validate": "npm run lint && npm run build && npm run test",
+    "prepublishOnly": "npm run validate && npm run build:prod"
+  },
+  "keywords": [
+    "starmade",
+    "hsqldb",
+    "jdbc",
+    "database",
+    "gaming",
+    "space",
+    "sql",
+    "modular",
+    "architecture",
+    "performance",
+    "monitoring",
+    "transactions",
+    "schema-analysis",
+    "reporting"
+  ],
+  "author": "InitSysRev",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "nodejs-jdbc": "^0.1.5",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.2.2",
+    "@types/chai-as-promised": "^8.0.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.19.9",
+    "@types/sinon": "^17.0.4",
+    "chai": "^5.2.0",
+    "chai-as-promised": "^8.0.1",
+    "mocha": "^11.7.1",
+    "nodemon": "^3.0.0",
+    "nyc": "^15.1.0",
+    "rimraf": "^6.0.1",
+    "sinon": "^21.0.0",
+    "source-map-support": "^0.5.21",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "mocha": {
+    "timeout": 30000,
+    "recursive": true,
+    "extension": [
+      "ts"
+    ],
+    "spec": "tests/**/*.test.ts",
+    "require": "tsx/esm",
+    "exit": true
+  },
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node",
+    "compilerOptions": {
+      "module": "ESNext",
+      "moduleResolution": "bundler",
+      "allowSyntheticDefaultImports": true,
+      "esModuleInterop": true
+    }
+  },
+  "nyc": {
+    "extension": [
+      ".ts"
+    ],
+    "exclude": [
+      "**/*.d.ts",
+      "dist/",
+      "tests/",
+      "scripts/"
+    ],
+    "reporter": [
+      "html",
+      "text",
+      "text-summary"
+    ],
+    "all": true
+  },
+  "overrides": {
+    "java": "0.16.2",
+    "nodejs-jdbc": {
+      "java": "0.16.2"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/InitSysRev/StarMade-DB.git"
+  },
+  "bugs": {
+    "url": "https://github.com/InitSysRev/StarMade-DB/issues"
+  },
+  "homepage": "https://github.com/InitSysRev/StarMade-DB#readme"
+}
