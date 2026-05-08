@@ -1,0 +1,94 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\init-\\source\\repos\\StarMade-DB\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{C471FD69-61F0-A19D-DB5C-BC82C1394454}|SMToolkit-DB.esproj|c:\\users\\init-\\source\\repos\\starmade-db\\tests\\tables\\entities\\entitiescontroller.test.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{C471FD69-61F0-A19D-DB5C-BC82C1394454}|SMToolkit-DB.esproj|solutionrelative:tests\\tables\\entities\\entitiescontroller.test.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{C471FD69-61F0-A19D-DB5C-BC82C1394454}|SMToolkit-DB.esproj|c:\\users\\init-\\source\\repos\\starmade-db\\agent.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
+      "RelativeMoniker": "D:0:0:{C471FD69-61F0-A19D-DB5C-BC82C1394454}|SMToolkit-DB.esproj|solutionrelative:agent.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{C471FD69-61F0-A19D-DB5C-BC82C1394454}|SMToolkit-DB.esproj|c:\\users\\init-\\source\\repos\\starmade-db\\src\\tables\\basecontroller.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{C471FD69-61F0-A19D-DB5C-BC82C1394454}|SMToolkit-DB.esproj|solutionrelative:src\\tables\\basecontroller.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{C471FD69-61F0-A19D-DB5C-BC82C1394454}|SMToolkit-DB.esproj|c:\\users\\init-\\source\\repos\\starmade-db\\src\\tables\\basemodel.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{C471FD69-61F0-A19D-DB5C-BC82C1394454}|SMToolkit-DB.esproj|solutionrelative:src\\tables\\basemodel.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 3,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "AGENT.md",
+              "DocumentMoniker": "C:\\Users\\init-\\source\\repos\\StarMade-DB\\AGENT.md",
+              "RelativeDocumentMoniker": "AGENT.md",
+              "ToolTip": "C:\\Users\\init-\\source\\repos\\StarMade-DB\\AGENT.md",
+              "RelativeToolTip": "AGENT.md",
+              "ViewState": "AgIAAAsAAAAAAAAAAAAAACUAAAAyAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
+              "WhenOpened": "2025-07-03T15:30:51.068Z",
+              "IsPinned": true
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "EntitiesController.test.ts",
+              "DocumentMoniker": "C:\\Users\\init-\\source\\repos\\StarMade-DB\\tests\\tables\\entities\\EntitiesController.test.ts",
+              "RelativeDocumentMoniker": "tests\\tables\\entities\\EntitiesController.test.ts",
+              "ToolTip": "C:\\Users\\init-\\source\\repos\\StarMade-DB\\tests\\tables\\entities\\EntitiesController.test.ts",
+              "RelativeToolTip": "tests\\tables\\entities\\EntitiesController.test.ts",
+              "ViewState": "AgIAAIUGAAAAAAAAAAAowKEGAAADAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-08-07T22:39:00.703Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "BaseController.ts",
+              "DocumentMoniker": "C:\\Users\\init-\\source\\repos\\StarMade-DB\\src\\tables\\BaseController.ts",
+              "RelativeDocumentMoniker": "src\\tables\\BaseController.ts",
+              "ToolTip": "C:\\Users\\init-\\source\\repos\\StarMade-DB\\src\\tables\\BaseController.ts",
+              "RelativeToolTip": "src\\tables\\BaseController.ts",
+              "ViewState": "AgIAAE8DAAAAAAAAAAAtwFUDAAAHAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-07-18T13:40:37.7Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "BaseModel.ts",
+              "DocumentMoniker": "C:\\Users\\init-\\source\\repos\\StarMade-DB\\src\\tables\\BaseModel.ts",
+              "RelativeDocumentMoniker": "src\\tables\\BaseModel.ts",
+              "ToolTip": "C:\\Users\\init-\\source\\repos\\StarMade-DB\\src\\tables\\BaseModel.ts",
+              "RelativeToolTip": "src\\tables\\BaseModel.ts",
+              "ViewState": "AgIAAFgDAAAAAAAAAAAtwAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-07-16T22:45:15.68Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.VisualStudio.JavaScript.Sdk/1.0.2752196">
+  <ItemGroup>
+    <None Remove="tests\tables\**" />
+    <TypeScriptConfiguration Remove="tests\tables\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="dist\" />
+    <Folder Include="src\core\modules\logging\" />
+    <Folder Include="tests\core\modules\logging\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="tests\tables\BaseController.test.ts" />
+    <None Include="tests\tables\BaseModel.test.ts" />
+    <None Include="tests\tables\effects\EffectsController.test.ts" />
+    <None Include="tests\tables\effects\EffectsModel.test.ts" />
+    <None Include="tests\tables\entities\EntitiesController.test.ts" />
+    <None Include="tests\tables\entities\EntitiesModel.test.ts" />
+    <None Include="tests\tables\fleet-members\FleetMembersController.test.ts" />
+    <None Include="tests\tables\fleet-members\FleetMembersModel.test.ts" />
+    <None Include="tests\tables\fleets\FleetsModel.test.ts" />
+    <None Include="tests\tables\ftl\FtlModel.test.ts" />
+    <None Include="tests\tables\id-gen-table\IdGenTableController.test.ts" />
+    <None Include="tests\tables\id-gen-table\IdGenTableModel.test.ts" />
+    <None Include="tests\tables\mines\MinesModel.test.ts" />
+    <None Include="tests\tables\NPC-stats\NPCStatsModel.test.ts" />
+    <None Include="tests\tables\player-messages\PlayerMessagesModel.test.ts" />
+    <None Include="tests\tables\players\PlayersController.test.ts" />
+    <None Include="tests\tables\players\PlayersModel.test.ts" />
+    <None Include="tests\tables\sectors-items\SectorsItemsController.test.ts" />
+    <None Include="tests\tables\sectors-items\SectorsItemsModel.test.ts" />
+    <None Include="tests\tables\sectors\SectorsController.test.ts" />
+    <None Include="tests\tables\sectors\SectorsModel.test.ts" />
+    <None Include="tests\tables\systems\SystemsController.test.ts" />
+    <None Include="tests\tables\systems\SystemsModel.test.ts" />
+    <None Include="tests\tables\trade-history\TradeHistoryModel.test.ts" />
+    <None Include="tests\tables\trade-nodes\TradeNodesModel.test.ts" />
+    <None Include="tests\tables\visibility\VisibilityModel.test.ts" />
+  </ItemGroup>
+</Project>

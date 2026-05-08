@@ -1,0 +1,956 @@
+﻿/**
+ * Transaction Manager Module
+ * 
+ * Advanced transaction management system for HSQLDB databases with support
+ * for complex transaction patterns, nested transactions, and transaction recovery.
+ * 
+ * **Responsibilities:**
+ * - Transaction lifecycle management (begin, commit, rollback)
+ * - Savepoint creation and management
+ * - Transaction isolation level control
+ * - Deadlock detection and resolution
+ * - Transaction timeout management
+ * - Transaction performance monitoring
+ * - Distributed transaction coordination (if needed)
+ * 
+ * **Integration:**
+ * - Uses ConnectionManager for database connections
+ * - Integrates with PerformanceMonitor for transaction metrics
+ * - Provides TransactionContext for transaction state management
+ * - Supports nested transactions through savepoints
+ * 
+ * @author InitSysRev
+ * @version 1.0.0
+ * 
+ * @example
+ * ```typescript
+ * // Initialize with HSQLManager
+ * const manager = new HSQLManager(config);
+ * await manager.initialize();
+ * 
+ * const transactionManager = new TransactionManager();
+ * await transactionManager.initialize(manager);
+ * 
+ * // Execute a simple transaction
+ * const result = await transactionManager.executeTransaction(async (ctx) => {
+ *     await ctx.execute('INSERT INTO players (name) VALUES (?)', ['PlayerName']);
+ *     await ctx.execute('UPDATE stats SET login_count = login_count + 1 WHERE player_name = ?', ['PlayerName']);
+ *     return { success: true };
+ * });
+ * 
+ * // Execute with custom isolation level
+ * const result = await transactionManager.executeTransaction(async (ctx) => {
+ *     // Transaction logic here
+ * }, { 
+ *     isolationLevel: IsolationLevel.SERIALIZABLE,
+ *     timeout: 30000
+ * });
+ * 
+ * // Manual transaction control
+ * const transaction = await transactionManager.beginTransaction();
+ * try {
+ *     await transaction.execute('INSERT INTO ...');
+ *     const savepoint = await transaction.createSavepoint('sp1');
+ *     await transaction.execute('UPDATE ...');
+ *     await transaction.commit();
+ * } catch (error) {
+ *     await transaction.rollback();
+ *     throw error;
+ * }
+ * ```
+ */
+
+import type { BaseModule, HSQLManager } from '../../HSQLManager.js';
+import { 
+    HSQLDBError, 
+    ModuleError, 
+    TransactionError,
+    InactiveTransactionError,
+    TransactionDeadlockError,
+    ErrorFactory 
+} from '../../errors.js';
+import { createModuleLogger, type ModuleLogger } from '../logging/Logger.js';
+import { createModuleEventEmitter, type ModuleEventEmitter, type ModuleEventListener, createEventData } from '../../events.js';
+import type { ConnectionManager } from '../connection/ConnectionManager.js';
+import type { PerformanceMonitor } from '../performance/PerformanceMonitor.js';
+import { TransactionContext } from './TransactionContext.js';
+
+// Make TransactionContext available for export
+export { TransactionContext };
+
+// =============================================================================
+// CONFIGURATION INTERFACES
+// =============================================================================
+
+/**
+ * Transaction isolation levels
+ */
+export enum IsolationLevel {
+    READ_UNCOMMITTED = 'READ_UNCOMMITTED',
+    READ_COMMITTED = 'READ_COMMITTED',
+    REPEATABLE_READ = 'REPEATABLE_READ',
+    SERIALIZABLE = 'SERIALIZABLE'
+}
+
+/**
+ * Transaction states
+ */
+export enum TransactionState {
+    ACTIVE = 'active',
+    PREPARING = 'preparing',
+    PREPARED = 'prepared',
+    COMMITTING = 'committing',
+    COMMITTED = 'committed',
+    ROLLING_BACK = 'rolling_back',
+    ROLLED_BACK = 'rolled_back',
+    FAILED = 'failed',
+    TIMEOUT = 'timeout'
+}
+
+/**
+ * Transaction execution options
+ */
+export interface TransactionOptions {
+    /** Transaction isolation level */
+    isolationLevel?: IsolationLevel;
+    /** Transaction timeout in milliseconds */
+    timeout?: number;
+    /** Whether to auto-commit on success */
+    autoCommit?: boolean;
+    /** Maximum retry attempts on deadlock */
+    maxRetries?: number;
+    /** Retry delay in milliseconds */
+    retryDelay?: number;
+    /** Enable transaction logging */
+    enableLogging?: boolean;
+    /** Transaction name for identification */
+    name?: string;
+    /** Read-only transaction */
+    readOnly?: boolean;
+}
+
+/**
+ * Transaction configuration
+ */
+export interface TransactionConfig {
+    /** Default isolation level */
+    defaultIsolationLevel?: IsolationLevel;
+    /** Default timeout in milliseconds */
+    defaultTimeout?: number;
+    /** Maximum concurrent transactions */
+    maxConcurrentTransactions?: number;
+    /** Enable deadlock detection */
+    enableDeadlockDetection?: boolean;
+    /** Deadlock detection interval in milliseconds */
+    deadlockDetectionInterval?: number;
+    /** Enable transaction metrics collection */
+    enableMetrics?: boolean;
+    /** Savepoint name prefix */
+    savepointPrefix?: string;
+    /** Enable nested transaction support */
+    enableNestedTransactions?: boolean;
+}
+
+/**
+ * Default transaction configuration
+ */
+export const DEFAULT_TRANSACTION_CONFIG: Required<TransactionConfig> = {
+    defaultIsolationLevel: IsolationLevel.READ_COMMITTED,
+    defaultTimeout: 30000, // 30 seconds
+    maxConcurrentTransactions: 100,
+    enableDeadlockDetection: true,
+    deadlockDetectionInterval: 5000, // 5 seconds
+    enableMetrics: true,
+    savepointPrefix: 'sp_',
+    enableNestedTransactions: true
+};
+
+// =============================================================================
+// TRANSACTION DATA STRUCTURES
+// =============================================================================
+
+/**
+ * Transaction information
+ */
+export interface TransactionInfo {
+    /** Transaction ID */
+    id: string;
+    /** Transaction name */
+    name?: string;
+    /** Current state */
+    state: TransactionState;
+    /** Isolation level */
+    isolationLevel: IsolationLevel;
+    /** Start timestamp */
+    startTime: Date;
+    /** End timestamp */
+    endTime?: Date;
+    /** Duration in milliseconds */
+    duration?: number;
+    /** Connection ID */
+    connectionId: string;
+    /** Read-only flag */
+    readOnly: boolean;
+    /** Savepoints created */
+    savepoints: string[];
+    /** Parent transaction ID for nested transactions */
+    parentTransactionId?: string;
+    /** Child transaction IDs */
+    childTransactionIds: string[];
+    /** Transaction timeout */
+    timeout: number;
+    /** Error information if failed */
+    error?: HSQLDBError;
+}
+
+/**
+ * Transaction statistics
+ */
+export interface TransactionStatistics {
+    /** Total transactions executed */
+    totalTransactions: number;
+    /** Successful transactions */
+    successfulTransactions: number;
+    /** Failed transactions */
+    failedTransactions: number;
+    /** Rolled back transactions */
+    rolledBackTransactions: number;
+    /** Average transaction duration */
+    averageDuration: number;
+    /** Maximum transaction duration */
+    maxDuration: number;
+    /** Minimum transaction duration */
+    minDuration: number;
+    /** Deadlocks detected */
+    deadlocksDetected: number;
+    /** Timeouts occurred */
+    timeoutsOccurred: number;
+    /** Active transactions count */
+    activeTransactions: number;
+    /** Statistics collection period */
+    collectionPeriod: {
+        start: Date;
+        end: Date;
+    };
+}
+
+/**
+ * Deadlock information
+ */
+export interface DeadlockInfo {
+    /** Deadlock detection timestamp */
+    detectedAt: Date;
+    /** Involved transactions */
+    involvedTransactions: string[];
+    /** Resource dependencies */
+    resourceDependencies: ResourceDependency[];
+    /** Victim transaction chosen for rollback */
+    victimTransaction: string;
+    /** Resolution strategy used */
+    resolutionStrategy: 'timeout' | 'victim_selection' | 'manual';
+}
+
+/**
+ * Resource dependency for deadlock analysis
+ */
+export interface ResourceDependency {
+    /** Transaction waiting for resource */
+    waitingTransaction: string;
+    /** Transaction holding resource */
+    holdingTransaction: string;
+    /** Resource identifier */
+    resource: string;
+    /** Resource type */
+    resourceType: 'table' | 'row' | 'index' | 'sequence';
+    /** Lock type */
+    lockType: 'shared' | 'exclusive' | 'update';
+}
+
+/**
+ * Transaction execution function type
+ */
+export type TransactionExecutor<T> = (context: TransactionContext) => Promise<T>;
+
+/**
+ * Transaction event types (string literal union)
+ */
+export type TransactionEvent = 
+    | 'transaction:started'
+    | 'transaction:committed' 
+    | 'transaction:rolled-back'
+    | 'transaction:failed'
+    | 'transaction:timeout'
+    | 'deadlock:detected'
+    | 'savepoint:created'
+    | 'savepoint:released'
+    | 'savepoint:rolled-back';
+
+// =============================================================================
+// MAIN TRANSACTION MANAGER CLASS
+// =============================================================================
+
+/**
+ * TransactionManager Module
+ * 
+ * Provides comprehensive transaction management capabilities for HSQLDB
+ * with support for complex transaction patterns and monitoring.
+ */
+export class TransactionManager implements BaseModule {
+    public readonly name = 'TransactionManager';
+    public readonly version = '1.0.0';
+    
+    private manager!: HSQLManager;
+    private connectionManager!: ConnectionManager;
+    private performanceMonitor?: PerformanceMonitor;
+    private logger!: ModuleLogger;
+    private eventEmitter!: ModuleEventEmitter<TransactionEvent>;
+    private config!: TransactionConfig;
+    private initialized = false;
+    
+    // Transaction tracking
+    private activeTransactions: Map<string, TransactionInfo> = new Map();
+    private transactionContexts: Map<string, TransactionContext> = new Map();
+    private transactionSessions: Map<string, string> = new Map(); // NOUVEAU: Mapping transaction -> session
+    private statistics: TransactionStatistics;
+    private deadlockDetectionTimer?: NodeJS.Timeout;
+    private nextTransactionId = 1;
+    
+    constructor(config: TransactionConfig = {}) {
+        this.config = { ...DEFAULT_TRANSACTION_CONFIG, ...config };
+        this.statistics = this.initializeStatistics();
+    }
+
+    public get isInitialized(): boolean {
+        return this.initialized;
+    }
+
+    /**
+     * Initialize the TransactionManager module
+     */
+    public async initialize(manager: HSQLManager): Promise<void> {
+        if (this.initialized) {
+            throw new ModuleError(
+                'TransactionManager',
+                'initialize',
+                'TransactionManager already initialized'
+            );
+        }
+
+        this.manager = manager;
+        this.logger = createModuleLogger(this.name);
+        this.config = { ...DEFAULT_TRANSACTION_CONFIG, ...this.config };
+
+        // Initialize event emitter
+        this.eventEmitter = createModuleEventEmitter<TransactionEvent>([
+            'transaction:started',
+            'transaction:committed', 
+            'transaction:rolled-back',
+            'transaction:failed',
+            'transaction:timeout',
+            'deadlock:detected',
+            'savepoint:created',
+            'savepoint:released',
+            'savepoint:rolled-back'
+        ], this.logger, this.name);
+
+        this.logger.info('Initializing TransactionManager', {
+            operation: 'initialize'
+        });
+
+        // Get required dependencies
+        const connectionManager = manager.getModule<ConnectionManager>('connection-manager');
+        if (!connectionManager) {
+            throw new ModuleError(
+                'TransactionManager',
+                'initialize',
+                'ConnectionManager module required for TransactionManager'
+            );
+        }
+        this.connectionManager = connectionManager;
+
+        this.initialized = true;
+        this.logger.info('TransactionManager initialized successfully');
+    }
+
+    private initializeStatistics(): TransactionStatistics {
+        const now = new Date();
+        return {
+            totalTransactions: 0,
+            successfulTransactions: 0,
+            failedTransactions: 0,
+            rolledBackTransactions: 0,
+            averageDuration: 0,
+            maxDuration: 0,
+            minDuration: 0,
+            deadlocksDetected: 0,
+            timeoutsOccurred: 0,
+            activeTransactions: 0,
+            collectionPeriod: {
+                start: now,
+                end: now
+            }
+        };
+    }
+
+    /**
+     * Commit a transaction
+     */
+    public async commitTransaction(transactionId: string): Promise<void> {
+        this.ensureInitialized();
+        
+        const transactionInfo = this.activeTransactions.get(transactionId);
+        if (!transactionInfo) {
+            throw new InactiveTransactionError(transactionId, {
+                operation: 'commit-transaction'
+            });
+        }
+
+        const context = this.transactionContexts.get(transactionId);
+        if (!context) {
+            throw new InactiveTransactionError(transactionId, {
+                operation: 'commit-transaction',
+                reason: 'Transaction context not found'
+            });
+        }
+
+        this.logger.info('Committing transaction', {
+            operation: 'commit-transaction',
+            transactionId
+        });
+
+        try {
+            // Commit the transaction
+            await context.getConnection().commit();
+            
+            // Update transaction info
+            transactionInfo.state = TransactionState.COMMITTED;
+            transactionInfo.endTime = new Date();
+            transactionInfo.duration = transactionInfo.endTime.getTime() - transactionInfo.startTime.getTime();
+            
+            // Update statistics
+            this.statistics.successfulTransactions++;
+            this.statistics.activeTransactions--;
+            this.updateDurationStatistics(transactionInfo.duration);
+            
+            // Emit event
+            this.eventEmitter.emit('transaction:committed', createEventData('transaction:committed', {
+                transactionId,
+                timestamp: new Date(),
+                duration: transactionInfo.duration
+            }, this.name));
+            
+            // Cleanup
+            await this.cleanupTransaction(transactionId);
+            
+            this.logger.info('Transaction committed successfully', {
+                operation: 'commit-transaction-success',
+                transactionId,
+                duration: transactionInfo.duration
+            });
+
+        } catch (error) {
+            transactionInfo.state = TransactionState.FAILED;
+            transactionInfo.error = error instanceof HSQLDBError ? error : 
+                new TransactionError(transactionId, 'commit', error instanceof Error ? error.message : String(error));
+            
+            this.statistics.failedTransactions++;
+            this.statistics.activeTransactions--;
+            
+            this.logger.error('Transaction commit failed', {
+                operation: 'commit-transaction-error',
+                transactionId,
+                error: error instanceof Error ? error.message : String(error)
+            });
+            
+            // Emit event
+            this.eventEmitter.emit('transaction:failed', createEventData('transaction:failed', {
+                transactionId,
+                timestamp: new Date(),
+                error: transactionInfo.error
+            }, this.name));
+            
+            await this.cleanupTransaction(transactionId);
+            throw transactionInfo.error;
+        }
+    }
+
+    /**
+     * Rollback a transaction
+     */
+    public async rollbackTransaction(transactionId: string, reason?: string): Promise<void> {
+        this.ensureInitialized();
+        
+        const transactionInfo = this.activeTransactions.get(transactionId);
+        if (!transactionInfo) {
+            throw new InactiveTransactionError(transactionId, {
+                operation: 'rollback-transaction'
+            });
+        }
+
+        const context = this.transactionContexts.get(transactionId);
+        if (!context) {
+            throw new InactiveTransactionError(transactionId, {
+                operation: 'rollback-transaction',
+                reason: 'Transaction context not found'
+            });
+        }
+
+        this.logger.info('Rolling back transaction', {
+            operation: 'rollback-transaction',
+            transactionId,
+            reason
+        });
+
+        try {
+            // Update state
+            transactionInfo.state = TransactionState.ROLLING_BACK;
+            
+            // Rollback the transaction
+            await context.getConnection().rollback();
+            
+            // Update transaction info
+            transactionInfo.state = TransactionState.ROLLED_BACK;
+            transactionInfo.endTime = new Date();
+            transactionInfo.duration = transactionInfo.endTime.getTime() - transactionInfo.startTime.getTime();
+            
+            // Update statistics
+            this.statistics.rolledBackTransactions++;
+            this.statistics.activeTransactions--;
+            
+            // Emit event
+            this.eventEmitter.emit('transaction:rolled-back', createEventData('transaction:rolled-back', {
+                transactionId,
+                timestamp: new Date(),
+                reason: reason || 'Manual rollback'
+            }, this.name));
+            
+            // Cleanup
+            await this.cleanupTransaction(transactionId);
+            
+            this.logger.info('Transaction rolled back successfully', {
+                operation: 'rollback-transaction-success',
+                transactionId,
+                reason
+            });
+
+        } catch (error) {
+            this.logger.error('Transaction rollback failed', {
+                operation: 'rollback-transaction-error',
+                transactionId,
+                error: error instanceof Error ? error.message : String(error)
+            });
+            
+            await this.cleanupTransaction(transactionId);
+            throw error;
+        }
+    }
+
+    /**
+     * Cleanup transaction resources
+     */
+    private async cleanupTransaction(transactionId: string): Promise<void> {
+        try {
+            const context = this.transactionContexts.get(transactionId);
+            if (context) {
+                // Release connection back to pool
+                await this.connectionManager.releaseConnection(context.getConnection());
+            }
+            
+            // Remove from tracking
+            this.activeTransactions.delete(transactionId);
+            this.transactionContexts.delete(transactionId);
+            
+        } catch (error) {
+            this.logger.warn('Error during transaction cleanup', {
+                operation: 'cleanup-transaction',
+                transactionId,
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * Update duration statistics
+     */
+    private updateDurationStatistics(duration: number): void {
+        if (this.statistics.totalTransactions === 0) {
+            this.statistics.averageDuration = duration;
+            this.statistics.maxDuration = duration;
+            this.statistics.minDuration = duration;
+        } else {
+            this.statistics.averageDuration = 
+                (this.statistics.averageDuration * (this.statistics.totalTransactions - 1) + duration) / 
+                this.statistics.totalTransactions;
+            this.statistics.maxDuration = Math.max(this.statistics.maxDuration, duration);
+            this.statistics.minDuration = Math.min(this.statistics.minDuration, duration);
+        }
+    }
+
+    /**
+     * Ensure module is initialized
+     */
+    private ensureInitialized(): void {
+        if (!this.initialized) {
+            throw new ModuleError(
+                'TransactionManager',
+                'ensureInitialized',
+                'TransactionManager not initialized'
+            );
+        }
+    }
+
+    /**
+     * Destroy the module and cleanup resources
+     */
+    public async destroy(): Promise<void> {
+        if (!this.initialized) {
+            return;
+        }
+
+        this.logger.info('Destroying TransactionManager', {
+            operation: 'destroy'
+        });
+
+        try {
+            // Stop deadlock detection
+            if (this.deadlockDetectionTimer) {
+                clearInterval(this.deadlockDetectionTimer);
+                this.deadlockDetectionTimer = undefined;
+            }
+
+            // Rollback all active transactions
+            const activeTransactionIds = Array.from(this.activeTransactions.keys());
+            for (const transactionId of activeTransactionIds) {
+                try {
+                    await this.rollbackTransaction(transactionId, 'TransactionManager destruction');
+                } catch (error) {
+                    this.logger.warn('Failed to rollback transaction during destruction', {
+                        operation: 'destroy-rollback',
+                        transactionId,
+                        error: error instanceof Error ? error.message : String(error)
+                    });
+                }
+            }
+
+            // Clear data structures
+            this.activeTransactions.clear();
+            this.transactionContexts.clear();
+
+            // Cleanup event emitter
+            this.eventEmitter.removeAllListeners();
+
+            this.initialized = false;
+
+            this.logger.info('TransactionManager destroyed successfully', {
+                operation: 'destroy-complete'
+            });
+
+        } catch (error) {
+            this.logger.error('Failed to destroy TransactionManager', {
+                operation: 'destroy-error',
+                error: error instanceof Error ? error.message : String(error)
+            });
+            throw error;
+        }
+    }
+
+    /**
+     * Begin a new transaction
+     */
+    public async beginTransaction(transactionId?: string, options: TransactionOptions = {}): Promise<TransactionContext> {
+        this.ensureInitialized();
+        
+        // Check transaction limits
+        if (this.activeTransactions.size >= this.config.maxConcurrentTransactions!) {
+            throw new ModuleError(
+                'TransactionManager',
+                'beginTransaction',
+                `Maximum concurrent transactions exceeded: ${this.activeTransactions.size}/${this.config.maxConcurrentTransactions!}`
+            );
+        }
+
+        const id = transactionId || this.generateTransactionId();
+        const mergedOptions = { ...this.getDefaultOptions(), ...options };
+        
+        this.logger.info('Beginning transaction', {
+            operation: 'begin-transaction',
+            transactionId: id,
+            options: mergedOptions
+        });
+
+        try {
+            // Get database connection
+            const connection = await this.connectionManager.getConnection();
+            
+            // Create transaction info
+            const transactionInfo: TransactionInfo = {
+                id,
+                name: mergedOptions.name || undefined,
+                state: TransactionState.ACTIVE,
+                isolationLevel: mergedOptions.isolationLevel || this.config.defaultIsolationLevel!,
+                startTime: new Date(),
+                connectionId: (connection as any).id || 'unknown',
+                readOnly: mergedOptions.readOnly || false,
+                savepoints: [],
+                childTransactionIds: [],
+                timeout: mergedOptions.timeout || this.config.defaultTimeout!
+            };
+
+            // Set isolation level if specified
+            if (mergedOptions.isolationLevel) {
+                await this.setIsolationLevel(connection, mergedOptions.isolationLevel);
+            }
+
+            // Set read-only if specified
+            if (mergedOptions.readOnly) {
+                await this.setReadOnly(connection, true);
+            }
+
+            // Begin transaction
+            await connection.setAutoCommit(false);
+
+            // Create transaction context
+            const context = new TransactionContext(
+                id,
+                connection,
+                this,
+                mergedOptions
+            );
+
+            // Track transaction
+            this.activeTransactions.set(id, transactionInfo);
+            this.transactionContexts.set(id, context);
+            
+            // Update statistics
+            this.statistics.totalTransactions++;
+            this.statistics.activeTransactions++;
+
+            // Emit event
+            this.eventEmitter.emit('transaction:started', createEventData('transaction:started', {
+                transactionId: id,
+                timestamp: new Date()
+            }, this.name));
+
+            this.logger.info('Transaction started successfully', {
+                operation: 'begin-transaction-success',
+                transactionId: id,
+                connectionId: transactionInfo.connectionId
+            });
+
+            return context;
+
+        } catch (error) {
+            this.logger.error('Failed to begin transaction', {
+                operation: 'begin-transaction-error',
+                transactionId: id,
+                error: error instanceof Error ? error.message : String(error)
+            });
+            
+            throw new ModuleError(
+                'TransactionManager',
+                'beginTransaction',
+                `Failed to begin transaction: ${error instanceof Error ? error.message : String(error)}`
+            );
+        }
+    }
+
+    /**
+     * Execute a transaction with automatic retry on deadlock
+     */
+    public async executeTransaction<T>(
+        executor: TransactionExecutor<T>,
+        options: TransactionOptions = {}
+    ): Promise<T> {
+        this.ensureInitialized();
+        
+        const maxRetries = options.maxRetries || 3;
+        const retryDelay = options.retryDelay || 1000;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            const transaction = await this.beginTransaction(undefined, options);
+            
+            try {
+                const result = await executor(transaction);
+                await transaction.commit();
+                return result;
+                
+            } catch (error) {
+                await transaction.rollback(`Transaction failed on attempt ${attempt}`);
+                
+                // Check if this is a deadlock error that we should retry
+                const isDeadlock = this.isDeadlockError(error);
+                const shouldRetry = isDeadlock && attempt < maxRetries;
+                
+                if (shouldRetry) {
+                    this.logger.warn('Deadlock detected, retrying transaction', {
+                        operation: 'execute-transaction-retry',
+                        attempt,
+                        maxRetries,
+                        error: error instanceof Error ? error.message : String(error)
+                    });
+                    
+                    // Wait before retrying
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                    continue;
+                }
+                
+                throw error;
+            }
+        }
+        
+        throw new ModuleError(
+            'TransactionManager',
+            'executeTransaction',
+            `Transaction failed after ${maxRetries} attempts`
+        );
+    }
+
+    /**
+     * Get transaction statistics
+     */
+    public getStatistics(): TransactionStatistics {
+        return { ...this.statistics };
+    }
+
+    /**
+     * Get active transaction count
+     */
+    public getActiveTransactionCount(): number {
+        return this.activeTransactions.size;
+    }
+
+    /**
+     * Get transaction information
+     */
+    public getTransactionInfo(transactionId: string): TransactionInfo | undefined {
+        return this.activeTransactions.get(transactionId);
+    }
+
+    /**
+     * Generate a unique transaction ID
+     */
+    private generateTransactionId(): string {
+        return `tx_${Date.now()}_${this.nextTransactionId++}`;
+    }
+
+    /**
+     * Get default transaction options
+     */
+    private getDefaultOptions(): TransactionOptions {
+        return {
+            isolationLevel: this.config.defaultIsolationLevel!,
+            timeout: this.config.defaultTimeout!,
+            autoCommit: true,
+            maxRetries: 3,
+            retryDelay: 1000,
+            enableLogging: true,
+            readOnly: false
+        };
+    }
+
+    /**
+     * Set transaction isolation level
+     */
+    private async setIsolationLevel(connection: any, level: IsolationLevel): Promise<void> {
+        try {
+            // Map isolation levels to JDBC constants
+            const isolationMap = {
+                [IsolationLevel.READ_UNCOMMITTED]: 1, // TRANSACTION_READ_UNCOMMITTED
+                [IsolationLevel.READ_COMMITTED]: 2,   // TRANSACTION_READ_COMMITTED
+                [IsolationLevel.REPEATABLE_READ]: 4,  // TRANSACTION_REPEATABLE_READ
+                [IsolationLevel.SERIALIZABLE]: 8      // TRANSACTION_SERIALIZABLE
+            };
+            
+            await connection.setTransactionIsolation(isolationMap[level]);
+        } catch (error) {
+            this.logger.warn('Failed to set isolation level', {
+                operation: 'set-isolation-level',
+                level,
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * Set transaction read-only status
+     */
+    private async setReadOnly(connection: any, readOnly: boolean): Promise<void> {
+        try {
+            await connection.setReadOnly(readOnly);
+        } catch (error) {
+            this.logger.warn('Failed to set read-only status', {
+                operation: 'set-read-only',
+                readOnly,
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * Check if error is a deadlock error
+     */
+    private isDeadlockError(error: any): boolean {
+        if (!error) return false;
+        
+        // Check if it's already a TransactionDeadlockError
+        if (error instanceof TransactionDeadlockError) return true;
+        
+        const message = error.message || String(error);
+        return message.toLowerCase().includes('deadlock') ||
+               message.toLowerCase().includes('timeout') ||
+               message.includes('40001'); // SQL State for deadlock
+    }
+
+    // =============================================================================
+    // EVENT EMITTER INTERFACE IMPLEMENTATION
+    // =============================================================================
+
+    /**
+     * Add event listener
+     */
+    public on(event: TransactionEvent, listener: ModuleEventListener<TransactionEvent>): void {
+        this.eventEmitter.on(event, listener);
+    }
+
+    /**
+     * Add one-time event listener
+     */
+    public once(event: TransactionEvent, listener: ModuleEventListener<TransactionEvent>): void {
+        this.eventEmitter.once(event, listener);
+    }
+
+    /**
+     * Remove event listener
+     */
+    public off(event: TransactionEvent, listener: ModuleEventListener<TransactionEvent>): void {
+        this.eventEmitter.off(event, listener);
+    }
+
+    /**
+     * Emit event
+     */
+    public emit(event: TransactionEvent, data?: any): void {
+        this.eventEmitter.emit(event, data);
+    }
+
+    /**
+     * Remove all listeners for an event or all events
+     */
+    public removeAllListeners(event?: TransactionEvent): void {
+        this.eventEmitter.removeAllListeners(event);
+    }
+
+    /**
+     * Get listener count for an event
+     */
+    public listenerCount(event: TransactionEvent): number {
+        return this.eventEmitter.listenerCount(event);
+    }
+
+    /**
+     * Get all events that have listeners
+     */
+    public eventNames(): TransactionEvent[] {
+        return this.eventEmitter.eventNames();
+    }
+}

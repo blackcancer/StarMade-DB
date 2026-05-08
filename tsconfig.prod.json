@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "sourceMap": false,
+    "declarationMap": false,
+    "removeComments": true,
+    "stripInternal": true,
+    "noEmitOnError": true,
+    "incremental": false
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.js",
+    "**/*.test.ts",
+    "temp_build",
+    "tools/**/*",
+    "test/**/*",
+    "src/examples/**/*"
+  ]
+}

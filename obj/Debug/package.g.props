@@ -1,0 +1,120 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <PackageJsonName Condition="$(PackageJsonName) == ''">starmade-db</PackageJsonName>
+    <PackageJsonVersion Condition="$(PackageJsonVersion) == ''">2.0.0</PackageJsonVersion>
+    <PackageJsonDescription Condition="$(PackageJsonDescription) == ''">Unified module for interacting with StarMade's HSQLDB database via JDBC - Modular Architecture</PackageJsonDescription>
+    <PackageJsonType Condition="$(PackageJsonType) == ''">module</PackageJsonType>
+    <PackageJsonMain Condition="$(PackageJsonMain) == ''">dist/core/index.js</PackageJsonMain>
+    <PackageJsonTypes Condition="$(PackageJsonTypes) == ''">dist/core/index.d.ts</PackageJsonTypes>
+    <PackageJsonExportsImport Condition="$(PackageJsonExportsImport) == ''">./dist/core/index.js</PackageJsonExportsImport>
+    <PackageJsonExportsTypes Condition="$(PackageJsonExportsTypes) == ''">./dist/core/index.d.ts</PackageJsonExportsTypes>
+    <PackageJsonExportsCoreImport Condition="$(PackageJsonExportsCoreImport) == ''">./dist/core/index.js</PackageJsonExportsCoreImport>
+    <PackageJsonExportsCoreTypes Condition="$(PackageJsonExportsCoreTypes) == ''">./dist/core/index.d.ts</PackageJsonExportsCoreTypes>
+    <PackageJsonExportsHsqlManagerImport Condition="$(PackageJsonExportsHsqlManagerImport) == ''">./dist/core/HSQLManager.js</PackageJsonExportsHsqlManagerImport>
+    <PackageJsonExportsHsqlManagerTypes Condition="$(PackageJsonExportsHsqlManagerTypes) == ''">./dist/core/HSQLManager.d.ts</PackageJsonExportsHsqlManagerTypes>
+    <PackageJsonExportsModulesImport Condition="$(PackageJsonExportsModulesImport) == ''">./dist/core/modules/index.js</PackageJsonExportsModulesImport>
+    <PackageJsonExportsModulesTypes Condition="$(PackageJsonExportsModulesTypes) == ''">./dist/core/modules/index.d.ts</PackageJsonExportsModulesTypes>
+    <PackageJsonExportsInterfacesImport Condition="$(PackageJsonExportsInterfacesImport) == ''">./dist/core/interfaces.js</PackageJsonExportsInterfacesImport>
+    <PackageJsonExportsInterfacesTypes Condition="$(PackageJsonExportsInterfacesTypes) == ''">./dist/core/interfaces.d.ts</PackageJsonExportsInterfacesTypes>
+    <PackageJsonExportsErrorsImport Condition="$(PackageJsonExportsErrorsImport) == ''">./dist/core/errors.js</PackageJsonExportsErrorsImport>
+    <PackageJsonExportsErrorsTypes Condition="$(PackageJsonExportsErrorsTypes) == ''">./dist/core/errors.d.ts</PackageJsonExportsErrorsTypes>
+    <PackageJsonFiles Condition="$(PackageJsonFiles) == ''">[
+  "dist/",
+  "README.md",
+  "LICENSE",
+  "package.json",
+  "docs/"
+]</PackageJsonFiles>
+    <PackageJsonScriptsBuild Condition="$(PackageJsonScriptsBuild) == ''">rimraf dist &amp;&amp; tsc</PackageJsonScriptsBuild>
+    <PackageJsonScriptsBuildWatch Condition="$(PackageJsonScriptsBuildWatch) == ''">tsc --watch</PackageJsonScriptsBuildWatch>
+    <PackageJsonScriptsBuildProd Condition="$(PackageJsonScriptsBuildProd) == ''">rimraf dist &amp;&amp; tsc --project tsconfig.prod.json</PackageJsonScriptsBuildProd>
+    <PackageJsonScriptsClean Condition="$(PackageJsonScriptsClean) == ''">rimraf dist</PackageJsonScriptsClean>
+    <PackageJsonScriptsDev Condition="$(PackageJsonScriptsDev) == ''">npm run build:watch</PackageJsonScriptsDev>
+    <PackageJsonScriptsStart Condition="$(PackageJsonScriptsStart) == ''">npm run build &amp;&amp; node dist/core/index.js</PackageJsonScriptsStart>
+    <PackageJsonScriptsTest Condition="$(PackageJsonScriptsTest) == ''">npm run build &amp;&amp; mocha --loader=ts-node/esm tests/**/*.test.ts --timeout 30000 --exit --project tsconfig.test.json</PackageJsonScriptsTest>
+    <PackageJsonScriptsTestNoBuild Condition="$(PackageJsonScriptsTestNoBuild) == ''">mocha --loader=ts-node/esm tests/**/*.test.ts --timeout 30000 --exit --project tsconfig.test.json</PackageJsonScriptsTestNoBuild>
+    <PackageJsonScriptsTestWatch Condition="$(PackageJsonScriptsTestWatch) == ''">mocha --loader=ts-node/esm tests/**/*.test.ts --timeout 30000 --watch --exit --project tsconfig.test.json</PackageJsonScriptsTestWatch>
+    <PackageJsonScriptsTestCoverage Condition="$(PackageJsonScriptsTestCoverage) == ''">npm run build &amp;&amp; nyc mocha --loader=ts-node/esm tests/**/*.test.ts --timeout 30000 --exit --project tsconfig.test.json</PackageJsonScriptsTestCoverage>
+    <PackageJsonScriptsExplore Condition="$(PackageJsonScriptsExplore) == ''">npm run build &amp;&amp; node tools/StarMadeExplorer.js</PackageJsonScriptsExplore>
+    <PackageJsonScriptsExploreVerbose Condition="$(PackageJsonScriptsExploreVerbose) == ''">npm run build &amp;&amp; node tools/StarMadeExplorer.js --verbose</PackageJsonScriptsExploreVerbose>
+    <PackageJsonScriptsExploreExport Condition="$(PackageJsonScriptsExploreExport) == ''">npm run build &amp;&amp; node tools/StarMadeExplorer.js --export reports/schema-analysis.json --verbose</PackageJsonScriptsExploreExport>
+    <PackageJsonScriptsExploreTable Condition="$(PackageJsonScriptsExploreTable) == ''">npm run build &amp;&amp; node tools/StarMadeExplorer.js --table</PackageJsonScriptsExploreTable>
+    <PackageJsonScriptsExploreHelp Condition="$(PackageJsonScriptsExploreHelp) == ''">npm run build &amp;&amp; node tools/StarMadeExplorer.js --help</PackageJsonScriptsExploreHelp>
+    <PackageJsonScriptsLint Condition="$(PackageJsonScriptsLint) == ''">tsc --noEmit --pretty</PackageJsonScriptsLint>
+    <PackageJsonScriptsTypeCheck Condition="$(PackageJsonScriptsTypeCheck) == ''">tsc --noEmit</PackageJsonScriptsTypeCheck>
+    <PackageJsonScriptsValidate Condition="$(PackageJsonScriptsValidate) == ''">npm run lint &amp;&amp; npm run build &amp;&amp; npm run test</PackageJsonScriptsValidate>
+    <PackageJsonScriptsPrepublishonly Condition="$(PackageJsonScriptsPrepublishonly) == ''">npm run validate &amp;&amp; npm run build:prod</PackageJsonScriptsPrepublishonly>
+    <PackageJsonKeywords Condition="$(PackageJsonKeywords) == ''">[
+  "starmade",
+  "hsqldb",
+  "jdbc",
+  "database",
+  "gaming",
+  "space",
+  "sql",
+  "modular",
+  "architecture",
+  "performance",
+  "monitoring",
+  "transactions",
+  "schema-analysis",
+  "reporting"
+]</PackageJsonKeywords>
+    <PackageJsonAuthor Condition="$(PackageJsonAuthor) == ''">InitSysRev</PackageJsonAuthor>
+    <PackageJsonLicense Condition="$(PackageJsonLicense) == ''">MIT</PackageJsonLicense>
+    <PackageJsonEnginesNode Condition="$(PackageJsonEnginesNode) == ''">&gt;=20.0.0</PackageJsonEnginesNode>
+    <PackageJsonDependenciesNodeJava Condition="$(PackageJsonDependenciesNodeJava) == ''">^1.0.1</PackageJsonDependenciesNodeJava>
+    <PackageJsonDependenciesNodejsJdbc Condition="$(PackageJsonDependenciesNodejsJdbc) == ''">^0.1.5</PackageJsonDependenciesNodejsJdbc>
+    <PackageJsonDependenciesRimraf Condition="$(PackageJsonDependenciesRimraf) == ''">^6.0.1</PackageJsonDependenciesRimraf>
+    <PackageJsonDependenciesTsNode Condition="$(PackageJsonDependenciesTsNode) == ''">^10.9.2</PackageJsonDependenciesTsNode>
+    <PackageJsonDependenciesTypescript Condition="$(PackageJsonDependenciesTypescript) == ''">^5.8.3</PackageJsonDependenciesTypescript>
+    <PackageJsonDependenciesWinston Condition="$(PackageJsonDependenciesWinston) == ''">^3.17.0</PackageJsonDependenciesWinston>
+    <PackageJsonDevdependenciesTypesChai Condition="$(PackageJsonDevdependenciesTypesChai) == ''">^5.2.2</PackageJsonDevdependenciesTypesChai>
+    <PackageJsonDevdependenciesTypesChaiAsPromised Condition="$(PackageJsonDevdependenciesTypesChaiAsPromised) == ''">^8.0.1</PackageJsonDevdependenciesTypesChaiAsPromised>
+    <PackageJsonDevdependenciesTypesMocha Condition="$(PackageJsonDevdependenciesTypesMocha) == ''">^10.0.10</PackageJsonDevdependenciesTypesMocha>
+    <PackageJsonDevdependenciesTypesNode Condition="$(PackageJsonDevdependenciesTypesNode) == ''">^20.19.9</PackageJsonDevdependenciesTypesNode>
+    <PackageJsonDevdependenciesTypesSinon Condition="$(PackageJsonDevdependenciesTypesSinon) == ''">^17.0.4</PackageJsonDevdependenciesTypesSinon>
+    <PackageJsonDevdependenciesChai Condition="$(PackageJsonDevdependenciesChai) == ''">^5.2.0</PackageJsonDevdependenciesChai>
+    <PackageJsonDevdependenciesChaiAsPromised Condition="$(PackageJsonDevdependenciesChaiAsPromised) == ''">^8.0.1</PackageJsonDevdependenciesChaiAsPromised>
+    <PackageJsonDevdependenciesMocha Condition="$(PackageJsonDevdependenciesMocha) == ''">^11.7.1</PackageJsonDevdependenciesMocha>
+    <PackageJsonDevdependenciesNodemon Condition="$(PackageJsonDevdependenciesNodemon) == ''">^3.0.0</PackageJsonDevdependenciesNodemon>
+    <PackageJsonDevdependenciesNyc Condition="$(PackageJsonDevdependenciesNyc) == ''">^15.1.0</PackageJsonDevdependenciesNyc>
+    <PackageJsonDevdependenciesSinon Condition="$(PackageJsonDevdependenciesSinon) == ''">^21.0.0</PackageJsonDevdependenciesSinon>
+    <PackageJsonDevdependenciesSourceMapSupport Condition="$(PackageJsonDevdependenciesSourceMapSupport) == ''">^0.5.21</PackageJsonDevdependenciesSourceMapSupport>
+    <PackageJsonDevdependenciesTsx Condition="$(PackageJsonDevdependenciesTsx) == ''">^4.20.3</PackageJsonDevdependenciesTsx>
+    <PackageJsonMochaTimeout Condition="$(PackageJsonMochaTimeout) == ''">30000</PackageJsonMochaTimeout>
+    <PackageJsonMochaRecursive Condition="$(PackageJsonMochaRecursive) == ''">true</PackageJsonMochaRecursive>
+    <PackageJsonMochaExtension Condition="$(PackageJsonMochaExtension) == ''">[
+  "ts"
+]</PackageJsonMochaExtension>
+    <PackageJsonMochaSpec Condition="$(PackageJsonMochaSpec) == ''">tests/**/*.test.ts</PackageJsonMochaSpec>
+    <PackageJsonMochaLoader Condition="$(PackageJsonMochaLoader) == ''">ts-node/esm</PackageJsonMochaLoader>
+    <PackageJsonMochaExit Condition="$(PackageJsonMochaExit) == ''">true</PackageJsonMochaExit>
+    <PackageJsonTsNodeEsm Condition="$(PackageJsonTsNodeEsm) == ''">true</PackageJsonTsNodeEsm>
+    <PackageJsonTsNodeExperimentalspecifierresolution Condition="$(PackageJsonTsNodeExperimentalspecifierresolution) == ''">node</PackageJsonTsNodeExperimentalspecifierresolution>
+    <PackageJsonTsNodeCompileroptionsModule Condition="$(PackageJsonTsNodeCompileroptionsModule) == ''">ESNext</PackageJsonTsNodeCompileroptionsModule>
+    <PackageJsonTsNodeCompileroptionsModuleresolution Condition="$(PackageJsonTsNodeCompileroptionsModuleresolution) == ''">bundler</PackageJsonTsNodeCompileroptionsModuleresolution>
+    <PackageJsonTsNodeCompileroptionsAllowsyntheticdefaultimports Condition="$(PackageJsonTsNodeCompileroptionsAllowsyntheticdefaultimports) == ''">true</PackageJsonTsNodeCompileroptionsAllowsyntheticdefaultimports>
+    <PackageJsonTsNodeCompileroptionsEsmoduleinterop Condition="$(PackageJsonTsNodeCompileroptionsEsmoduleinterop) == ''">true</PackageJsonTsNodeCompileroptionsEsmoduleinterop>
+    <PackageJsonNycExtension Condition="$(PackageJsonNycExtension) == ''">[
+  ".ts"
+]</PackageJsonNycExtension>
+    <PackageJsonNycExclude Condition="$(PackageJsonNycExclude) == ''">[
+  "**/*.d.ts",
+  "dist/",
+  "tests/",
+  "scripts/"
+]</PackageJsonNycExclude>
+    <PackageJsonNycReporter Condition="$(PackageJsonNycReporter) == ''">[
+  "html",
+  "text",
+  "text-summary"
+]</PackageJsonNycReporter>
+    <PackageJsonNycAll Condition="$(PackageJsonNycAll) == ''">true</PackageJsonNycAll>
+    <PackageJsonRepositoryType Condition="$(PackageJsonRepositoryType) == ''">git</PackageJsonRepositoryType>
+    <PackageJsonRepositoryUrl Condition="$(PackageJsonRepositoryUrl) == ''">https://github.com/InitSysRev/StarMade-DB.git</PackageJsonRepositoryUrl>
+    <PackageJsonBugsUrl Condition="$(PackageJsonBugsUrl) == ''">https://github.com/InitSysRev/StarMade-DB/issues</PackageJsonBugsUrl>
+    <PackageJsonHomepage Condition="$(PackageJsonHomepage) == ''">https://github.com/InitSysRev/StarMade-DB#readme</PackageJsonHomepage>
+  </PropertyGroup>
+</Project>
