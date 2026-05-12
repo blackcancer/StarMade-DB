@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.0] – 2026-05-12
+
+### Added
+
+#### StarMade-Decoder integration
+
+Adds `starmade-decoder` as a dependency and exposes typed `decode*()` methods
+on the 4 models that store custom binary-serialized VARBINARY columns.
+All existing accessors (`getCommand()`, `getItems()`, etc.) are unchanged —
+decode methods are additive and lazy (`require()` at call time).
+
+- **`FleetsModel.decodeCommand()`** → `FleetCommandObject | null`
+  Decodes `FLEETS.COMMAND` (VARBINARY 1024): typed fleet command with
+  `commandType`, `fleetDbId`, `args` (vec3i, string, boolean…).
+
+- **`FleetsModel.decodeRemotes()`** → `FleetRemotesObject`
+  Decodes `FLEETS.SAVED_REMOTES` (VARBINARY 1024): handles both the network
+  DataOutput format and the Java ObjectOutputStream format (AC ED magic).
+  Exposes `activeNames`, `isActive()`, `has()`, `size`.
+
+- **`SectorsItemsModel.decodeItems()`** → `SectorItemsObject`
+  Decodes `SECTORS_ITEMS.ITEMS` (VARBINARY 22 KB): typed item stacks with
+  `blockType`, `count`, `posX/Y/Z`, `metaId` per entry.
+  Exposes `byType()`, `totalCount()`, `types`, `withItem()`, `withMerged()`.
+
+- **`SystemsModel.decodeStarSystem()`** → `StarSystem | null`
+  Decodes `SYSTEMS.INFOS` + `SYSTEMS.RESOURCES`: full 16³ sector grid
+  (SectorType enum + PlanetType for planet sectors) and 19-resource density
+  array. Exposes `planets`, `sunSectors`, `presentResources`,
+  `withSectorType()`, `withResourceDensity*()`, `infosToBytes()`,
+  `resourcesToBytes()`.
+
+- **`SystemsModel.decodeResources()`** → `SystemResource[]`
+  Convenience shortcut for resource-only access without loading the full
+  sector grid.
+
+- **`TradeNodesModel.decodeItems()`** → `TradePricesObject | null`
+  Decodes `TRADE_NODES.ITEMS` (VARBINARY 20 KB): zlib raw-DEFLATE compressed
+  TradePrices payload. Exposes `buyOrders`, `sellOrders`, `getBuyOrder()`,
+  `getSellOrder()`, `withBuyOrder()`, `withSellOrder()`, `toBytes()`.
+
+### Fixed
+
+- **`FleetsModel.FleetCommand` enum** : `REPAIR_FLEET = 4` was missing, causing
+  all subsequent ordinals to be off by one (`FLEET_ATTACK` was 4 instead of 5,
+  `FLEET_DEFEND` was 5 instead of 6, etc.). Corrected to match the Java
+  `FleetCommandTypes` enum exactly (22 entries, ordinals 0–21).
+
+- **`SystemsModel.RESOURCE_COUNT` and `MAX_RESOURCES_SIZE`** : were set to 16,
+  correct value is **19** (source: `VoidSystem.RESOURCES = 19` in StarMade-Open).
+
+---
+
 ## [2.1.0] – 2026-05-06
 
 ### Added

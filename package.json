@@ -1,6 +1,6 @@
 {
   "name": "starmade-db",
-  "version": "1.0.0",
+  "version": "2.2.0",
   "description": "Unified module for interacting with StarMade's HSQLDB database via JDBC - Modular Architecture",
   "type": "module",
   "main": "dist/core/index.js",
