@@ -976,4 +976,34 @@ export class TradeNodesModel extends BaseModel {
 
         return basic;
     }
+
+    // =============================================================================
+    // STARMADE-DECODER INTEGRATION
+    // =============================================================================
+
+    /**
+     * Decodes TRADE_NODES.ITEMS into a typed TradePricesObject.
+     *
+     * The column stores zlib raw-DEFLATE compressed TradePrices data:
+     *   int uncompressedSize + int deflatedSize + deflated payload
+     * Each entry has: type (signed: negative=buy), blockType, amount, price, limit.
+     *
+     * Returns null when the column is null, empty, or malformed.
+     *
+     * @example
+     * const prices = node.decodeItems();
+     * if (prices) {
+     *   console.log(prices.buyOrders.length, prices.sellOrders.length);
+     *   const entry = prices.getBuyOrder(259); // blockType 259 = Faction Module
+     *   // Immutable mutation + write-back:
+     *   const updated = prices.withBuyOrder(259, 100, 500);
+     *   node.setItems(updated.toBytes());
+     * }
+     */
+    public decodeItems(): import('starmade-decoder').TradePricesObject | null {
+        const raw = this.getItems();
+        if (!raw || raw.length === 0) return null;
+        const { TradePricesObject } = require('starmade-decoder');
+        return TradePricesObject.fromBytes(raw);
+    }
 }

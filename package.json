@@ -1,6 +1,6 @@
 {
   "name": "starmade-db",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "Unified module for interacting with StarMade's HSQLDB database via JDBC - Modular Architecture",
   "type": "module",
   "main": "dist/core/index.js",
@@ -34,15 +34,18 @@
   "files": [
     "dist/",
     "README.md",
+    "CHANGELOG.md",
+    "SECURITY.md",
     "LICENSE",
     "package.json",
     "docs/"
   ],
   "scripts": {
-    "build": "rimraf dist && tsc",
+    "prepare": "npm run build",
+    "build": "rimraf dist .tsbuildinfo && tsc",
     "build:watch": "tsc --watch",
-    "build:prod": "rimraf dist && tsc --project tsconfig.prod.json",
-    "clean": "rimraf dist",
+    "build:prod": "rimraf dist .tsbuildinfo && tsc --project tsconfig.prod.json",
+    "clean": "rimraf dist .tsbuildinfo",
     "dev": "npm run build:watch",
     "start": "npm run build && node dist/core/index.js",
     "test": "npm run build && npx tsx node_modules/mocha/bin/mocha.js tests/**/*.test.ts --timeout 30000 --exit --force-exit --require tests/root-hooks.ts --project tsconfig.test.json",
@@ -81,11 +84,8 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "node-java": "^1.0.1",
     "nodejs-jdbc": "^0.1.5",
-    "rimraf": "^6.0.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.3",
+    "starmade-decoder": "file:/mnt/c/Users/init-/source/repos/StarMade-Decoder",
     "winston": "^3.17.0"
   },
   "devDependencies": {
@@ -99,9 +99,12 @@
     "mocha": "^11.7.1",
     "nodemon": "^3.0.0",
     "nyc": "^15.1.0",
+    "rimraf": "^6.0.1",
     "sinon": "^21.0.0",
     "source-map-support": "^0.5.21",
-    "tsx": "^4.20.3"
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
   },
   "mocha": {
     "timeout": 30000,

@@ -30,14 +30,16 @@ import {
 export const MAX_INFOS_SIZE = 8192;
 
 /**
- * Maximum size for RESOURCES binary data as per StarMade database specification
+ * Maximum size for RESOURCES binary data as per StarMade database specification.
+ * Source: VoidSystem.RESOURCES = 19 (confirmed from VoidSystem.java).
  */
-export const MAX_RESOURCES_SIZE = 16;
+export const MAX_RESOURCES_SIZE = 19;
 
 /**
- * Number of resource types tracked in RESOURCES field
+ * Number of resource types tracked in RESOURCES field.
+ * Source: VoidSystem.RESOURCES = 19.
  */
-export const RESOURCE_COUNT = 16;
+export const RESOURCE_COUNT = 19;
 
 // =============================================================================
 // SYSTEMS ENUMS AND TYPES
@@ -603,5 +605,52 @@ export class SystemsModel extends BaseModel {
             infosSize: this.getInfos()?.length || 0,
             resourcesSize: this.getResources()?.length || 0
         };
+    }
+
+    // =============================================================================
+    // STARMADE-DECODER INTEGRATION
+    // =============================================================================
+
+    /**
+     * Decodes SYSTEMS.INFOS + SYSTEMS.RESOURCES into a typed StarSystem object.
+     *
+     * INFOS: 16³ × 2-byte grid of sector types and metadata (SectorType enum +
+     * PlanetType for planet sectors). RESOURCES: 19-byte resource density array
+     * indexed by ElementKeyMap.resources.
+     *
+     * Returns null when INFOS is null or undersized (< 8192 bytes).
+     *
+     * @example
+     * const sys = system.decodeStarSystem();
+     * if (sys) {
+     *   console.log(sys.toString());          // StarSystem(sun=1, planets=3, ...)
+     *   console.log(sys.planets);             // SectorInfo[] for all planet sectors
+     *   console.log(sys.presentResources);    // SystemResource[] with density > 0
+     *   sys.withResourceDensity(0, 80)        // immutable mutation
+     *     .resourcesToBytes();                // re-encoded for DB write-back
+     * }
+     */
+    public decodeStarSystem(): import('starmade-decoder').StarSystem | null {
+        const infos = this.getInfos();
+        const resources = this.getResources();
+        const { StarSystem } = require('starmade-decoder');
+        return StarSystem.fromBytes(infos ?? null, resources ?? null);
+    }
+
+    /**
+     * Decodes only SYSTEMS.RESOURCES into a typed array of SystemResource.
+     *
+     * Convenience shortcut when sector grid data is not needed.
+     * Returns resources with density > 0 by default.
+     *
+     * @example
+     * const res = system.decodeResources();
+     * res.forEach(r => console.log(r.name, r.density)); // 'Hattel Crystal', 80
+     */
+    public decodeResources(): import('starmade-decoder').SystemResource[] {
+        const raw = this.getResources();
+        if (!raw) return [];
+        const { decodeSystemResources } = require('starmade-decoder');
+        return decodeSystemResources(raw);
     }
 }

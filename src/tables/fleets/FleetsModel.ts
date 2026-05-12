@@ -27,30 +27,33 @@ import {
 // =============================================================================
 
 /**
- * Fleet command types according to TABLE_FLEETS.md
+ * Fleet command types — exact ordinal order from FleetCommandTypes.java.
+ * Note: REPAIR_FLEET(4) was missing in the previous version, causing all
+ * subsequent ordinals to be off by one.
  */
 export enum FleetCommand {
-    IDLE = 0,
-    MOVE_FLEET = 1,
-    PATROL_FLEET = 2,
-    TRADE_FLEET = 3,
-    FLEET_ATTACK = 4,
-    FLEET_DEFEND = 5,
-    ESCORT = 6,
-    REPAIR = 7,
-    STANDOFF = 8,
-    SENTRY_FORMATION = 9,
-    SENTRY = 10,
-    FLEET_IDLE_FORMATION = 11,
-    CALL_TO_CARRIER = 12,
-    MINE_IN_SECTOR = 13,
-    CLOAK = 14,
-    UNCLOAK = 15,
-    JAM = 16,
-    UNJAM = 17,
-    ACTIVATE_REMOTE = 18,
-    INTERDICT = 19,
-    STOP_INTERDICT = 20
+    IDLE             = 0,
+    MOVE_FLEET       = 1,
+    PATROL_FLEET     = 2,
+    TRADE_FLEET      = 3,
+    REPAIR_FLEET     = 4,
+    FLEET_ATTACK     = 5,
+    FLEET_DEFEND     = 6,
+    ESCORT           = 7,
+    REPAIR           = 8,
+    ARTILLERY        = 9,
+    SENTRY_FORMATION = 10,
+    SENTRY           = 11,
+    FLEET_IDLE_FORMATION = 12,
+    CALL_TO_CARRIER  = 13,
+    MINE_IN_SECTOR   = 14,
+    CLOAK            = 15,
+    UNCLOAK          = 16,
+    JAM              = 17,
+    UNJAM            = 18,
+    ACTIVATE_REMOTE  = 19,
+    INTERDICT        = 20,
+    STOP_INTERDICT   = 21,
 }
 
 /**
@@ -935,6 +938,43 @@ export class FleetsModel extends BaseModel {
     public hasCommandData(): boolean {
         const command = this.getCommand();
         return command !== null && command !== undefined && command.length > 0;
+    }
+
+    // =============================================================================
+    // STARMADE-DECODER INTEGRATION
+    // =============================================================================
+
+    /**
+     * Decodes FLEETS.COMMAND into a typed FleetCommandObject.
+     *
+     * Returns null when the column is empty or the data is malformed.
+     * Requires starmade-decoder to be installed.
+     *
+     * @example
+     * const cmd = fleet.decodeCommand();
+     * if (cmd) console.log(cmd.commandType, cmd.firstVec3iArg);
+     */
+    public decodeCommand(): import('starmade-decoder').FleetCommandObject | null {
+        const raw = this.getCommand();
+        if (!raw || raw.length === 0) return null;
+        const { FleetCommandObject } = require('starmade-decoder');
+        return FleetCommandObject.fromBytes(raw);
+    }
+
+    /**
+     * Decodes FLEETS.SAVED_REMOTES into a typed FleetRemotesObject.
+     *
+     * Handles both the network DataOutput format and the Java ObjectOutputStream
+     * format (AC ED magic). Returns an empty object for null/empty input.
+     *
+     * @example
+     * const remotes = fleet.decodeRemotes();
+     * console.log(remotes.activeNames); // ['door_alpha', ...]
+     */
+    public decodeRemotes(): import('starmade-decoder').FleetRemotesObject {
+        const raw = this.getSavedRemotes();
+        const { FleetRemotesObject } = require('starmade-decoder');
+        return FleetRemotesObject.fromBytes(raw ?? null);
     }
 
     // =============================================================================

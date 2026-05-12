@@ -338,4 +338,25 @@ export class SectorsItemsModel extends BaseModel {
                !Buffer.isBuffer(currentItems) || 
                !originalItems.equals(currentItems);
     }
-}
+
+    // =============================================================================
+    // STARMADE-DECODER INTEGRATION
+    // =============================================================================
+
+    /**
+     * Decodes SECTORS_ITEMS.ITEMS into a typed SectorItemsObject.
+     *
+     * Each item stack exposes: blockType, count, posX/Y/Z (local sector coords),
+     * metaId. Returns an empty object for null/empty data.
+     *
+     * @example
+     * const items = record.decodeItems();
+     * console.log(items.size);            // number of stacks
+     * console.log(items.types);           // distinct block type IDs
+     * console.log(items.totalCount(259)); // total Faction Module count
+     */
+    public decodeItems(): import('starmade-decoder').SectorItemsObject {
+        const raw = this.getItems();
+        const { SectorItemsObject } = require('starmade-decoder');
+        return SectorItemsObject.fromBytes(raw ?? null);
+    }}
