@@ -85,7 +85,7 @@
   },
   "dependencies": {
     "nodejs-jdbc": "^0.1.5",
-    "starmade-decoder": "file:/mnt/c/Users/init-/source/repos/StarMade-Decoder",
+    "starmade-decoder": "file:../StarMade-Decoder",
     "winston": "^3.17.0"
   },
   "devDependencies": {
