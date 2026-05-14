@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.2.0] – 2026-05-12
+## [1.2.0] – 2026-05-12
 
 ### Added
 
@@ -60,7 +60,7 @@ decode methods are additive and lazy (`require()` at call time).
 
 ---
 
-## [2.1.0] – 2026-05-06
+## [1.1.0] – 2026-05-06
 
 ### Added
 
@@ -164,7 +164,7 @@ Each test file covers:
 
 ---
 
-## [2.0.0] – Initial release
+## [1.0.0] – Initial release
 
 - Core module architecture (HSQLManager, ConnectionManager, CacheManager, etc.)
 - 16 table Models
