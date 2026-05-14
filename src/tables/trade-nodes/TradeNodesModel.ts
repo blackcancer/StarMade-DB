@@ -1006,4 +1006,23 @@ export class TradeNodesModel extends BaseModel {
         const { TradePricesObject } = require('starmade-decoder');
         return TradePricesObject.fromBytes(raw);
     }
+
+    /**
+     * Encodes and stores TRADE_NODES.ITEMS from a TradePricesObject or raw
+     * TradePrices structure.
+     *
+     * @example
+     * const prices = node.decodeItems();
+     * if (prices) node.encodeItems(prices.withBuyOrder(259, 100, 500));
+     */
+    public encodeItems(
+        prices: import('starmade-decoder').TradePricesObject | import('starmade-decoder').TradePrices
+    ): this {
+        const anyPrices = prices as any;
+        const raw = typeof anyPrices.toBytes === 'function'
+            ? anyPrices.toBytes()
+            : require('starmade-decoder').encodeTradeNodeItems(prices);
+
+        return this.setItems(raw);
+    }
 }

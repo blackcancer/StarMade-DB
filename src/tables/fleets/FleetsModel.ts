@@ -977,6 +977,58 @@ export class FleetsModel extends BaseModel {
         return FleetRemotesObject.fromBytes(raw ?? null);
     }
 
+    /**
+     * Encodes and stores FLEETS.COMMAND from a typed FleetCommandObject or raw
+     * FleetCommand structure.
+     *
+     * Passing null/undefined clears the column. Object inputs are padded to 1024
+     * bytes by default, matching the StarMade Java VARBINARY size.
+     *
+     * @example
+     * const { FleetCommandObject } = require('starmade-decoder');
+     * fleet.encodeCommand(FleetCommandObject.create(42n, 'IDLE'));
+     */
+    public encodeCommand(
+        command: import('starmade-decoder').FleetCommandObject | import('starmade-decoder').FleetCommand | null | undefined,
+        padTo = 1024
+    ): this {
+        if (!command) return this.setCommand(undefined);
+
+        const anyCommand = command as any;
+        const raw = typeof anyCommand.toBytes === 'function'
+            ? anyCommand.toBytes(padTo)
+            : require('starmade-decoder').encodeFleetCommand(command, padTo);
+
+        return this.setCommand(raw);
+    }
+
+    /**
+     * Encodes and stores FLEETS.SAVED_REMOTES from a FleetRemotesObject, Map, or
+     * plain record. The writer always uses the portable DataOutput/network format.
+     *
+     * Passing null/undefined clears the column.
+     *
+     * @example
+     * const remotes = fleet.decodeRemotes().withRemote('door_alpha', true);
+     * fleet.encodeRemotes(remotes);
+     */
+    public encodeRemotes(
+        remotes: import('starmade-decoder').FleetRemotesObject | Map<string, boolean> | Record<string, boolean> | null | undefined
+    ): this {
+        if (!remotes) return this.setSavedRemotes(undefined);
+
+        const anyRemotes = remotes as any;
+        if (typeof anyRemotes.toBytes === 'function') {
+            return this.setSavedRemotes(anyRemotes.toBytes());
+        }
+
+        const entries = remotes instanceof Map
+            ? remotes
+            : new Map(Object.entries(remotes as Record<string, boolean>));
+        const { encodeFleetRemotes } = require('starmade-decoder');
+        return this.setSavedRemotes(encodeFleetRemotes(entries));
+    }
+
     // =============================================================================
     // UTILITY AND ANALYSIS METHODS - ENHANCED WITH RELATIONS
     // =============================================================================

@@ -359,4 +359,24 @@ export class SectorsItemsModel extends BaseModel {
         const raw = this.getItems();
         const { SectorItemsObject } = require('starmade-decoder');
         return SectorItemsObject.fromBytes(raw ?? null);
-    }}
+    }
+
+    /**
+     * Encodes and stores SECTORS_ITEMS.ITEMS from a SectorItemsObject or a raw
+     * FreeItem array.
+     *
+     * @example
+     * const items = record.decodeItems().withMerged(259);
+     * record.encodeItems(items);
+     */
+    public encodeItems(
+        items: import('starmade-decoder').SectorItemsObject | import('starmade-decoder').FreeItem[]
+    ): this {
+        const anyItems = items as any;
+        const raw = typeof anyItems.toBytes === 'function'
+            ? anyItems.toBytes()
+            : require('starmade-decoder').encodeSectorItems(items);
+
+        return this.setItems(raw);
+    }
+}

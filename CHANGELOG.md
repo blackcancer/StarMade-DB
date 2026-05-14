@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] – 2026-05-14
+
+### Added
+
+#### VARBINARY encode/write helpers for `starmade-decoder` objects
+
+Completes the `starmade-decoder` integration with write-back helpers matching the existing `decode*()` APIs:
+
+- **`FleetsModel.encodeCommand()`** — writes `FLEETS.COMMAND` from a `FleetCommandObject` or raw `FleetCommand` structure.
+- **`FleetsModel.encodeRemotes()`** — writes `FLEETS.SAVED_REMOTES` from a `FleetRemotesObject`, `Map<string, boolean>`, or plain record. Uses the portable DataOutput/network format.
+- **`SectorsItemsModel.encodeItems()`** — writes `SECTORS_ITEMS.ITEMS` from a `SectorItemsObject` or `FreeItem[]`.
+- **`SystemsModel.encodeStarSystem()`** — writes both `SYSTEMS.INFOS` and `SYSTEMS.RESOURCES` from a `StarSystem` object.
+- **`SystemsModel.encodeInfos()`** — writes `SYSTEMS.INFOS` from typed `SectorInfo[]` entries.
+- **`SystemsModel.encodeResources()`** — writes `SYSTEMS.RESOURCES` from typed `SystemResource[]` entries.
+- **`TradeNodesModel.encodeItems()`** — writes `TRADE_NODES.ITEMS` from a `TradePricesObject` or raw `TradePrices` structure.
+
+This enables full typed read → immutable mutation → write-back workflows directly from the DB models.
+
+---
+
 ## [1.2.0] – 2026-05-12
 
 ### Added

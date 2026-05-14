@@ -653,4 +653,34 @@ export class SystemsModel extends BaseModel {
         const { decodeSystemResources } = require('starmade-decoder');
         return decodeSystemResources(raw);
     }
+
+    /**
+     * Encodes and stores SYSTEMS.INFOS + SYSTEMS.RESOURCES from a StarSystem
+     * business object.
+     *
+     * @example
+     * const updated = system.decodeStarSystem()?.withResourceDensity(0, 80);
+     * if (updated) system.encodeStarSystem(updated);
+     */
+    public encodeStarSystem(system: import('starmade-decoder').StarSystem): this {
+        return this
+            .setInfos(system.infosToBytes())
+            .setResources(system.resourcesToBytes());
+    }
+
+    /**
+     * Encodes and stores SYSTEMS.INFOS from typed sector entries.
+     */
+    public encodeInfos(infos: import('starmade-decoder').SectorInfo[]): this {
+        const { encodeSystemInfos } = require('starmade-decoder');
+        return this.setInfos(encodeSystemInfos(infos));
+    }
+
+    /**
+     * Encodes and stores SYSTEMS.RESOURCES from typed resource density entries.
+     */
+    public encodeResources(resources: import('starmade-decoder').SystemResource[]): this {
+        const { encodeSystemResources } = require('starmade-decoder');
+        return this.setResources(encodeSystemResources(resources));
+    }
 }
