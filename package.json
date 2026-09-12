@@ -38,7 +38,9 @@
     "SECURITY.md",
     "LICENSE",
     "package.json",
-    "docs/"
+    "docs/*.md",
+    "docs/api/**/*.md",
+    "docs/database/**/*.md"
   ],
   "scripts": {
     "prepare": "npm run build",

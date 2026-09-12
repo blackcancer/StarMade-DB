@@ -1,0 +1,252 @@
+{
+  "ID_GEN_TABLE": {
+    "columns": [
+      "ID",
+      "ID_GEN"
+    ],
+    "generated": []
+  },
+  "PLAYERS": {
+    "columns": [
+      "ID",
+      "NAME",
+      "STARMADE_NAME",
+      "FACTION",
+      "PERMISSION"
+    ],
+    "generated": [
+      "ID"
+    ]
+  },
+  "SYSTEMS": {
+    "columns": [
+      "ID",
+      "X",
+      "Y",
+      "Z",
+      "TYPE",
+      "STARTTIME",
+      "NAME",
+      "INFOS",
+      "OWNER_UID",
+      "OWNER_FACTION",
+      "OWNER_X",
+      "OWNER_Y",
+      "OWNER_Z",
+      "RESOURCES"
+    ],
+    "generated": [
+      "ID"
+    ]
+  },
+  "SECTORS": {
+    "columns": [
+      "ID",
+      "X",
+      "Y",
+      "Z",
+      "TYPE",
+      "NAME",
+      "ITEMS",
+      "PROTECTION",
+      "STELLAR",
+      "TRANSIENT",
+      "LAST_REPLENISHED"
+    ],
+    "generated": [
+      "ID"
+    ]
+  },
+  "SECTORS_ITEMS": {
+    "columns": [
+      "ID",
+      "ITEMS"
+    ],
+    "generated": []
+  },
+  "ENTITIES": {
+    "columns": [
+      "UID",
+      "X",
+      "Y",
+      "Z",
+      "TYPE",
+      "NAME",
+      "FACTION",
+      "CREATOR",
+      "LAST_MOD",
+      "SEED",
+      "TOUCHED",
+      "LOCAL_POS",
+      "DIM",
+      "GEN_ID",
+      "DOCKED_TO",
+      "DOCKED_ROOT",
+      "SPAWNED_ONLY_IN_DB",
+      "TRACKED",
+      "ID"
+    ],
+    "generated": [
+      "ID"
+    ]
+  },
+  "EFFECTS": {
+    "columns": [
+      "ID",
+      "ENTITY_ID",
+      "TYPE",
+      "EFFECT_UID"
+    ],
+    "generated": [
+      "ID"
+    ]
+  },
+  "FTL": {
+    "columns": [
+      "ID",
+      "FROM_X",
+      "FROM_Y",
+      "FROM_Z",
+      "FROM_X_LOC",
+      "FROM_Y_LOC",
+      "FROM_Z_LOC",
+      "FROM_UID",
+      "TO_X",
+      "TO_Y",
+      "TO_Z",
+      "TO_X_LOC",
+      "TO_Y_LOC",
+      "TO_Z_LOC",
+      "TO_UID",
+      "TYPE",
+      "PERMISSION"
+    ],
+    "generated": [
+      "ID"
+    ]
+  },
+  "VISIBILITY": {
+    "columns": [
+      "ID",
+      "X",
+      "Y",
+      "Z",
+      "TIMESTAMP"
+    ],
+    "generated": []
+  },
+  "FLEETS": {
+    "columns": [
+      "ID",
+      "FLAGSHIP_ID",
+      "PARENT_FLEET",
+      "NAME",
+      "OWNER",
+      "MISSION_STRING",
+      "COMMAND",
+      "FACTION_ACCESS",
+      "SAVED_REMOTES",
+      "COMBAT_SETTING"
+    ],
+    "generated": [
+      "ID"
+    ]
+  },
+  "FLEET_MEMBERS": {
+    "columns": [
+      "ID",
+      "FLEET_ID",
+      "ENTITY_ID",
+      "MISSION_STRING",
+      "LIST_INDEX",
+      "DOCKED_TO",
+      "FACTION"
+    ],
+    "generated": [
+      "ID"
+    ]
+  },
+  "TRADE_NODES": {
+    "columns": [
+      "ID",
+      "SEC_X",
+      "SEC_Y",
+      "SEC_Z",
+      "PLAYER",
+      "STATION_NAME",
+      "FACTION",
+      "PERMISSION",
+      "ITEMS",
+      "VOLUME",
+      "CAPACITY",
+      "CREDITS"
+    ],
+    "generated": []
+  },
+  "TRADE_HISTORY": {
+    "columns": [
+      "ID",
+      "FROM_ID",
+      "TO_ID",
+      "FROM_OWNER",
+      "TO_OWNER",
+      "FROM_FACTION_ID",
+      "TO_FACTION_ID",
+      "TOTAL_COST",
+      "DELIVERY_COST",
+      "SENT",
+      "RECEIVED",
+      "VOLUME",
+      "SUCCESS"
+    ],
+    "generated": [
+      "ID"
+    ]
+  },
+  "NPC_STATS": {
+    "columns": [
+      "ID",
+      "SYS_X",
+      "SYS_Y",
+      "SYS_Z",
+      "FLEET_SPAWNS",
+      "ENTITY_SPAWNS"
+    ],
+    "generated": []
+  },
+  "PLAYER_MESSAGES": {
+    "columns": [
+      "ID",
+      "SENDER",
+      "RECEIVER",
+      "TOPIC",
+      "MESSAGE",
+      "SENT",
+      "READ",
+      "ATT_ID"
+    ],
+    "generated": [
+      "ID"
+    ]
+  },
+  "MINES": {
+    "columns": [
+      "ID",
+      "OWNER",
+      "FACTION",
+      "HP",
+      "COMPOSITION",
+      "SECTOR_X",
+      "SECTOR_Y",
+      "SECTOR_Z",
+      "LOCAL_X",
+      "LOCAL_Y",
+      "LOCAL_Z",
+      "CREATION_DATE",
+      "ARMED",
+      "ARMED_IN_SECS",
+      "AMMO"
+    ],
+    "generated": []
+  }
+}

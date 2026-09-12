@@ -2,7 +2,7 @@
 
 Les corrections reprennent les huit constats de l'audit initial et les régressions
 supplémentaires découvertes pendant l'extension des tests. Le schéma du jeu et les
-sources Java fournies servent de références : voir [SCHEMA_VALIDATION.md](SCHEMA_VALIDATION.md).
+sources Java consultées uniquement en local servent de références (elles ne sont pas redistribuées) : voir [SCHEMA_VALIDATION.md](SCHEMA_VALIDATION.md).
 
 ## Constats de l'audit initial
 
@@ -41,13 +41,13 @@ s'exécutent avant le démarrage du pont natif dans le processus principal de te
 
 ## Résultat vérifié le 12 septembre 2026
 
-`npm run validate` s'est terminé avec succès : **4 412 tests réussis**, aucun échec ni
+`npm run validate` s'est terminé avec succès : **4 413 tests réussis**, aucun échec ni
 test ignoré. Les mesures c8 atteignent 100 % dans chacun des 60 fichiers source :
 
 | Mesure | Résultat |
 | --- | --- |
 | Lignes | 60 461 / 60 461 — 100 % |
-| Branches | 9 834 / 9 834 — 100 % |
+| Branches | 9 835 / 9 835 — 100 % |
 | Fonctions | 2 322 / 2 322 — 100 % |
 | Déclarations JSDoc publiques, protégées et privées | 4 997 / 4 997 — 100 % |
 

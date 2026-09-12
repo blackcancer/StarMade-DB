@@ -1,7 +1,7 @@
 # Controller behavior and database guarantees
 
 This supplement describes controller behavior verified against the documented
-[StarMade schema](SCHEMA_VALIDATION.md), the game Java sources under `docs/starmade src`,
+[StarMade schema](SCHEMA_VALIDATION.md), the game Java sources consulted privately (not redistributed),
 and isolated copies of the HSQLDB fixture. Tests never require writing to a running
 StarMade world.
 

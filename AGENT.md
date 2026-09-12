@@ -322,3 +322,7 @@ npm test
 - Performance benchmarking
 - API documentation update
 - Migration guide (if needed)
+
+## Proprietary references
+
+StarMade game source code is local reference material only. Never commit it or include it in package artifacts. Tests must run without these private files.

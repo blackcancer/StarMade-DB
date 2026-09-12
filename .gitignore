@@ -99,3 +99,5 @@ coverage/
 lib/
 build/
 out/
+# Proprietary game sources: local reference only; never commit or distribute.
+/docs/starmade src/

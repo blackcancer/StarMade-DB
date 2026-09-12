@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- Remove proprietary StarMade Java sources from the tracked tree and npm package; retain local references only.
+- Validate table schemas against database metadata without requiring proprietary source files.
+
 ## [2.0.0] – 2026-09-12
 
 ### Compatibility
