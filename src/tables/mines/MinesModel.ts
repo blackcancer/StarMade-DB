@@ -1,3 +1,5 @@
+import * as related0 from '../players/PlayersModel.js';
+import * as related1 from '../sectors/SectorsModel.js';
 /**
  * @fileoverview Mines Model
  * 
@@ -28,9 +30,13 @@ import {
  * Mine arming states based on ARMED and ARMED_IN_SECS values
  */
 export enum MineArmingState {
+    /** Mine arming state value for disarmed, serialized as 'DISARMED'. */
     DISARMED = 'DISARMED',     // ARMED=false, ARMED_IN_SECS=-1
+    /** Mine arming state value for arming, serialized as 'ARMING'. */
     ARMING = 'ARMING',         // ARMED=false, ARMED_IN_SECS>0
+    /** Mine arming state value for armed, serialized as 'ARMED'. */
     ARMED = 'ARMED',           // ARMED=true
+    /** Mine arming state value for depleted, serialized as 'DEPLETED'. */
     DEPLETED = 'DEPLETED'      // AMMO=0 (but not -2)
 }
 
@@ -38,9 +44,13 @@ export enum MineArmingState {
  * Mine operational status based on HP and AMMO
  */
 export enum MineStatus {
+    /** Mine status value for active, serialized as 'ACTIVE'. */
     ACTIVE = 'ACTIVE',         // HP > 0 and AMMO != 0
+    /** Mine status value for destroyed, serialized as 'DESTROYED'. */
     DESTROYED = 'DESTROYED',   // HP <= 0
+    /** Mine status value for expired, serialized as 'EXPIRED'. */
     EXPIRED = 'EXPIRED',       // AMMO = 0 (but not unlimited -2)
+    /** Mine status value for disabled, serialized as 'DISABLED'. */
     DISABLED = 'DISABLED'      // Manually disabled or inactive
 }
 
@@ -59,11 +69,17 @@ export const KnownMineFactions = {
  * Mine component module types (slots 0-5 according to TABLE_MINES.md)
  */
 export enum MineModuleType {
+    /** Mine module type value for core block, serialized as 'CORE_BLOCK'. */
     CORE_BLOCK = 'CORE_BLOCK',         // Slot 0: Mine type determination
+    /** Mine module type value for strength module, serialized as 'STRENGTH_MODULE'. */
     STRENGTH_MODULE = 'STRENGTH_MODULE', // Slot 1: Damage scaling
+    /** Mine module type value for radius module, serialized as 'RADIUS_MODULE'. */
     RADIUS_MODULE = 'RADIUS_MODULE',     // Slot 2: Trigger range
+    /** Mine module type value for stealth module, serialized as 'STEALTH_MODULE'. */
     STEALTH_MODULE = 'STEALTH_MODULE',   // Slot 3: Jamming level
+    /** Mine module type value for firing module, serialized as 'FIRING_MODULE'. */
     FIRING_MODULE = 'FIRING_MODULE',     // Slot 4: Burst/seeker/contact
+    /** Mine module type value for reserved, serialized as 'RESERVED'. */
     RESERVED = 'RESERVED'                // Slot 5: Future expansion
 }
 
@@ -71,12 +87,18 @@ export enum MineModuleType {
  * Mine composition structure (6-slot array according to TABLE_MINES.md)
  */
 export interface MineComposition {
-    coreBlock: number;      // Slot 0: Core type (unknown block IDs)
-    strengthModule: number; // Slot 1: Damage scaling
-    radiusModule: number;   // Slot 2: Trigger range in meters
-    stealthModule: number;  // Slot 3: Jamming/stealth level
-    firingModule: number;   // Slot 4: Burst/seeker/contact behavior
-    reserved: number;       // Slot 5: Future expansion (unused)
+    /** Slot 0: Core type (unknown block IDs). */
+    coreBlock: number;
+    /** Slot 1: Damage scaling. */
+    strengthModule: number;
+    /** Slot 2: Trigger range in meters. */
+    radiusModule: number;
+    /** Slot 3: Jamming/stealth level. */
+    stealthModule: number;
+    /** Slot 4: Burst/seeker/contact behavior. */
+    firingModule: number;
+    /** Slot 5: Future expansion (unused). */
+    reserved: number;
 }
 
 // =============================================================================
@@ -90,8 +112,10 @@ export interface MineComposition {
  * tactical analytics, and comprehensive safety assessments.
  */
 export class MinesModel extends BaseModel {
+    /** SQL table name used to generate queries for this model. */
     public static tableName = 'MINES';
     
+    /** SQL column, key, index and validation definitions for this table. */
     public static schema: TableSchema = {
         tableName: 'MINES',
         comment: 'Deployable explosive devices for tactical warfare',
@@ -99,7 +123,6 @@ export class MinesModel extends BaseModel {
         columns: [
             column('ID', DataType.INTEGER, {
                 primaryKey: true,
-                autoIncrement: true,
                 nullable: false,
                 comment: 'Mine identifier'
             }),
@@ -222,7 +245,7 @@ export class MinesModel extends BaseModel {
             ownerPlayer: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../players/PlayersModel.js').PlayersModel;
+                    return related0.PlayersModel;
                 },
                 {
                     from: 'MINES.OWNER',
@@ -234,7 +257,7 @@ export class MinesModel extends BaseModel {
             sector: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../sectors/SectorsModel.js').SectorsModel;
+                    return related1.SectorsModel;
                 },
                 {
                     from: ['MINES.SECTOR_X', 'MINES.SECTOR_Y', 'MINES.SECTOR_Z'],
@@ -248,49 +271,184 @@ export class MinesModel extends BaseModel {
     // TYPED ACCESSORS
     // =============================================================================
 
+    /**
+     * Read the MINES.ID column from this model. Numeric strings are converted to integers.
+     * @returns The stored ID value, normalized to an integer when necessary.
+     */
     public getId(): number { const v = this.get('ID'); if (v === undefined || v === null) return undefined as any; return typeof v === 'string' ? parseInt(v, 10) : v; }
+    /**
+     * Store the MINES.ID column in this model and return this for chaining.
+     * @param id New value for the ID column.
+     * @returns This model for chaining.
+     */
     public setId(id: number): this { return this.set('ID', id); }
 
+    /**
+     * Read the MINES.OWNER column from this model.
+     * @returns The stored OWNER value.
+     */
     public getOwner(): number { return this.get('OWNER'); }
+    /**
+     * Store the MINES.OWNER column in this model and return this for chaining.
+     * @param owner New value for the OWNER column.
+     * @returns This model for chaining.
+     */
     public setOwner(owner: number): this { return this.set('OWNER', owner); }
 
+    /**
+     * Read the MINES.FACTION column from this model.
+     * @returns The stored FACTION value.
+     */
     public getFaction(): number { return this.get('FACTION'); }
+    /**
+     * Store the MINES.FACTION column in this model and return this for chaining.
+     * @param faction New value for the FACTION column.
+     * @returns This model for chaining.
+     */
     public setFaction(faction: number): this { return this.set('FACTION', faction); }
 
+    /**
+     * Read the MINES.HP column from this model.
+     * @returns The stored HP value.
+     */
     public getHp(): number { return this.get('HP'); }
+    /**
+     * Store the MINES.HP column in this model and return this for chaining.
+     * @param hp New value for the HP column.
+     * @returns This model for chaining.
+     */
     public setHp(hp: number): this { return this.set('HP', hp); }
 
+    /**
+     * Read the MINES.COMPOSITION column from this model.
+     * @returns The stored COMPOSITION value.
+     */
     public getComposition(): string { return this.get('COMPOSITION'); }
+    /**
+     * Store the MINES.COMPOSITION column in this model and return this for chaining.
+     * @param composition New value for the COMPOSITION column.
+     * @returns This model for chaining.
+     */
     public setComposition(composition: string): this { return this.set('COMPOSITION', composition); }
 
+    /**
+     * Read the MINES.SECTOR_X column from this model.
+     * @returns The stored SECTOR_X value.
+     */
     public getSectorX(): number { return this.get('SECTOR_X'); }
+    /**
+     * Store the MINES.SECTOR_X column in this model and return this for chaining.
+     * @param sectorX New value for the SECTOR_X column.
+     * @returns This model for chaining.
+     */
     public setSectorX(sectorX: number): this { return this.set('SECTOR_X', sectorX); }
 
+    /**
+     * Read the MINES.SECTOR_Y column from this model.
+     * @returns The stored SECTOR_Y value.
+     */
     public getSectorY(): number { return this.get('SECTOR_Y'); }
+    /**
+     * Store the MINES.SECTOR_Y column in this model and return this for chaining.
+     * @param sectorY New value for the SECTOR_Y column.
+     * @returns This model for chaining.
+     */
     public setSectorY(sectorY: number): this { return this.set('SECTOR_Y', sectorY); }
 
+    /**
+     * Read the MINES.SECTOR_Z column from this model.
+     * @returns The stored SECTOR_Z value.
+     */
     public getSectorZ(): number { return this.get('SECTOR_Z'); }
+    /**
+     * Store the MINES.SECTOR_Z column in this model and return this for chaining.
+     * @param sectorZ New value for the SECTOR_Z column.
+     * @returns This model for chaining.
+     */
     public setSectorZ(sectorZ: number): this { return this.set('SECTOR_Z', sectorZ); }
 
+    /**
+     * Read the MINES.LOCAL_X column from this model.
+     * @returns The stored LOCAL_X value.
+     */
     public getLocalX(): number { return this.get('LOCAL_X'); }
+    /**
+     * Store the MINES.LOCAL_X column in this model and return this for chaining.
+     * @param localX New value for the LOCAL_X column.
+     * @returns This model for chaining.
+     */
     public setLocalX(localX: number): this { return this.set('LOCAL_X', localX); }
 
+    /**
+     * Read the MINES.LOCAL_Y column from this model.
+     * @returns The stored LOCAL_Y value.
+     */
     public getLocalY(): number { return this.get('LOCAL_Y'); }
+    /**
+     * Store the MINES.LOCAL_Y column in this model and return this for chaining.
+     * @param localY New value for the LOCAL_Y column.
+     * @returns This model for chaining.
+     */
     public setLocalY(localY: number): this { return this.set('LOCAL_Y', localY); }
 
+    /**
+     * Read the MINES.LOCAL_Z column from this model.
+     * @returns The stored LOCAL_Z value.
+     */
     public getLocalZ(): number { return this.get('LOCAL_Z'); }
+    /**
+     * Store the MINES.LOCAL_Z column in this model and return this for chaining.
+     * @param localZ New value for the LOCAL_Z column.
+     * @returns This model for chaining.
+     */
     public setLocalZ(localZ: number): this { return this.set('LOCAL_Z', localZ); }
 
+    /**
+     * Read the MINES.CREATION_DATE column from this model.
+     * @returns The stored CREATION_DATE value.
+     */
     public getCreationDate(): number { return this.get('CREATION_DATE'); }
+    /**
+     * Store the MINES.CREATION_DATE column in this model and return this for chaining.
+     * @param creationDate New value for the CREATION_DATE column.
+     * @returns This model for chaining.
+     */
     public setCreationDate(creationDate: number): this { return this.set('CREATION_DATE', creationDate); }
 
+    /**
+     * Read the MINES.ARMED column from this model.
+     * @returns The stored ARMED value.
+     */
     public getArmed(): boolean { return this.get('ARMED'); }
+    /**
+     * Store the MINES.ARMED column in this model and return this for chaining.
+     * @param armed New value for the ARMED column.
+     * @returns This model for chaining.
+     */
     public setArmed(armed: boolean): this { return this.set('ARMED', armed); }
 
+    /**
+     * Read the MINES.ARMED_IN_SECS column from this model.
+     * @returns The stored ARMED_IN_SECS value.
+     */
     public getArmedInSecs(): number { return this.get('ARMED_IN_SECS'); }
+    /**
+     * Store the MINES.ARMED_IN_SECS column in this model and return this for chaining.
+     * @param armedInSecs New value for the ARMED_IN_SECS column.
+     * @returns This model for chaining.
+     */
     public setArmedInSecs(armedInSecs: number): this { return this.set('ARMED_IN_SECS', armedInSecs); }
 
+    /**
+     * Read the MINES.AMMO column from this model.
+     * @returns The stored AMMO value.
+     */
     public getAmmo(): number { return this.get('AMMO'); }
+    /**
+     * Store the MINES.AMMO column in this model and return this for chaining.
+     * @param ammo New value for the AMMO column.
+     * @returns This model for chaining.
+     */
     public setAmmo(ammo: number): this { return this.set('AMMO', ammo); }
 
     // =============================================================================
@@ -372,25 +530,31 @@ export class MinesModel extends BaseModel {
     // =============================================================================
 
     /**
-     * Parse composition string into structured data
+     * Read the six signed SMALLINT composition values from JDBC ARRAY text,
+     * JSON text, or a native array. Malformed and out-of-range values return null.
+     * @returns Named composition slots, or null when the SQL array is invalid.
      */
     public parseComposition(): MineComposition | null {
         try {
-            const compositionData = JSON.parse(this.getComposition());
-            if (Array.isArray(compositionData) && compositionData.length >= 6) {
-                return {
-                    coreBlock: compositionData[0] || 0,
-                    strengthModule: compositionData[1] || 0,
-                    radiusModule: compositionData[2] || 0,
-                    stealthModule: compositionData[3] || 0,
-                    firingModule: compositionData[4] || 0,
-                    reserved: compositionData[5] || 0
-                };
+            const raw = this.getComposition();
+            const compositionData = typeof raw === 'string'
+                ? JSON.parse(raw.trim().replace(/^ARRAY\s*/i, ''))
+                : raw;
+            if (!Array.isArray(compositionData) || compositionData.length !== 6 ||
+                !compositionData.every(value => Number.isInteger(value) && value >= -32768 && value <= 32767)) {
+                return null;
             }
-        } catch (error) {
-            // Handle malformed composition data
+            return {
+                coreBlock: compositionData[0],
+                strengthModule: compositionData[1],
+                radiusModule: compositionData[2],
+                stealthModule: compositionData[3],
+                firingModule: compositionData[4],
+                reserved: compositionData[5]
+            };
+        } catch {
+            return null;
         }
-        return null;
     }
 
     /**
@@ -924,9 +1088,6 @@ export class MinesModel extends BaseModel {
         const isSafe = armingState === MineArmingState.DISARMED && !this.isActive();
         const canHandle = this.isSafeToHandle();
         
-        if (isSafe && warnings.length === 0) {
-            recommendations.push('Mine appears safe to approach');
-        }
 
         // Enhanced tactical intelligence
         let tacticalIntelligence: any = undefined;

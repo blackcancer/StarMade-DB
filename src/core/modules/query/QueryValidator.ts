@@ -9,6 +9,7 @@
  * @version 1.0.0
  */
 
+import { createHash } from 'node:crypto';
 import { BaseModule, type HSQLManager } from '../../HSQLManager.js';
 import { ConnectionManager } from '../connection/ConnectionManager.js';
 import { CacheManager } from '../cache/CacheManager.js';
@@ -67,16 +68,27 @@ export enum ThreatLevel {
  * Query operation types
  */
 export enum QueryOperation {
+    /** Query operation value for select, serialized as 'SELECT'. */
     SELECT = 'SELECT',
+    /** Query operation value for insert, serialized as 'INSERT'. */
     INSERT = 'INSERT',
+    /** Query operation value for update, serialized as 'UPDATE'. */
     UPDATE = 'UPDATE',
+    /** Query operation value for delete, serialized as 'DELETE'. */
     DELETE = 'DELETE',
+    /** Query operation value for create, serialized as 'CREATE'. */
     CREATE = 'CREATE',
+    /** Query operation value for drop, serialized as 'DROP'. */
     DROP = 'DROP',
+    /** Query operation value for alter, serialized as 'ALTER'. */
     ALTER = 'ALTER',
+    /** Query operation value for truncate, serialized as 'TRUNCATE'. */
     TRUNCATE = 'TRUNCATE',
+    /** Query operation value for grant, serialized as 'GRANT'. */
     GRANT = 'GRANT',
+    /** Query operation value for revoke, serialized as 'REVOKE'. */
     REVOKE = 'REVOKE',
+    /** Query operation value for unknown, serialized as 'UNKNOWN'. */
     UNKNOWN = 'UNKNOWN'
 }
 
@@ -378,18 +390,28 @@ export interface QueryValidatorConfig {
  * - Validation result caching
  */
 export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEvent> {
+    /** Stable module identifier used when registering and looking up the module. */
     public readonly name = 'query-validator';
+    /** Version of this module implementation. */
     public readonly version = '1.0.0';
+    /** Whether initialization completed and the module is available for use. */
     public get isInitialized(): boolean { return this._initialized; }
 
+    /** Whether initialization completed successfully. */
     private _initialized = false;
+    /** Owning manager used to resolve configuration and module dependencies. */
     private manager?: HSQLManager;
+    /** Module logger for operation context and diagnostic errors. */
     private logger: ModuleLogger | null = null;
+    /** Emitter that dispatches this module’s lifecycle and operation events. */
     private eventEmitter: ModuleEventEmitterImpl<ModuleEvent>;
+    /** Connection pool module used to borrow and release JDBC sessions. */
     private connectionManager: ConnectionManager | null = null;
+    /** Cache module used to store and invalidate shared results. */
     private cacheManager: CacheManager | null = null;
 
     // Configuration
+    /** Effective configuration applied to this instance. */
     private config: QueryValidatorConfig = {
         defaultValidationLevel: ValidationLevel.STANDARD,
         enableValidationCache: true,
@@ -425,7 +447,9 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
     };
 
     // Internal state
+    /** Cached SQL validation results. */
     private validationCache = new Map<string, { result: ValidationResult; timestamp: Date }>();
+    /** Counters and timings for SQL validation operations. */
     private validationStats = {
         totalValidations: 0,
         passedValidations: 0,
@@ -436,6 +460,7 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
         mostCommonIssues: new Map<string, number>()
     };
 
+    /** Timer that periodically removes expired tracking and cache entries. */
     private cleanupInterval: NodeJS.Timeout | null = null;
 
     // =============================================================================
@@ -608,6 +633,9 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
 
         const startTime = Date.now();
         const cacheKey = this.generateCacheKey(validationContext);
+        // Custom callbacks can depend on changing external state and must run each time.
+        const cacheable = this.config.enableValidationCache &&
+            ![...this.config.builtInRules, ...validationContext.options!.customRules!].some(rule => rule.validator);
 
         this.logger?.debug('Validating query', { 
             sql: sql.substring(0, 100) + (sql.length > 100 ? '...' : ''),
@@ -617,7 +645,7 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
 
         try {
             // Check cache first
-            if (this.config.enableValidationCache) {
+            if (cacheable) {
                 const cachedResult = this.getCachedValidation(cacheKey);
                 if (cachedResult) {
                     this.updateValidationStats(cachedResult, Date.now() - startTime, true);
@@ -631,7 +659,7 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
             result.validationTime = validationTime;
 
             // Cache result if applicable
-            if (this.config.enableValidationCache && this.shouldCacheValidation(result)) {
+            if (cacheable && this.shouldCacheValidation(result)) {
                 this.cacheValidation(cacheKey, result);
             }
 
@@ -811,7 +839,7 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
         const tableMatches = sql.match(/(?:FROM|JOIN|UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+([A-Za-z_][A-Za-z0-9_]*)/gi);
         if (tableMatches) {
             metadata.structure.tables = tableMatches
-                .map(match => match.split(/\s+/).pop() || '')
+                .map(match => match.split(/\s+/).pop()!)
                 .filter(table => table.length > 0);
         }
 
@@ -837,8 +865,14 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
      * Validate SQL syntax
      */
     private async validateSyntax(context: QueryValidationContext, result: ValidationResult): Promise<void> {
+        const allowed = context.options?.allowedOperations;
+        if (allowed && !allowed.includes(result.operation)) {
+            result.errors.push({code: 'OPERATION_NOT_ALLOWED', severity: 'error',
+                message: `SQL operation ${result.operation} is not allowed`});
+        }
         // Basic syntax checks
-        const sql = context.sql;
+        const sql = context.sql.replace(/'(?:''|[^'])*'|"(?:""|[^"])*"|--[^\r\n]*|\/\*[\s\S]*?\*\//g,
+            fragment => ' '.repeat(fragment.length));
 
         // Check for balanced parentheses
         let parenCount = 0;
@@ -867,7 +901,7 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
         }
 
         // Check for incomplete statements
-        if (!sql.trim()) {
+        if (!context.sql.trim()) {
             result.errors.push({
                 code: 'EMPTY_QUERY',
                 message: 'Query cannot be empty',
@@ -883,7 +917,7 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
         ];
 
         for (const { pattern, message, severity } of suspiciousPatterns) {
-            const match = sql.match(pattern);
+            const match = context.sql.match(pattern);
             if (match) {
                 if (severity === 'warning' || severity === 'info') {
                     result.warnings.push({
@@ -905,8 +939,9 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
         const sql = context.sql;
 
         // Check against forbidden patterns
-        for (let i = 0; i < this.config.globalForbiddenPatterns.length; i++) {
-            const pattern = this.config.globalForbiddenPatterns[i];
+        const forbiddenPatterns = context.options?.forbiddenPatterns ?? this.config.globalForbiddenPatterns;
+        for (let i = 0; i < forbiddenPatterns.length; i++) {
+            const pattern = forbiddenPatterns[i];
             const matches = sql.match(pattern);
             
             if (matches) {
@@ -986,25 +1021,12 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
             return;
         }
 
-        try {
-            // Extract table names from query
-            const tables = result.queryMetadata.structure.tables;
-            
-            if (tables.length > 0) {
-                // This would typically involve checking if tables exist
-                // For now, we'll add a placeholder validation
-                result.warnings.push({
-                    code: 'SCHEMA_VALIDATION_PLACEHOLDER',
-                    message: 'Schema validation is implemented but requires database connection',
-                    severity: 'info'
-                });
-            }
-
-        } catch (error) {
+        const tables = result.queryMetadata.structure.tables;
+        if (tables.length > 0) {
             result.warnings.push({
-                code: 'SCHEMA_VALIDATION_ERROR',
-                message: `Schema validation failed: ${error instanceof Error ? error.message : String(error)}`,
-                severity: 'warning'
+                code: 'SCHEMA_VALIDATION_PLACEHOLDER',
+                message: 'Table and column existence checks are not implemented by QueryValidator; use SchemaAnalyzer metadata.',
+                severity: 'info'
             });
         }
     }
@@ -1057,7 +1079,7 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
      * Apply custom validation rules
      */
     private async applyCustomRules(context: QueryValidationContext, result: ValidationResult): Promise<void> {
-        const allRules = [...this.config.builtInRules, ...this.config.customRules];
+        const allRules = [...this.config.builtInRules, ...(context.options?.customRules ?? this.config.customRules)];
         
         for (const rule of allRules) {
             if (!rule.enabled) continue;
@@ -1103,6 +1125,8 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
                     rule: rule.id, 
                     error: error instanceof Error ? error.message : String(error)
                 });
+                result.errors.push({code: 'CUSTOM_RULE_FAILURE', severity: 'error',
+                    message: `Validation rule '${rule.id}' could not be evaluated`, rule: rule.name});
             }
         }
     }
@@ -1246,26 +1270,10 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
      * Generate cache key for validation result
      */
     private generateCacheKey(context: QueryValidationContext): string {
-        const keyData = {
-            sql: context.sql,
-            level: context.options?.level,
-            enableInjection: context.options?.enableInjectionDetection,
-            enableSchema: context.options?.enableSchemaValidation,
-            enablePerformance: context.options?.enablePerformanceAnalysis,
-            maxComplexity: context.options?.maxComplexityScore,
-            customRulesCount: context.options?.customRules?.length || 0
-        };
-        
-        // Simple hash function
-        const keyString = JSON.stringify(keyData);
-        let hash = 0;
-        for (let i = 0; i < keyString.length; i++) {
-            const char = keyString.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // Convert to 32-bit integer
-        }
-        
-        return Math.abs(hash).toString(36);
+        return createHash('sha256').update(JSON.stringify({
+            sql: context.sql, options: context.options, user: context.user,
+            parameters: context.parameters, builtInRules: this.config.builtInRules
+        }, (_, value) => typeof value === 'bigint' ? {bigint: String(value)} : value instanceof RegExp ? {regex: value.toString()} : value)).digest('hex');
     }
 
     /**
@@ -1475,6 +1483,7 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
      */
     public updateConfiguration(config: Partial<QueryValidatorConfig>): void {
         this.config = { ...this.config, ...config };
+        this.clearCache();
         
         this.logger?.info('Configuration updated', { config });
         
@@ -1524,6 +1533,7 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
      */
     public addCustomRule(rule: ValidationRule): void {
         this.config.customRules.push(rule);
+        this.clearCache();
         
         this.logger?.info('Custom validation rule added', { rule: rule.id });
         
@@ -1542,6 +1552,7 @@ export class QueryValidator implements BaseModule, ModuleEventEmitter<ModuleEven
         
         if (index >= 0) {
             this.config.customRules.splice(index, 1);
+            this.clearCache();
             
             this.logger?.info('Custom validation rule removed', { rule: ruleId });
             

@@ -8,6 +8,7 @@
  * @version 1.0.0
  */
 
+import { importModule } from './modules/importModule.js';
 import { resourceCleaner, validateStarMadeDirectory, generateDatabaseUrl, detectAvailableWorlds } from './utils.js';
 import { 
     ConfigurationError, 
@@ -201,14 +202,23 @@ export const DEFAULT_CONFIG: Required<Omit<HSQLManagerConfiguration, 'starmadeDi
  * Manager state enumeration
  */
 export enum ManagerState {
+    /** Manager state value for uninitialized, serialized as 'uninitialized'. */
     UNINITIALIZED = 'uninitialized',
+    /** Manager state value for initializing, serialized as 'initializing'. */
     INITIALIZING = 'initializing',
+    /** Manager state value for ready, serialized as 'ready'. */
     READY = 'ready',
+    /** Manager state value for connecting, serialized as 'connecting'. */
     CONNECTING = 'connecting',
+    /** Manager state value for connected, serialized as 'connected'. */
     CONNECTED = 'connected',
+    /** Manager state value for disconnecting, serialized as 'disconnecting'. */
     DISCONNECTING = 'disconnecting',
+    /** Manager state value for disconnected, serialized as 'disconnected'. */
     DISCONNECTED = 'disconnected',
+    /** Manager state value for error, serialized as 'error'. */
     ERROR = 'error',
+    /** Manager state value for destroyed, serialized as 'destroyed'. */
     DESTROYED = 'destroyed'
 }
 
@@ -216,12 +226,19 @@ export enum ManagerState {
  * Manager status information
  */
 export interface ManagerStatus {
+    /** Current lifecycle state of the database manager. */
     state: ManagerState;
+    /** Whether module initialization has completed successfully. */
     isReady: boolean;
+    /** Whether the manager currently holds a database connection. */
     isConnected: boolean;
+    /** Most recent manager error, when an operation has failed. */
     lastError?: HSQLDBError;
+    /** Number of connections currently tracked by the manager. */
     connectionCount: number;
+    /** Elapsed time in milliseconds since the manager was created. */
     uptime: number;
+    /** Names of modules registered with this manager. */
     modulesLoaded: string[];
 }
 
@@ -386,10 +403,10 @@ export class HSQLManager {
      * Merges the user-provided configuration with default values.
      * @private
      * @param {HSQLManagerConfiguration} config - The user-provided configuration.
-     * @returns {Required<HSQLManagerConfiguration>} The fully merged configuration.
+     * @returns {Required<HSQLManagerConfiguration>} The fully merged configuration with nested input values copied.
      */
     private mergeWithDefaults(config: HSQLManagerConfiguration): Required<HSQLManagerConfiguration> {
-        return {
+        return structuredClone({
             starmadeDir: config.starmadeDir,
             worldName: config.worldName,
             modules: { ...DEFAULT_CONFIG.modules, ...config.modules },
@@ -398,7 +415,7 @@ export class HSQLManager {
             logging: { ...DEFAULT_CONFIG.logging, ...config.logging },
             security: { ...DEFAULT_CONFIG.security, ...config.security },
             database: { ...DEFAULT_CONFIG.database, ...config.database }
-        };
+        });
     }
 
     /**
@@ -569,7 +586,7 @@ export class HSQLManager {
             });
             
             try {
-                const { ConnectionManager } = await import('./modules/connection/ConnectionManager.js');
+                const { ConnectionManager } = await importModule<typeof import('./modules/connection/ConnectionManager.js')>('./connection/ConnectionManager.js');
                 const connectionManager = new ConnectionManager();
                 
                 await connectionManager.initialize(this);
@@ -597,7 +614,7 @@ export class HSQLManager {
             });
             
             try {
-                const { ReconnectionManager } = await import('./modules/connection/ReconnectionManager.js');
+                const { ReconnectionManager } = await importModule<typeof import('./modules/connection/ReconnectionManager.js')>('./connection/ReconnectionManager.js');
                 const reconnectionManager = new ReconnectionManager();
                 
                 await reconnectionManager.initialize(this);
@@ -628,7 +645,7 @@ export class HSQLManager {
             });
             
             try {
-                const { CacheManager } = await import('./modules/cache/CacheManager.js');
+                const { CacheManager } = await importModule<typeof import('./modules/cache/CacheManager.js')>('./cache/CacheManager.js');
                 const cacheManager = new CacheManager();
                 
                 await cacheManager.initialize(this);
@@ -655,7 +672,7 @@ export class HSQLManager {
             });
             
             try {
-                const { CacheOptimizer } = await import('./modules/cache/CacheOptimizer.js');
+                const { CacheOptimizer } = await importModule<typeof import('./modules/cache/CacheOptimizer.js')>('./cache/CacheOptimizer.js');
                 const cacheOptimizer = new CacheOptimizer();
                 
                 await cacheOptimizer.initialize(this);
@@ -693,7 +710,7 @@ export class HSQLManager {
             });
             
             try {
-                const { MetricsCollector } = await import('./modules/performance/MetricsCollector.js');
+                const { MetricsCollector } = await importModule<typeof import('./modules/performance/MetricsCollector.js')>('./performance/MetricsCollector.js');
                 const metricsCollector = new MetricsCollector();
                 
                 await metricsCollector.initialize(this);
@@ -720,7 +737,7 @@ export class HSQLManager {
             });
             
             try {
-                const { PerformanceMonitor } = await import('./modules/performance/PerformanceMonitor.js');
+                const { PerformanceMonitor } = await importModule<typeof import('./modules/performance/PerformanceMonitor.js')>('./performance/PerformanceMonitor.js');
                 const performanceMonitor = new PerformanceMonitor();
                 
                 await performanceMonitor.initialize(this);
@@ -747,7 +764,7 @@ export class HSQLManager {
             });
             
             try {
-                const { CacheStatsCollector } = await import('./modules/cache/CacheStatsCollector.js');
+                const { CacheStatsCollector } = await importModule<typeof import('./modules/cache/CacheStatsCollector.js')>('./cache/CacheStatsCollector.js');
                 const cacheStatsCollector = new CacheStatsCollector();
                 
                 await cacheStatsCollector.initialize(this);
@@ -763,7 +780,9 @@ export class HSQLManager {
                     (cacheStatsCollector as any).setMetricsCollector(metricsCollector);
                 }
                 
-                this.registerModule(cacheStatsCollector);
+                if (this.getModule(cacheStatsCollector.name) !== cacheStatsCollector) {
+                    this.registerModule(cacheStatsCollector);
+                }
                 
                 this.logger.info('CacheStatsCollector initialized successfully', {
                     operation: 'module-init',
@@ -790,7 +809,7 @@ export class HSQLManager {
             });
             
             try {
-                const { TransactionManager } = await import('./modules/transactions/TransactionManager.js');
+                const { TransactionManager } = await importModule<typeof import('./modules/transactions/TransactionManager.js')>('./transactions/TransactionManager.js');
                 const transactionManager = new TransactionManager();
                 
                 await transactionManager.initialize(this);
@@ -821,7 +840,7 @@ export class HSQLManager {
             });
             
             try {
-                const { QueryValidator } = await import('./modules/query/QueryValidator.js');
+                const { QueryValidator } = await importModule<typeof import('./modules/query/QueryValidator.js')>('./query/QueryValidator.js');
                 const queryValidator = new QueryValidator();
                 
                 await queryValidator.initialize(this);
@@ -848,7 +867,7 @@ export class HSQLManager {
             });
             
             try {
-                const { ParameterizedQuery } = await import('./modules/query/ParameterizedQuery.js');
+                const { ParameterizedQuery } = await importModule<typeof import('./modules/query/ParameterizedQuery.js')>('./query/ParameterizedQuery.js');
                 const parameterizedQuery = new ParameterizedQuery();
                 
                 await parameterizedQuery.initialize(this);
@@ -879,7 +898,7 @@ export class HSQLManager {
             });
             
             try {
-                const { SchemaAnalyzer } = await import('./modules/schema/SchemaAnalyzer.js');
+                const { SchemaAnalyzer } = await importModule<typeof import('./modules/schema/SchemaAnalyzer.js')>('./schema/SchemaAnalyzer.js');
                 const schemaAnalyzer = new SchemaAnalyzer();
                 
                 await schemaAnalyzer.initialize(this);
@@ -906,7 +925,7 @@ export class HSQLManager {
             });
             
             try {
-                const { RelationshipAnalyzer } = await import('./modules/schema/RelationshipAnalyzer.js');
+                const { RelationshipAnalyzer } = await importModule<typeof import('./modules/schema/RelationshipAnalyzer.js')>('./schema/RelationshipAnalyzer.js');
                 const relationshipAnalyzer = new RelationshipAnalyzer();
                 
                 await relationshipAnalyzer.initialize(this);
@@ -933,7 +952,7 @@ export class HSQLManager {
             });
             
             try {
-                const { DatabaseReporter } = await import('./modules/schema/DatabaseReporter.js');
+                const { DatabaseReporter } = await importModule<typeof import('./modules/schema/DatabaseReporter.js')>('./schema/DatabaseReporter.js');
                 const databaseReporter = new DatabaseReporter();
                 
                 await databaseReporter.initialize(this);
@@ -981,11 +1000,11 @@ export class HSQLManager {
     }
 
     /**
-     * Gets the read-only configuration of the manager.
-     * @returns {Readonly<Required<HSQLManagerConfiguration>>} The manager's configuration.
+     * Gets an isolated snapshot of the manager configuration with a frozen top-level object.
+     * @returns {Readonly<Required<HSQLManagerConfiguration>>} A detached configuration snapshot; changing nested values does not affect the manager.
      */
     public getConfiguration(): Readonly<Required<HSQLManagerConfiguration>> {
-        return Object.freeze({ ...this.config });
+        return Object.freeze(structuredClone(this.config));
     }
 
     /**

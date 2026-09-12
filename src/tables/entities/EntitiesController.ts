@@ -61,6 +61,8 @@ export interface EntitySearchOptions extends QueryOptions {
     creator?: string;
     /** Filter by last modifier */
     lastModifier?: string;
+    /** Filter dependents by their persisted parent entity ID (ENTITIES.DOCKED_TO). */
+    dockedToId?: number;
     /** Include only docked entities */
     dockedOnly?: boolean;
     /** Include only undocked entities */
@@ -294,7 +296,9 @@ export interface EntityConflictResult {
  * Controller for ENTITIES table with advanced spatial and entity management capabilities
  */
 export class EntitiesController extends BaseController<EntitiesModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<EntitiesModel> = EntitiesModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'EntitiesController';
 
     /**
@@ -528,9 +532,9 @@ export class EntitiesController extends BaseController<EntitiesModel> {
 
         // Check for docked entities before deletion
         const dockedEntities = await this.findEntities({
-            coordinates: { x: entity.getX(), y: entity.getY(), z: entity.getZ() },
-            dockedOnly: true,
-            limit: 1
+            dockedToId: entity.getId(),
+            limit: 1,
+            skipCache: true
         });
 
         if (dockedEntities.length > 0 && !options.forceDelete) {
@@ -571,6 +575,7 @@ export class EntitiesController extends BaseController<EntitiesModel> {
      * Find entities with advanced search capabilities
      */
     public async findEntities(options: EntitySearchOptions = {}): Promise<EntitiesModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -582,6 +587,7 @@ export class EntitiesController extends BaseController<EntitiesModel> {
             withinRadius,
             creator,
             lastModifier,
+            dockedToId,
             dockedOnly,
             undockedOnly,
             rootEntitiesOnly,
@@ -643,6 +649,11 @@ export class EntitiesController extends BaseController<EntitiesModel> {
             params.push(lastModifier);
         }
 
+        if (dockedToId !== undefined) {
+            conditions.push('DOCKED_TO = ?');
+            params.push(dockedToId);
+        }
+
         if (dockedOnly) {
             conditions.push('DOCKED_TO != -1');
         }
@@ -654,7 +665,7 @@ export class EntitiesController extends BaseController<EntitiesModel> {
         }
 
         if (rootEntitiesOnly) {
-            conditions.push('DOCKED_TO = -1 OR DOCKED_TO = DOCKED_ROOT');
+            conditions.push('(DOCKED_TO = -1 OR DOCKED_TO = DOCKED_ROOT)');
         }
 
         if (touchedOnly) {
@@ -662,7 +673,7 @@ export class EntitiesController extends BaseController<EntitiesModel> {
         }
 
         if (untouchedOnly) {
-            conditions.push('TOUCHED = FALSE OR TOUCHED IS NULL');
+            conditions.push('(TOUCHED = FALSE OR TOUCHED IS NULL)');
         }
 
         if (trackedOnly) {
@@ -670,7 +681,7 @@ export class EntitiesController extends BaseController<EntitiesModel> {
         }
 
         if (spawnedOnly) {
-            conditions.push('SPAWNED_ONLY_IN_DB = FALSE OR SPAWNED_ONLY_IN_DB IS NULL');
+            conditions.push('(SPAWNED_ONLY_IN_DB = FALSE OR SPAWNED_ONLY_IN_DB IS NULL)');
         }
 
         if (searchTerm) {
@@ -913,13 +924,8 @@ export class EntitiesController extends BaseController<EntitiesModel> {
 
             // Find entities docked to current entity
             const dockedEntities = await this.findEntities({
-                coordinates: {
-                    x: currentEntity.getX(),
-                    y: currentEntity.getY(),
-                    z: currentEntity.getZ()
-                },
-                dockedOnly: true,
-                limit: 100
+                dockedToId: currentEntity.getId(),
+                limit: 0
             });
 
             const directlyDocked = dockedEntities.filter(e => e.getDockedTo() === currentEntity.getId());
@@ -1251,14 +1257,14 @@ export class EntitiesController extends BaseController<EntitiesModel> {
         this.ensureInitialized();
 
         try {
-            // Simplifier les requêtes pour HSQLDB - juste récupérer tous les enregistrements et calculer en mémoire
+            // Simplifier les requÃªtes pour HSQLDB - juste rÃ©cupÃ©rer tous les enregistrements et calculer en mÃ©moire
             const allEntitiesSql = 'SELECT * FROM ENTITIES';
             const allEntitiesResult = await this.executeQuery(allEntitiesSql, []);
             
             const entities = EntitiesModel.fromRows(allEntitiesResult);
             const totalEntities = entities.length;
 
-            // Calculer les statistiques en mémoire
+            // Calculer les statistiques en mÃ©moire
             const entitiesByType: Record<string, number> = {};
             const entitiesByFaction: Record<string, number> = {};
             let dockedEntities = 0;
@@ -1360,7 +1366,7 @@ export class EntitiesController extends BaseController<EntitiesModel> {
     public async getTotalEntityCount(): Promise<number> {
         this.ensureInitialized();
 
-        const sql = 'SELECT COUNT(*) as total_count FROM ENTITIES';
+        const sql = 'SELECT COUNT(*) as "total_count" FROM ENTITIES';
 
         try {
             const result = await this.executeQuery(sql, []);

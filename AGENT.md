@@ -13,7 +13,7 @@ Develop a robust, secure, and fully documented **TypeScript/JavaScript ES2023 mo
 ├── docs/
 │   ├── api/                    # Public API documentation
 │   ├── database/               # StarMade database schema documentation
-│   └── HISTORY.md              # Change log and version history
+│   └── CHANGELOG.md              # Change log and version history
 ├── src/
 │   ├── core/
 │   │   ├── HSQLManager.ts      # Main manager class
@@ -65,14 +65,14 @@ Develop a robust, secure, and fully documented **TypeScript/JavaScript ES2023 mo
   - Implement minimal code to pass
   - Refactor while keeping tests green
 * Maintain test structure mirroring `src/` directory
-* Achieve minimum 80% code coverage
+* Require 100% line and branch coverage for every executable source file, including private implementation paths
 
 ### Coding Standards
 
 * **TypeScript/JavaScript ES2023**: Use modern language features
 * **SOLID Principles**: Single responsibility, open/closed, etc.
 * **DRY**: Eliminate code duplication through abstraction
-* **JSDoc**: Document all public APIs with complete annotations
+* **JSDoc**: Document public, protected and private declarations with accurate descriptions and applicable annotations
 * **Immutability**: Prefer `const` over `let`, avoid mutations
 * **Module Pattern**: Each module extends `BaseModule` interface
 
@@ -203,21 +203,21 @@ npm test
 
 ### 2. Documentation Requirements
 
-* **JSDoc**: Complete documentation for all public methods
+* **JSDoc**: Complete documentation for public, protected and private methods and declarations
 * **README**: Update if API changes
-* **HISTORY.md**: Log all changes with version
+* **CHANGELOG.md**: Log all changes with version
 * **Examples**: Add usage examples for new features
 
 ### 3. Code Review Checklist
 
 - [ ] All tests pass (`npm test`)
-- [ ] Coverage ≥ 80% (`npm run test:coverage`)
+- [ ] Coverage: 100% lines and branches per file (`npm run test:coverage`)
 - [ ] JSDoc complete and accurate
 - [ ] No TypeScript errors (`npm run build`)
 - [ ] Security guidelines followed
 - [ ] Performance impact assessed
 - [ ] Examples provided
-- [ ] HISTORY.md updated
+- [ ] CHANGELOG.md updated
 
 ---
 
@@ -256,9 +256,9 @@ npm test
 | Task | Complete | Notes |
 |------|----------|-------|
 | All tests passing | ☐ | `npm test` |
-| Coverage ≥ 80% | ☐ | `npm run test:coverage` |
+| Coverage: 100% lines and branches per file | ☐ | `npm run test:coverage` |
 | Build successful | ☐ | `npm run build` |
-| Docs updated | ☐ | API.md, HISTORY.md |
+| Docs updated | ☐ | API.md, CHANGELOG.md |
 | Examples working | ☐ | `npm run examples` |
 | Security audit | ☐ | `npm audit` |
 | Performance baseline | ☐ | No regression |
@@ -296,7 +296,7 @@ npm test
 
 ## Success Indicators
 
-* **Test Coverage**: ≥ 80% across all modules
+* **Test Coverage**: 100% lines and branches in every executable source file
 * **Performance**: < 100ms average query time
 * **Reliability**: Zero unhandled rejections
 * **Documentation**: 100% public API documented

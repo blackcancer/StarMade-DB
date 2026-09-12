@@ -51,34 +51,21 @@ describe('FleetMembersController', function () {
         fleetsCtrl = new FleetsController();
         await fleetsCtrl.initialize(manager);
 
-        // Fetch an existing entity ID from the DB to satisfy the FK constraint
-        // Note: ENTITIES may be empty if ARRAY syntax wasn't loaded - try PLAYERS as fallback
+        // The checked-in fixture must contain an entity for the real foreign keys.
         const paramQ = manager.getModule<any>('parameterized-query');
-        if (paramQ) {
-            try {
-                const result = await paramQ.execute('SELECT TOP 1 ID FROM ENTITIES', []);
-                if (result?.rows?.length > 0) {
-                    existingEntityId = Number(result.rows[0][0]);
-                }
-            } catch { /* ENTITIES may be empty */ }
-        }
-
-        // Create a test fleet to use as FK reference for FLEET_ID
-        if (existingEntityId > 0) {
-            try {
-                const fleet = await fleetsCtrl.create({
-                    FLAGSHIP_ID: existingEntityId,
-                    PARENT_FLEET: -1,
-                    NAME: 'Test Fleet for FleetMembers',
-                    OWNER: 'test_owner',
-                    MISSION_STRING: 'IDLE'
-                }, { skipForeignKeyValidation: true });
-                testFleetId = fleet.getId();
-                createdFleetIds.push(testFleetId);
-            } catch {
-                // Fleet creation may fail – skip FK-dependent tests
-            }
-        }
+        expect(paramQ).to.exist;
+        const result = await paramQ.execute('SELECT ID FROM ENTITIES ORDER BY ID LIMIT 1', []);
+        expect(result.rows).not.to.be.empty;
+        existingEntityId = Number(result.rows[0][0]);
+        const fleet = await fleetsCtrl.create({
+            FLAGSHIP_ID: existingEntityId,
+            PARENT_FLEET: -1,
+            NAME: 'Test Fleet for FleetMembers',
+            OWNER: 'test_owner',
+            MISSION_STRING: 'IDLE'
+        });
+        testFleetId = fleet.getId();
+        createdFleetIds.push(testFleetId);
     });
 
     after(async () => {
@@ -107,18 +94,12 @@ describe('FleetMembersController', function () {
                 throw e;
             }
         });
-        it('returns true for existing membership (requires valid FK IDs)', async function () {
-            if (testFleetId < 0 || existingEntityId < 0) {
-                return this.skip();
-            }
+        it('returns true for an existing membership with real foreign keys', async () => {
             const data = { FLEET_ID: testFleetId, ENTITY_ID: existingEntityId, MISSION_STRING: 'IDLE', LIST_INDEX: 0, DOCKED_TO: -1, FACTION: 0 };
-            try {
-                await controller.create(data, { preventDuplicates: false, skipForeignKeyValidation: false });
-                createdKeys.push({ fleetId: testFleetId, entityId: existingEntityId });
-                expect(await controller.membershipExists(testFleetId, existingEntityId)).to.be.true;
-            } catch {
-                this.skip();
-            }
+            await controller.create(data);
+            createdKeys.push({ fleetId: testFleetId, entityId: existingEntityId });
+            expect(await controller.membershipExists(testFleetId, existingEntityId)).to.be.true;
+            expect(await controller.delete({ fleetId: testFleetId, entityId: existingEntityId })).to.be.true;
         });
     });
 
@@ -131,23 +112,29 @@ describe('FleetMembersController', function () {
             try { await controller.create({ FLEET_ID: 1, LIST_INDEX: 0, DOCKED_TO: -1 }); assert.fail(); }
             catch (e) { expect(e).to.be.instanceOf(ValidationError); }
         });
-        it('creates a membership with valid FK IDs', async function () {
-            if (testFleetId < 0 || existingEntityId < 0) return this.skip();
-            // Use a unique entity ID slot if possible
+        it('creates a membership with valid FK IDs', async () => {
             const data = { FLEET_ID: testFleetId, ENTITY_ID: existingEntityId, MISSION_STRING: 'PATROLLING', LIST_INDEX: 1, DOCKED_TO: -1, FACTION: 0 };
-            try {
-                const existing = await controller.membershipExists(testFleetId, existingEntityId);
-                if (existing) return this.skip(); // already created by previous test
-                const m = await controller.create(data, { preventDuplicates: true });
-                createdKeys.push({ fleetId: testFleetId, entityId: existingEntityId });
-                expect(m).to.be.instanceOf(FleetMembersModel);
-            } catch {
-                this.skip();
-            }
+            expect(await controller.membershipExists(testFleetId, existingEntityId)).to.be.false;
+            const member = await controller.create(data, { preventDuplicates: true });
+            createdKeys.push({ fleetId: testFleetId, entityId: existingEntityId });
+            expect(member).to.be.instanceOf(FleetMembersModel);
+            expect(member.getEntityId()).to.equal(existingEntityId);
         });
     });
 
     describe('findAll()', () => {
+        for (const dockingStatus of ['FREE_FLOATING', 'DOCKED_TO_FLEET_MEMBER', 'DOCKED_TO_STATION', 'UNKNOWN']) {
+            it('executes the schema-derived ' + dockingStatus + ' filter', async () => {
+                const rows = await controller.findAll({ fleetId: testFleetId, dockingStatus: dockingStatus as any, flagshipOnly: true });
+                expect(rows).to.be.an('array');
+                if (dockingStatus === 'FREE_FLOATING') {
+                    expect(rows.map(row => Number(row.getEntityId()))).to.include(existingEntityId);
+                } else {
+                    expect(rows).to.have.length(0);
+                }
+            });
+        }
+
         it('should return an array', async () => {
             const results = await controller.findAll({ limit: 10 });
             expect(results).to.be.an('array');

@@ -1,3 +1,4 @@
+import * as related0 from '../players/PlayersModel.js';
 /**
  * @fileoverview Player Messages Model
  * 
@@ -26,8 +27,10 @@ import {
  * and comprehensive message analytics.
  */
 export class PlayerMessagesModel extends BaseModel {
+    /** SQL table name used to generate queries for this model. */
     public static tableName = 'PLAYER_MESSAGES';
     
+    /** SQL column, key, index and validation definitions for this table. */
     public static schema: TableSchema = {
         tableName: 'PLAYER_MESSAGES',
         comment: 'In-game messaging system',
@@ -125,7 +128,7 @@ export class PlayerMessagesModel extends BaseModel {
             senderPlayer: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../players/PlayersModel.js').PlayersModel;
+                    return related0.PlayersModel;
                 },
                 {
                     from: 'PLAYER_MESSAGES.SENDER',
@@ -137,7 +140,7 @@ export class PlayerMessagesModel extends BaseModel {
             receiverPlayer: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../players/PlayersModel.js').PlayersModel;
+                    return related0.PlayersModel;
                 },
                 {
                     from: 'PLAYER_MESSAGES.RECEIVER',
@@ -151,28 +154,100 @@ export class PlayerMessagesModel extends BaseModel {
     // TYPED ACCESSORS
     // =============================================================================
 
+    /**
+     * Read the PLAYER_MESSAGES.ID column from this model. Numeric strings are converted to integers.
+     * @returns The stored ID value, normalized to an integer when necessary.
+     */
     public getId(): number { const v = this.get('ID'); if (v === undefined || v === null) return undefined as any; return typeof v === 'string' ? parseInt(v, 10) : v; }
+    /**
+     * Store the PLAYER_MESSAGES.ID column in this model and return this for chaining.
+     * @param id New value for the ID column.
+     * @returns This model for chaining.
+     */
     public setId(id: number): this { return this.set('ID', id); }
 
+    /**
+     * Read the PLAYER_MESSAGES.SENDER column from this model.
+     * @returns The stored SENDER value.
+     */
     public getSender(): string { return this.get('SENDER'); }
+    /**
+     * Store the PLAYER_MESSAGES.SENDER column in this model and return this for chaining.
+     * @param sender New value for the SENDER column.
+     * @returns This model for chaining.
+     */
     public setSender(sender: string): this { return this.set('SENDER', sender); }
 
+    /**
+     * Read the PLAYER_MESSAGES.RECEIVER column from this model.
+     * @returns The stored RECEIVER value.
+     */
     public getReceiver(): string { return this.get('RECEIVER'); }
+    /**
+     * Store the PLAYER_MESSAGES.RECEIVER column in this model and return this for chaining.
+     * @param receiver New value for the RECEIVER column.
+     * @returns This model for chaining.
+     */
     public setReceiver(receiver: string): this { return this.set('RECEIVER', receiver); }
 
+    /**
+     * Read the PLAYER_MESSAGES.TOPIC column from this model.
+     * @returns The stored TOPIC value.
+     */
     public getTopic(): string { return this.get('TOPIC'); }
+    /**
+     * Store the PLAYER_MESSAGES.TOPIC column in this model and return this for chaining.
+     * @param topic New value for the TOPIC column.
+     * @returns This model for chaining.
+     */
     public setTopic(topic: string): this { return this.set('TOPIC', topic); }
 
+    /**
+     * Read the PLAYER_MESSAGES.MESSAGE column from this model.
+     * @returns The stored MESSAGE value.
+     */
     public getMessage(): string { return this.get('MESSAGE'); }
+    /**
+     * Store the PLAYER_MESSAGES.MESSAGE column in this model and return this for chaining.
+     * @param message New value for the MESSAGE column.
+     * @returns This model for chaining.
+     */
     public setMessage(message: string): this { return this.set('MESSAGE', message); }
 
+    /**
+     * Read the PLAYER_MESSAGES.SENT column from this model.
+     * @returns The stored SENT value.
+     */
     public getSent(): number { return this.get('SENT'); }
+    /**
+     * Store the PLAYER_MESSAGES.SENT column in this model and return this for chaining.
+     * @param sent New value for the SENT column.
+     * @returns This model for chaining.
+     */
     public setSent(sent: number): this { return this.set('SENT', sent); }
 
+    /**
+     * Read the PLAYER_MESSAGES.READ column from this model.
+     * @returns The stored READ value.
+     */
     public getRead(): boolean { return this.get('READ') || false; }
+    /**
+     * Store the PLAYER_MESSAGES.read column in this model and return this for chaining.
+     * @param read New value for the read column.
+     * @returns This model for chaining.
+     */
     public setRead(read: boolean): this { return this.set('read', read); }
 
+    /**
+     * Read the PLAYER_MESSAGES.ATT_ID column from this model.
+     * @returns The stored ATT_ID value.
+     */
     public getAttId(): number | undefined { return this.get('ATT_ID'); }
+    /**
+     * Store the PLAYER_MESSAGES.ATT_ID column in this model and return this for chaining.
+     * @param attId New value for the ATT_ID column.
+     * @returns This model for chaining.
+     */
     public setAttId(attId: number | undefined): this { return this.set('ATT_ID', attId); }
 
     // =============================================================================
@@ -232,31 +307,38 @@ export class PlayerMessagesModel extends BaseModel {
     // BUSINESS LOGIC METHODS - ENHANCED EDITION
     // =============================================================================
 
+    /** Whether the stored unread flag is set. */
     public isUnread(): boolean {
         return !this.getRead();
     }
 
+    /** Whether an attachment identifier is present on this message. */
     public hasAttachment(): boolean {
         const attId = this.getAttId();
         return attId !== null && attId !== undefined;
     }
 
+    /** Clear the unread flag and return this model for chaining. */
     public markAsRead(): this {
         return this.setRead(true);
     }
 
+    /** Set the unread flag and return this model for chaining. */
     public markAsUnread(): this {
         return this.setRead(false);
     }
 
+    /** Convert the stored SENT timestamp in milliseconds to a JavaScript Date. */
     public getSentDate(): Date {
         return new Date(this.getSent());
     }
 
+    /** Format the SENT timestamp as an ISO 8601 UTC date-time string. */
     public getFormattedSentDate(): string {
         return this.getSentDate().toISOString();
     }
 
+    /** Return the message text, truncated to maxLength characters followed by an ellipsis when necessary. */
     public getMessagePreview(maxLength: number = 50): string {
         const message = this.getMessage();
         if (message.length <= maxLength) return message;

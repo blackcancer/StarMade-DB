@@ -473,38 +473,54 @@ export interface SchemaAnalysisConfig {
  */
 export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEvent> {
     /** @readonly Module name identifier */
+    /** Stable module identifier used when registering and looking up the module. */
     public readonly name = 'schema-analyzer';
     /** @readonly Module version */
+    /** Version of this module implementation. */
     public readonly version = '1.0.0';
     /** @readonly Whether the module is initialized */
+    /** Whether initialization completed and the module is available for use. */
     public get isInitialized(): boolean { return this._initialized; }
 
-    /** @private Internal initialization state */
+    /**
+     * Whether initialization completed successfully. @private Internal initialization state */
     private _initialized = false;
-    /** @private Reference to the HSQLManager instance */
+    /**
+     * Owning manager used to resolve configuration and module dependencies. @private Reference to the HSQLManager instance */
     private manager?: HSQLManager;
-    /** @private Reference to the ConnectionManager instance */
+    /**
+     * Connection pool module used to borrow and release JDBC sessions. @private Reference to the ConnectionManager instance */
     private connectionManager?: ConnectionManager;
-    /** @private Reference to the CacheManager instance (optional) */
+    /**
+     * Cache module used to store and invalidate shared results. @private Reference to the CacheManager instance (optional) */
     private cacheManager?: CacheManager;
-    /** @private Reference to the CacheStatsCollector instance (optional) */
+    /**
+     * Collector receiving schema cache hit and miss observations. @private Reference to the CacheStatsCollector instance (optional) */
     private cacheStatsCollector?: CacheStatsCollector;
-    /** @private Schema analysis configuration */
+    /**
+     * Effective configuration applied to this instance. @private Schema analysis configuration */
     private config?: SchemaAnalysisConfig;
-    /** @private Whether the analyzer has been destroyed */
+    /**
+     * Whether destruction has started; prevents operations after resource cleanup. @private Whether the analyzer has been destroyed */
     private destroyed = false;
-    /** @private Start time for uptime calculation */
+    /**
+     * Creation timestamp in milliseconds used to calculate uptime. @private Start time for uptime calculation */
     private readonly startTime = Date.now();
-    /** @private Module logger instance */
+    /**
+     * Module logger for operation context and diagnostic errors. @private Module logger instance */
     private logger: ModuleLogger;
-    /** @private Event emitter implementation */
+    /**
+     * Emitter that dispatches this module’s lifecycle and operation events. @private Event emitter implementation */
     private eventEmitter: ModuleEventEmitterImpl<ModuleEvent>;
     
-    /** @private Cache for analyzed schemas */
-    private schemaCache: Map<string, DatabaseSchema> = new Map();
-    /** @private Cache for analyzed tables */
-    private tableCache: Map<string, TableInfo> = new Map();
-    /** @private Last analysis timestamp */
+    /**
+     * Cached whole-database schema analyses. @private Cache for analyzed schemas */
+    private schemaCache: Map<string, {value: DatabaseSchema; expiresAt: number}> = new Map();
+    /**
+     * Cached per-table schema metadata. @private Cache for analyzed tables */
+    private tableCache: Map<string, {value: TableInfo; expiresAt: number}> = new Map();
+    /**
+     * Timestamp of the most recent schema analysis. @private Last analysis timestamp */
     private lastAnalysisTime?: Date;
 
     /**
@@ -1002,9 +1018,9 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
             const countSql = `
                 SELECT 
                     COUNT(*) as total_rows,
-                    COUNT(${columnName}) as non_null_count,
-                    COUNT(DISTINCT ${columnName}) as unique_count
-                FROM ${tableName}
+                    COUNT(${this.quoteIdentifier(columnName)}) as non_null_count,
+                    COUNT(DISTINCT ${this.quoteIdentifier(columnName)}) as unique_count
+                FROM ${this.quoteIdentifier(tableName)}
             `;
 
             const countResult = await connection.execute(countSql);
@@ -1026,11 +1042,11 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
                 try {
                     const numericSql = `
                         SELECT 
-                            MIN(${columnName}) as min_val,
-                            MAX(${columnName}) as max_val,
-                            AVG(CAST(${columnName} AS DOUBLE)) as avg_val
-                        FROM ${tableName}
-                        WHERE ${columnName} IS NOT NULL
+                            MIN(${this.quoteIdentifier(columnName)}) as min_val,
+                            MAX(${this.quoteIdentifier(columnName)}) as max_val,
+                            AVG(CAST(${this.quoteIdentifier(columnName)} AS DOUBLE)) as avg_val
+                        FROM ${this.quoteIdentifier(tableName)}
+                        WHERE ${this.quoteIdentifier(columnName)} IS NOT NULL
                     `;
 
                     const numericResult = await connection.execute(numericSql);
@@ -1038,7 +1054,7 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
                         const numericRow = numericResult.rows[0];
                         minValue = numericRow[0];
                         maxValue = numericRow[1];
-                        averageValue = numericRow[2] ? parseFloat(numericRow[2] as string) : undefined;
+                        averageValue = numericRow[2] !== null && numericRow[2] !== undefined ? parseFloat(numericRow[2] as string) : undefined;
                     }
                 } catch (error) {
                     this.logger.debug('Failed to get numeric statistics', {
@@ -1054,10 +1070,10 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
             if (nonNullCount > 0) {
                 try {
                     const frequentSql = `
-                        SELECT ${columnName}, COUNT(*) as freq
-                        FROM ${tableName}
-                        WHERE ${columnName} IS NOT NULL
-                        GROUP BY ${columnName}
+                        SELECT ${this.quoteIdentifier(columnName)}, COUNT(*) as freq
+                        FROM ${this.quoteIdentifier(tableName)}
+                        WHERE ${this.quoteIdentifier(columnName)} IS NOT NULL
+                        GROUP BY ${this.quoteIdentifier(columnName)}
                         ORDER BY freq DESC
                         LIMIT 1
                     `;
@@ -1086,9 +1102,9 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
                 try {
                     const maxSamples = Math.min(config.maxSampleSize, 10); // Limit sample size for performance
                     const sampleSql = `
-                        SELECT ${columnName}
-                        FROM ${tableName}
-                        WHERE ${columnName} IS NOT NULL
+                        SELECT ${this.quoteIdentifier(columnName)}
+                        FROM ${this.quoteIdentifier(tableName)}
+                        WHERE ${this.quoteIdentifier(columnName)} IS NOT NULL
                         LIMIT ${maxSamples}
                     `;
 
@@ -1157,18 +1173,17 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
      */
     private async getTableIndexes(connection: JDBCConnection, tableName: string): Promise<IndexInfo[]> {
         try {
-            // CORRECTION CRITIQUE: Utiliser INFORMATION_SCHEMA.STATISTICS au lieu de SYSTEM_INDEXINFO
-            // qui est plus standard et devrait fonctionner avec HSQLDB
+            // HSQLDB exposes JDBC index metadata through SYSTEM_INDEXINFO.
             const sql = `
                 SELECT 
                     INDEX_NAME,
                     NON_UNIQUE,
                     COLUMN_NAME,
-                    SEQ_IN_INDEX,
-                    COLLATION
-                FROM INFORMATION_SCHEMA.STATISTICS 
-                WHERE TABLE_NAME = ? AND TABLE_SCHEMA = 'PUBLIC'
-                ORDER BY INDEX_NAME, SEQ_IN_INDEX
+                    ORDINAL_POSITION,
+                    ASC_OR_DESC
+                FROM INFORMATION_SCHEMA.SYSTEM_INDEXINFO 
+                WHERE TABLE_NAME = ? AND TABLE_SCHEM = 'PUBLIC'
+                ORDER BY INDEX_NAME, ORDINAL_POSITION
             `;
 
             const result = await connection.execute(sql, [tableName]);
@@ -1222,117 +1237,110 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
      * @returns {Promise<ConstraintInfo[]>} Array of constraint information
      */
     private async getTableConstraints(connection: JDBCConnection, tableName: string): Promise<ConstraintInfo[]> {
+        const constraints: ConstraintInfo[] = [];
+
+        // CORRECTION 1: Primary keys avec gestion d'erreur robuste
         try {
-            const constraints: ConstraintInfo[] = [];
+            const pkSql = `
+                SELECT 
+                    CONSTRAINT_NAME,
+                    COLUMN_NAME
+                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+                WHERE TABLE_NAME = ? AND TABLE_SCHEMA = 'PUBLIC'
+                  AND CONSTRAINT_NAME IN (
+                      SELECT CONSTRAINT_NAME 
+                      FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+                      WHERE TABLE_NAME = ? AND TABLE_SCHEMA = 'PUBLIC' 
+                        AND CONSTRAINT_TYPE = 'PRIMARY KEY'
+                  )
+                ORDER BY CONSTRAINT_NAME, ORDINAL_POSITION
+            `;
 
-            // CORRECTION 1: Primary keys avec gestion d'erreur robuste
-            try {
-                const pkSql = `
-                    SELECT 
-                        CONSTRAINT_NAME,
-                        COLUMN_NAME
-                    FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
-                    WHERE TABLE_NAME = ? AND TABLE_SCHEMA = 'PUBLIC'
-                      AND CONSTRAINT_NAME IN (
-                          SELECT CONSTRAINT_NAME 
-                          FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
-                          WHERE TABLE_NAME = ? AND TABLE_SCHEMA = 'PUBLIC' 
-                            AND CONSTRAINT_TYPE = 'PRIMARY KEY'
-                      )
-                    ORDER BY CONSTRAINT_NAME, ORDINAL_POSITION
-                `;
+            const pkResult = await connection.execute(pkSql, [tableName, tableName]);
+            const pkMap = new Map<string, ConstraintInfo>();
 
-                const pkResult = await connection.execute(pkSql, [tableName, tableName]);
-                const pkMap = new Map<string, ConstraintInfo>();
+            for (const row of pkResult.rows) {
+                const constraintName = row[0] as string;
+                const columnName = row[1] as string;
 
-                for (const row of pkResult.rows) {
-                    const constraintName = row[0] as string;
-                    const columnName = row[1] as string;
-
-                    if (!pkMap.has(constraintName)) {
-                        pkMap.set(constraintName, {
-                            name: constraintName,
-                            type: 'PRIMARY_KEY',
-                            tableName,
-                            columns: []
-                        });
-                    }
-
-                    pkMap.get(constraintName)!.columns.push(columnName);
+                if (!pkMap.has(constraintName)) {
+                    pkMap.set(constraintName, {
+                        name: constraintName,
+                        type: 'PRIMARY_KEY',
+                        tableName,
+                        columns: []
+                    });
                 }
 
-                constraints.push(...Array.from(pkMap.values()));
-            } catch (pkError) {
-                this.logger.debug('Failed to get primary keys', {
-                    operation: 'get-primary-keys',
-                    tableName,
-                    error: pkError instanceof Error ? pkError.message : String(pkError)
-                });
+                pkMap.get(constraintName)!.columns.push(columnName);
             }
 
-            // CORRECTION 2: Foreign keys avec requête standard INFORMATION_SCHEMA
-            try {
-                const fkSql = `
-                    SELECT 
-                        kcu.CONSTRAINT_NAME,
-                        kcu.COLUMN_NAME,
-                        ccu.TABLE_NAME as REFERENCED_TABLE_NAME,
-                        ccu.COLUMN_NAME as REFERENCED_COLUMN_NAME
-                    FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
-                    JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc 
-                        ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
-                    JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ccu 
-                        ON rc.UNIQUE_CONSTRAINT_NAME = ccu.CONSTRAINT_NAME
-                    WHERE kcu.TABLE_NAME = ? AND kcu.TABLE_SCHEMA = 'PUBLIC'
-                    ORDER BY kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION
-                `;
-
-                const fkResult = await connection.execute(fkSql, [tableName]);
-                const fkMap = new Map<string, ConstraintInfo>();
-
-                for (const row of fkResult.rows) {
-                    const constraintName = row[0] as string;
-                    const fkColumnName = row[1] as string;
-                    const pkTableName = row[2] as string;
-                    const pkColumnName = row[3] as string;
-
-                    if (!fkMap.has(constraintName)) {
-                        fkMap.set(constraintName, {
-                            name: constraintName,
-                            type: 'FOREIGN_KEY',
-                            tableName,
-                            columns: [],
-                            referencedTable: pkTableName,
-                            referencedColumns: [],
-                            updateRule: 'NO_ACTION',
-                            deleteRule: 'NO_ACTION'
-                        });
-                    }
-
-                    const fkConstraint = fkMap.get(constraintName)!;
-                    fkConstraint.columns.push(fkColumnName);
-                    fkConstraint.referencedColumns!.push(pkColumnName);
-                }
-
-                constraints.push(...Array.from(fkMap.values()));
-            } catch (fkError) {
-                this.logger.debug('Failed to get foreign keys', {
-                    operation: 'get-foreign-keys',
-                    tableName,
-                    error: fkError instanceof Error ? fkError.message : String(fkError)
-                });
-            }
-
-            return constraints;
-        } catch (error) {
-            this.logger.warn('Failed to get table constraints', {
-                operation: 'get-table-constraints',
+            constraints.push(...Array.from(pkMap.values()));
+        } catch (pkError) {
+            this.logger.debug('Failed to get primary keys', {
+                operation: 'get-primary-keys',
                 tableName,
-                error: error instanceof Error ? error.message : String(error)
+                error: pkError instanceof Error ? pkError.message : String(pkError)
             });
-            // Retourner un tableau vide pour permettre à l'analyse de continuer
-            return [];
         }
+
+        // CORRECTION 2: Foreign keys avec requête standard INFORMATION_SCHEMA
+        try {
+            const fkSql = `
+                SELECT 
+                    kcu.CONSTRAINT_NAME,
+                    kcu.COLUMN_NAME,
+                    ccu.TABLE_NAME as REFERENCED_TABLE_NAME,
+                    ccu.COLUMN_NAME as REFERENCED_COLUMN_NAME,
+                    rc.UPDATE_RULE, rc.DELETE_RULE
+                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+                JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc 
+                    ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+                JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ccu 
+                    ON rc.UNIQUE_CONSTRAINT_NAME = ccu.CONSTRAINT_NAME
+                   AND ccu.ORDINAL_POSITION = kcu.POSITION_IN_UNIQUE_CONSTRAINT
+                WHERE kcu.TABLE_NAME = ? AND kcu.TABLE_SCHEMA = 'PUBLIC'
+                ORDER BY kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION
+            `;
+
+            const fkResult = await connection.execute(fkSql, [tableName]);
+            const fkMap = new Map<string, ConstraintInfo>();
+
+            for (const row of fkResult.rows) {
+                const constraintName = row[0] as string;
+                const fkColumnName = row[1] as string;
+                const pkTableName = row[2] as string;
+                const pkColumnName = row[3] as string;
+
+                if (!fkMap.has(constraintName)) {
+                    fkMap.set(constraintName, {
+                        name: constraintName,
+                        type: 'FOREIGN_KEY',
+                        tableName,
+                        columns: [],
+                        referencedTable: pkTableName,
+                        referencedColumns: [],
+                        updateRule: String(row[4] || 'NO ACTION').replace(/ /g, '_') as ConstraintInfo['updateRule'],
+                        deleteRule: String(row[5] || 'NO ACTION').replace(/ /g, '_') as ConstraintInfo['deleteRule']
+                    });
+                }
+
+                const fkConstraint = fkMap.get(constraintName)!;
+                fkConstraint.columns.push(fkColumnName);
+                fkConstraint.referencedColumns!.push(pkColumnName);
+            }
+
+            constraints.push(...Array.from(fkMap.values()));
+        } catch (fkError) {
+            this.logger.debug('Failed to get foreign keys', {
+                operation: 'get-foreign-keys',
+                tableName,
+                error: fkError instanceof Error ? fkError.message : String(fkError)
+            });
+        }
+
+        return constraints;
+
     }
 
     /**
@@ -1351,114 +1359,118 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
         const foreignKeys: Array<any> = [];
         const referencingKeys: Array<any> = [];
 
+        // CORRECTION 1: Foreign keys FROM this table avec requête standard
         try {
-            // CORRECTION 1: Foreign keys FROM this table avec requête standard
-            try {
-                const fkFromSql = `
-                    SELECT 
-                        kcu.CONSTRAINT_NAME,
-                        kcu.COLUMN_NAME,
-                        ccu.TABLE_NAME as REFERENCED_TABLE_NAME,
-                        ccu.COLUMN_NAME as REFERENCED_COLUMN_NAME
-                    FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
-                    JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc 
-                        ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
-                    JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ccu 
-                        ON rc.UNIQUE_CONSTRAINT_NAME = ccu.CONSTRAINT_NAME
-                    WHERE kcu.TABLE_NAME = ? AND kcu.TABLE_SCHEMA = 'PUBLIC'
-                    ORDER BY kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION
-                `;
+            const fkFromSql = `
+                SELECT 
+                    kcu.CONSTRAINT_NAME,
+                    kcu.COLUMN_NAME,
+                    ccu.TABLE_NAME as REFERENCED_TABLE_NAME,
+                    ccu.COLUMN_NAME as REFERENCED_COLUMN_NAME
+                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+                JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc 
+                    ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+                JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ccu 
+                    ON rc.UNIQUE_CONSTRAINT_NAME = ccu.CONSTRAINT_NAME
+                   AND ccu.ORDINAL_POSITION = kcu.POSITION_IN_UNIQUE_CONSTRAINT
+                WHERE kcu.TABLE_NAME = ? AND kcu.TABLE_SCHEMA = 'PUBLIC'
+                ORDER BY kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION
+            `;
 
-                const fkFromResult = await connection.execute(fkFromSql, [tableName]);
-                const fkFromMap = new Map<string, any>();
+            const fkFromResult = await connection.execute(fkFromSql, [tableName]);
+            const fkFromMap = new Map<string, any>();
 
-                for (const row of fkFromResult.rows) {
-                    const fkName = row[0] as string;
-                    const fkColumn = row[1] as string;
-                    const pkTable = row[2] as string;
-                    const pkColumn = row[3] as string;
+            for (const row of fkFromResult.rows) {
+                const fkName = row[0] as string;
+                const fkColumn = row[1] as string;
+                const pkTable = row[2] as string;
+                const pkColumn = row[3] as string;
 
-                    if (!fkFromMap.has(fkName)) {
-                        fkFromMap.set(fkName, {
-                            name: fkName,
-                            columns: [],
-                            referencedTable: pkTable,
-                            referencedColumns: []
-                        });
-                    }
-
-                    const fk = fkFromMap.get(fkName)!;
-                    fk.columns.push(fkColumn);
-                    fk.referencedColumns.push(pkColumn);
+                if (!fkFromMap.has(fkName)) {
+                    fkFromMap.set(fkName, {
+                        name: fkName,
+                        columns: [],
+                        referencedTable: pkTable,
+                        referencedColumns: []
+                    });
                 }
 
-                foreignKeys.push(...Array.from(fkFromMap.values()));
-            } catch (fkFromError) {
-                this.logger.debug('Failed to extract outgoing foreign keys', {
-                    operation: 'extract-fk-from',
-                    tableName,
-                    error: fkFromError instanceof Error ? fkFromError.message : String(fkFromError)
-                });
+                const fk = fkFromMap.get(fkName)!;
+                fk.columns.push(fkColumn);
+                fk.referencedColumns.push(pkColumn);
             }
 
-            // CORRECTION 2: Foreign keys TO this table avec requête standard
-            try {
-                const fkToSql = `
-                    SELECT 
-                        kcu.CONSTRAINT_NAME,
-                        kcu.TABLE_NAME as REFERENCING_TABLE_NAME,
-                        kcu.COLUMN_NAME,
-                        ccu.COLUMN_NAME as REFERENCED_COLUMN_NAME
-                    FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
-                    JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc 
-                        ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
-                    JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ccu 
-                        ON rc.UNIQUE_CONSTRAINT_NAME = ccu.CONSTRAINT_NAME
-                    WHERE ccu.TABLE_NAME = ? AND ccu.TABLE_SCHEMA = 'PUBLIC'
-                    ORDER BY kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION
-                `;
-
-                const fkToResult = await connection.execute(fkToSql, [tableName]);
-                const fkToMap = new Map<string, any>();
-
-                for (const row of fkToResult.rows) {
-                    const fkName = row[0] as string;
-                    const fkTable = row[1] as string;
-                    const fkColumn = row[2] as string;
-                    const pkColumn = row[3] as string;
-
-                    if (!fkToMap.has(fkName)) {
-                        fkToMap.set(fkName, {
-                            name: fkName,
-                            referencingTable: fkTable,
-                            referencingColumns: [],
-                            localColumns: []
-                        });
-                    }
-
-                    const fk = fkToMap.get(fkName)!;
-                    fk.referencingColumns.push(fkColumn);
-                    fk.localColumns.push(pkColumn);
-                }
-
-                referencingKeys.push(...Array.from(fkToMap.values()));
-            } catch (fkToError) {
-                this.logger.debug('Failed to extract incoming foreign keys', {
-                    operation: 'extract-fk-to',
-                    tableName,
-                    error: fkToError instanceof Error ? fkToError.message : String(fkToError)
-                });
-            }
-
-        } catch (error) {
-            this.logger.warn('Failed to extract foreign keys', {
-                operation: 'extract-foreign-keys',
+            foreignKeys.push(...Array.from(fkFromMap.values()));
+        } catch (fkFromError) {
+            this.logger.debug('Failed to extract outgoing foreign keys', {
+                operation: 'extract-fk-from',
                 tableName,
-                error: error instanceof Error ? error.message : String(error)
+                error: fkFromError instanceof Error ? fkFromError.message : String(fkFromError)
             });
         }
 
+        // CORRECTION 2: Foreign keys TO this table avec requête standard
+        try {
+            const fkToSql = `
+                SELECT 
+                    kcu.CONSTRAINT_NAME,
+                    kcu.TABLE_NAME as REFERENCING_TABLE_NAME,
+                    kcu.COLUMN_NAME,
+                    ccu.COLUMN_NAME as REFERENCED_COLUMN_NAME
+                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+                JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc 
+                    ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+                JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ccu 
+                    ON rc.UNIQUE_CONSTRAINT_NAME = ccu.CONSTRAINT_NAME
+                   AND ccu.ORDINAL_POSITION = kcu.POSITION_IN_UNIQUE_CONSTRAINT
+                WHERE ccu.TABLE_NAME = ? AND ccu.TABLE_SCHEMA = 'PUBLIC'
+                ORDER BY kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION
+            `;
+
+            const fkToResult = await connection.execute(fkToSql, [tableName]);
+            const fkToMap = new Map<string, any>();
+
+            for (const row of fkToResult.rows) {
+                const fkName = row[0] as string;
+                const fkTable = row[1] as string;
+                const fkColumn = row[2] as string;
+                const pkColumn = row[3] as string;
+
+                if (!fkToMap.has(fkName)) {
+                    fkToMap.set(fkName, {
+                        name: fkName,
+                        referencingTable: fkTable,
+                        referencingColumns: [],
+                        localColumns: []
+                    });
+                }
+
+                const fk = fkToMap.get(fkName)!;
+                fk.referencingColumns.push(fkColumn);
+                fk.localColumns.push(pkColumn);
+            }
+
+            referencingKeys.push(...Array.from(fkToMap.values()));
+        } catch (fkToError) {
+            this.logger.debug('Failed to extract incoming foreign keys', {
+                operation: 'extract-fk-to',
+                tableName,
+                error: fkToError instanceof Error ? fkToError.message : String(fkToError)
+            });
+        }
+
+
+
         return { foreignKeys, referencingKeys };
+    }
+
+    /**
+     * Quote a database metadata identifier, preserving embedded double quotes.
+     * @param identifier - Exact table or column name returned by HSQLDB.
+     * @returns SQL delimited identifier.
+     */
+    private quoteIdentifier(identifier: string): string {
+        return '"' + identifier.replace(/"/g, '""') + '"';
     }
 
     /**
@@ -1478,7 +1490,7 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
     ): Promise<TableStatistics> {
         try {
             // Get row count
-            const countSql = `SELECT COUNT(*) FROM ${tableName}`;
+            const countSql = `SELECT COUNT(*) FROM ${this.quoteIdentifier(tableName)}`;
             const countResult = await connection.execute(countSql);
             const rowCount = parseInt(countResult.rows[0][0] as string);
 
@@ -1653,13 +1665,13 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
             }
         } else {
             // Fallback to internal cache
-            if (this.schemaCache.has(cacheKey)) {
+            if (this.schemaCache.has(cacheKey) && this.schemaCache.get(cacheKey)!.expiresAt > Date.now()) {
                 const cached = this.schemaCache.get(cacheKey)!;
                 this.logger.debug('Schema analysis returned from internal cache', {
                     operation: 'analyze-schema-internal-cached',
                     cacheKey
                 });
-                return cached;
+                return cached.value;
             }
         }
 
@@ -1760,7 +1772,7 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
                 }
             } else {
                 // Fallback to internal cache
-                this.schemaCache.set(cacheKey, schema);
+                this.schemaCache.set(cacheKey, {value: schema, expiresAt: Date.now() + cacheTTL});
             }
             
             this.lastAnalysisTime = new Date();
@@ -1940,27 +1952,11 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
         // Clear advanced cache if available
         if (this.cacheManager) {
             try {
-                if (pattern) {
-                    // Clear by pattern (if CacheManager supports it)
-                    // For now, we'll clear specific known keys
-                    const keysToDelete = [
-                        'schema:analysis:*',
-                        'schema:table:*'
-                    ];
-                    
-                    for (const keyPattern of keysToDelete) {
-                        if (keyPattern.includes(pattern)) {
-                            // This would need pattern support in CacheManager
-                            // For now, we'll clear everything
-                            await this.cacheManager.clear();
-                            break;
-                        }
-                    }
-                } else {
-                    // Clear all schema-related cache entries
-                    await this.cacheManager.clear();
+                const keys = await this.cacheManager.keys('schema:*');
+                for (const key of keys) {
+                    if (!pattern || key.includes(pattern)) await this.cacheManager.delete(key);
                 }
-                
+
                 this.logger.debug('Advanced cache cleared', {
                     operation: 'clear-advanced-cache',
                     pattern
@@ -2121,14 +2117,14 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
             }
         } else {
             // Fallback to internal cache
-            if (this.tableCache.has(cacheKey)) {
+            if (this.tableCache.has(cacheKey) && this.tableCache.get(cacheKey)!.expiresAt > Date.now()) {
                 const cached = this.tableCache.get(cacheKey)!;
                 this.logger.debug('Table analysis returned from internal cache', {
                     operation: 'analyze-table-internal-cached',
                     tableName,
                     cacheKey
                 });
-                return cached;
+                return cached.value;
             }
         }
         
@@ -2179,7 +2175,7 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
                 }
             } else {
                 // Fallback to internal cache
-                this.tableCache.set(cacheKey, tableInfo);
+                this.tableCache.set(cacheKey, {value: tableInfo, expiresAt: Date.now() + cacheTTL});
             }
             
             this.logger.info('Table analysis completed successfully', {
@@ -2411,30 +2407,37 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
     }
 
     // Event emitter interface implementation
+    /** Register a listener for every occurrence of the specified event. */
     public on(event: ModuleEvent, listener: ModuleEventListener<ModuleEvent>): void {
         this.eventEmitter.on(event, listener);
     }
 
+    /** Register a listener that is removed after its first event. */
     public once(event: ModuleEvent, listener: ModuleEventListener<ModuleEvent>): void {
         this.eventEmitter.once(event, listener);
     }
 
+    /** Remove a previously registered listener for the specified event. */
     public off(event: ModuleEvent, listener: ModuleEventListener<ModuleEvent>): void {
         this.eventEmitter.off(event, listener);
     }
 
+    /** Notify listeners registered for the specified event. */
     public emit(event: ModuleEvent, data?: any): void {
         this.eventEmitter.emit(event, data);
     }
 
+    /** Remove all listeners, or only listeners for the supplied event. */
     public removeAllListeners(event?: ModuleEvent): void {
         this.eventEmitter.removeAllListeners(event);
     }
 
+    /** Return the number of listeners registered for the specified event. */
     public listenerCount(event: ModuleEvent): number {
         return this.eventEmitter.listenerCount(event);
     }
 
+    /** Return the event names with registered listeners. */
     public eventNames(): ModuleEvent[] {
         return this.eventEmitter.eventNames();
     }
@@ -2510,7 +2513,7 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
         score += completeness * 40;
 
         // Uniqueness (30% of score) - higher uniqueness generally better
-        const uniqueness = uniqueCount / nonNullCount;
+        const uniqueness = nonNullCount > 0 ? uniqueCount / nonNullCount : 0;
         score += Math.min(uniqueness, 1) * 30;
 
         // Type appropriateness (30% of score)
@@ -2659,7 +2662,7 @@ export class SchemaAnalyzer implements BaseModule, ModuleEventEmitter<ModuleEven
             case 0: return 'CASCADE';
             case 1: return 'RESTRICT';
             case 2: return 'SET_NULL';
-            case 3: return 'SET_DEFAULT';
+            case 4: return 'SET_DEFAULT';
             default: return 'NO_ACTION';
         }
     }

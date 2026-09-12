@@ -169,7 +169,9 @@ export interface PlayerStatistics {
  * Controller for PLAYERS table with advanced player management capabilities
  */
 export class PlayersController extends BaseController<PlayersModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<PlayersModel> = PlayersModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'PlayersController';
 
     // =============================================================================
@@ -548,6 +550,7 @@ export class PlayersController extends BaseController<PlayersModel> {
      * Find players with advanced search capabilities
      */
     public async findPlayers(options: PlayerSearchOptions = {}): Promise<PlayersModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -973,32 +976,7 @@ export class PlayersController extends BaseController<PlayersModel> {
         const currentPermissions = player.getPermission();
         let newRole: PlayerRole;
 
-        // Check if player has exactly one of the standard roles
-        // More lenient check - if current permissions match a standard role, allow promotion
-        let isStandardRole = false;
-        let currentStandardRole: PlayerRole | null = null;
-
-        // Check each standard role to see if it matches current permissions
-        if (currentPermissions === PlayerRole.MEMBER) {
-            isStandardRole = true;
-            currentStandardRole = PlayerRole.MEMBER;
-        } else if (currentPermissions === PlayerRole.COMMANDER) {
-            isStandardRole = true;
-            currentStandardRole = PlayerRole.COMMANDER;
-        } else if (currentPermissions === PlayerRole.CAPTAIN) {
-            isStandardRole = true;
-            currentStandardRole = PlayerRole.CAPTAIN;
-        } else if (currentPermissions === PlayerRole.FULL_CONTROL) {
-            isStandardRole = true;
-            currentStandardRole = PlayerRole.FULL_CONTROL;
-        }
-
-        if (!isStandardRole) {
-            throw new ValidationError('permission', currentPermissions, 'Player has custom permissions, cannot auto-promote');
-        }
-
-        // Determine next role level
-        switch (currentStandardRole) {
+        switch (currentPermissions) {
             case PlayerRole.MEMBER:
                 newRole = PlayerRole.COMMANDER;
                 break;
@@ -1034,31 +1012,7 @@ export class PlayersController extends BaseController<PlayersModel> {
         const currentPermissions = player.getPermission();
         let newRole: PlayerRole;
 
-        // Check if player has exactly one of the standard roles
-        let isStandardRole = false;
-        let currentStandardRole: PlayerRole | null = null;
-
-        // Check each standard role to see if it matches current permissions
-        if (currentPermissions === PlayerRole.MEMBER) {
-            isStandardRole = true;
-            currentStandardRole = PlayerRole.MEMBER;
-        } else if (currentPermissions === PlayerRole.COMMANDER) {
-            isStandardRole = true;
-            currentStandardRole = PlayerRole.COMMANDER;
-        } else if (currentPermissions === PlayerRole.CAPTAIN) {
-            isStandardRole = true;
-            currentStandardRole = PlayerRole.CAPTAIN;
-        } else if (currentPermissions === PlayerRole.FULL_CONTROL) {
-            isStandardRole = true;
-            currentStandardRole = PlayerRole.FULL_CONTROL;
-        }
-
-        if (!isStandardRole) {
-            throw new ValidationError('permission', currentPermissions, 'Player has custom permissions, cannot auto-demote');
-        }
-
-        // Determine previous role level
-        switch (currentStandardRole) {
+        switch (currentPermissions) {
             case PlayerRole.FULL_CONTROL:
                 newRole = PlayerRole.CAPTAIN;
                 break;
@@ -1225,22 +1179,22 @@ export class PlayersController extends BaseController<PlayersModel> {
         // Simplified statistics query compatible with HSQLDB
         const basicStatsSql = `
             SELECT 
-                COUNT(*) as total_players,
-                SUM(CASE WHEN PERMISSION >= 0 THEN 1 ELSE 0 END) as active_players,
-                SUM(CASE WHEN FACTION != 0 THEN 1 ELSE 0 END) as faction_members
+                COUNT(*) as "total_players",
+                SUM(CASE WHEN PERMISSION >= 0 THEN 1 ELSE 0 END) as "active_players",
+                SUM(CASE WHEN FACTION != 0 THEN 1 ELSE 0 END) as "faction_members"
             FROM PLAYERS
         `;
 
         // Separate query for officers
         const officersSql = `
-            SELECT COUNT(*) as officer_count
+            SELECT COUNT(*) as "officer_count"
             FROM PLAYERS 
             WHERE PERMISSION IN (?, ?)
         `;
 
         // Separate query for admins  
         const adminsSql = `
-            SELECT COUNT(*) as admin_count
+            SELECT COUNT(*) as "admin_count"
             FROM PLAYERS 
             WHERE PERMISSION >= ?
         `;
@@ -1267,11 +1221,11 @@ export class PlayersController extends BaseController<PlayersModel> {
             const factionSql = `
                 SELECT 
                     FACTION,
-                    COUNT(*) as member_count
+                    COUNT(*) as "member_count"
                 FROM PLAYERS 
                 WHERE FACTION != 0 
                 GROUP BY FACTION 
-                ORDER BY member_count DESC 
+                ORDER BY "member_count" DESC 
                 LIMIT 1
             `;
 
@@ -1343,6 +1297,10 @@ export class PlayersController extends BaseController<PlayersModel> {
             logOperations = false
         } = options;
 
+        if (!Number.isSafeInteger(batchSize) || batchSize <= 0) {
+            throw new ValidationError('batchSize', batchSize, 'Batch size must be a positive safe integer');
+        }
+
         const result: BulkOperationResult = {
             success: 0,
             failed: 0,
@@ -1356,7 +1314,7 @@ export class PlayersController extends BaseController<PlayersModel> {
         }
 
         // Process in batches
-        for (let i = 0; i < playersData.length; i += batchSize) {
+        batches: for (let i = 0; i < playersData.length; i += batchSize) {
             const batch = playersData.slice(i, i + batchSize);
             
             for (let j = 0; j < batch.length; j++) {
@@ -1388,7 +1346,7 @@ export class PlayersController extends BaseController<PlayersModel> {
                     });
                     
                     if (!continueOnError) {
-                        break;
+                        break batches;
                     }
                 }
             }
@@ -1540,7 +1498,7 @@ export class PlayersController extends BaseController<PlayersModel> {
     public async getTotalPlayerCount(): Promise<number> {
         this.ensureInitialized();
 
-        const sql = 'SELECT COUNT(*) as total_count FROM PLAYERS';
+        const sql = 'SELECT COUNT(*) as "total_count" FROM PLAYERS';
 
         try {
             const result = await this.executeQuery(sql, []);
@@ -1560,7 +1518,7 @@ export class PlayersController extends BaseController<PlayersModel> {
     public async getFactionMemberCount(factionId: number): Promise<number> {
         this.ensureInitialized();
 
-        const sql = 'SELECT COUNT(*) as member_count FROM PLAYERS WHERE FACTION = ?';
+        const sql = 'SELECT COUNT(*) as "member_count" FROM PLAYERS WHERE FACTION = ?';
         const params = [factionId];
 
         try {
@@ -1582,7 +1540,7 @@ export class PlayersController extends BaseController<PlayersModel> {
     public async getPlayerCountByPermission(permission: PlayerRole): Promise<number> {
         this.ensureInitialized();
 
-        const sql = 'SELECT COUNT(*) as permission_count FROM PLAYERS WHERE PERMISSION = ?';
+        const sql = 'SELECT COUNT(*) as "permission_count" FROM PLAYERS WHERE PERMISSION = ?';
         const params = [permission];
 
         try {
@@ -1646,7 +1604,7 @@ export class PlayersController extends BaseController<PlayersModel> {
      */
     private async initializeLastPlayerIdCache(): Promise<void> {
         try {
-            const sql = 'SELECT MAX(ID) as max_id FROM PLAYERS';
+            const sql = 'SELECT MAX(ID) as "max_id" FROM PLAYERS';
             const result = await this.executeQuery(sql, []);
             const maxId = result.length > 0 && result[0].max_id ? parseInt(result[0].max_id, 10) : 0;
             
@@ -1671,7 +1629,7 @@ export class PlayersController extends BaseController<PlayersModel> {
      * Fallback method to generate player ID from database (when cache fails)
      */
     private async generatePlayerIdFromDatabase(): Promise<number> {
-        const sql = 'SELECT MAX(ID) as max_id FROM PLAYERS';
+        const sql = 'SELECT MAX(ID) as "max_id" FROM PLAYERS';
         
         try {
             const result = await this.executeQuery(sql, []);

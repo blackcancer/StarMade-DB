@@ -271,6 +271,7 @@ export type {
 } from './visibility/VisibilityController.js';
 
 // Model type union for type checking
+/** Union of the concrete models available for StarMade database tables. */
 export type TableModel = 
     | EntitiesModel
     | PlayersModel
@@ -290,6 +291,7 @@ export type TableModel =
     | IdGenTableModel;
 
 // Controller type for future expansion
+/** Union of the controllers available for StarMade database tables. */
 export type TableController =
     | IdGenTableController
     | EntitiesController
@@ -309,6 +311,7 @@ export type TableController =
     | EffectsController;
 
 // Model class map for dynamic instantiation
+/** Maps table names to their model constructors. */
 export const ModelClasses = {
     ENTITIES: EntitiesModel,
     PLAYERS: PlayersModel,
@@ -329,6 +332,7 @@ export const ModelClasses = {
 } as const;
 
 // Controller class map for dynamic instantiation
+/** Maps table names to their controller constructors. */
 export const ControllerClasses = {
     ID_GEN_TABLE: IdGenTableController,
     ENTITIES: EntitiesController,
@@ -349,6 +353,7 @@ export const ControllerClasses = {
 } as const;
 
 // Table names constant
+/** Supported SQL table names, shared by model and controller lookup. */
 export const TABLE_NAMES = {
     ENTITIES: 'ENTITIES',
     PLAYERS: 'PLAYERS',
@@ -369,15 +374,20 @@ export const TABLE_NAMES = {
 } as const;
 
 // Constructor type for concrete model classes
+/** Constructor contract for controllers initialized from this model. */
 type ModelControllerConstructor = new (config?: any) => TableController;
+/** Constructor contract for concrete model instances. */
 type ModelConstructorType<T extends BaseModel = BaseModel> = new (data?: any) => T;
 
 // Helper function to get model class by table name
+/** Find the model constructor for a supported table name; unknown names return undefined. */
 export function getModelClass(tableName: string): ModelConstructorType | undefined {
+    if (!Object.hasOwn(ModelClasses, tableName)) return undefined;
     return ModelClasses[tableName as keyof typeof ModelClasses] as ModelConstructorType | undefined;
 }
 
 // Helper function to create model instance
+/** Construct the model for a supported table name using the supplied row data. */
 export function createModel<T extends BaseModel>(
     tableName: string, 
     data?: Record<string, any>
@@ -389,22 +399,28 @@ export function createModel<T extends BaseModel>(
 }
 
 // Helper function to get controller class by table name
+/** Find the controller constructor for a supported table name; unknown names return undefined. */
 export function getControllerClass(tableName: string): ModelControllerConstructor | undefined {
+    if (!Object.hasOwn(ControllerClasses, tableName)) return undefined;
     return ControllerClasses[tableName as keyof typeof ControllerClasses] as ModelControllerConstructor | undefined;
 }
 
 // Helper function to get all table names
+/** Return the names of all registered StarMade tables. */
 export function getAllTableNames(): string[] {
     return Object.values(TABLE_NAMES);
 }
 
 // Helper function to check if table name is valid
+/** Check whether a SQL table name is registered in this library. */
 export function isValidTableName(tableName: string): boolean {
-    return tableName in ModelClasses;
+    return Object.hasOwn(ModelClasses, tableName);
 }
 
 // Model registry for dynamic access
+/** Registry and factory for constructing typed models from SQL table names. */
 export class ModelRegistry {
+    /** Model constructors registered for table-name lookup. */
     private static models = new Map<string, ModelConstructorType>();
 
     static {

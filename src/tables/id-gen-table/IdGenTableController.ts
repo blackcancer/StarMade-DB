@@ -102,7 +102,9 @@ export interface BatchIdResult {
  * Controller for ID_GEN_TABLE providing atomic ID generation and sequence management
  */
 export class IdGenTableController extends BaseController<IdGenTableModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<IdGenTableModel> = IdGenTableModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'IdGenTableController';
 
     /**
@@ -240,7 +242,7 @@ export class IdGenTableController extends BaseController<IdGenTableModel> {
                 UPDATE ID_GEN_TABLE 
                 SET ID_GEN = ID_GEN + 1 
                 WHERE ID = ? 
-                RETURNING ID_GEN - 1 as generated_id, ID_GEN as new_value
+                RETURNING ID_GEN - 1 as "generated_id", ID_GEN as "new_value"
             `;
 
             const result = await this.executeQuery(sql, [sequenceId]);
@@ -254,8 +256,8 @@ export class IdGenTableController extends BaseController<IdGenTableModel> {
             }
 
             const row = result[0];
-            const generatedId = this.parseNumber(row.generated_id || row.GENERATED_ID);
-            const newValue = this.parseNumber(row.new_value || row.NEW_VALUE);
+            const generatedId = this.parseNumber(row.generated_id ?? row.GENERATED_ID);
+            const newValue = this.parseNumber(row.new_value ?? row.NEW_VALUE);
 
             this.logger.debug('ID generated atomically', {
                 operation: 'generate-id',
@@ -276,51 +278,18 @@ export class IdGenTableController extends BaseController<IdGenTableModel> {
     }
 
     /**
-     * Atomic fallback ID generation method using single UPDATE
+     * Allocate an ID by conditional update, retrying contention up to 100 times.
      */
     private async generateIdFallbackAtomic(sequenceId: string): Promise<AtomicIdResult> {
-        // Use a more atomic approach with HSQLDB compatible SQL
-        const updateSql = `UPDATE ID_GEN_TABLE SET ID_GEN = ID_GEN + 1 WHERE ID = ?`;
-        const selectSql = `SELECT ID_GEN FROM ID_GEN_TABLE WHERE ID = ?`;
-
-        try {
-            // First, increment atomically
-            await this.executeQuery(updateSql, [sequenceId]);
-            
-            // Then get the new value
-            const result = await this.executeQuery(selectSql, [sequenceId]);
-            
-            if (result.length === 0) {
-                throw new ValidationError(
-                    'sequenceId',
-                    sequenceId,
-                    `Sequence '${sequenceId}' not found. Initialize it first.`
-                );
-            }
-
-            const newValue = this.parseNumber(result[0].ID_GEN);
-            const generatedId = newValue - 1;
-
-            this.logger.debug('ID generated (atomic fallback)', {
-                operation: 'generate-id-atomic-fallback',
-                sequenceId,
-                generatedId,
-                newValue
-            });
-
-            return {
-                id: generatedId,
-                newSequenceValue: newValue,
-                sequenceId
-            };
-        } catch (error) {
-            // Final fallback with retry mechanism for high concurrency
-            return await this.generateIdWithRetry(sequenceId, 3);
-        }
+        return this.generateIdWithRetry(sequenceId, 100);
     }
 
     /**
-     * ID generation with retry mechanism for high concurrency scenarios
+     * Read outside caches and claim an ID only when the conditional update affects one row.
+     * @param sequenceId Identifier of the sequence to advance.
+     * @param maxRetries Maximum number of conditional update attempts.
+     * @returns The uniquely claimed ID and resulting sequence value.
+     * @throws {Error} If the sequence is unavailable or contention exhausts the attempts.
      */
     private async generateIdWithRetry(sequenceId: string, maxRetries: number): Promise<AtomicIdResult> {
         let lastError: Error | null = null;
@@ -328,7 +297,7 @@ export class IdGenTableController extends BaseController<IdGenTableModel> {
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
                 // Get current value
-                const sequence = await this.findById(sequenceId);
+                const sequence = await this.findById(sequenceId, { skipCache: true });
                 
                 if (!sequence) {
                     throw new ValidationError(
@@ -343,13 +312,9 @@ export class IdGenTableController extends BaseController<IdGenTableModel> {
 
                 // Try to update with WHERE clause including the current value (optimistic locking)
                 const updateSql = `UPDATE ID_GEN_TABLE SET ID_GEN = ? WHERE ID = ? AND ID_GEN = ?`;
-                await this.executeQuery(updateSql, [newValue, sequenceId, currentValue]);
+                const affectedRows = await this.executeUpdate(updateSql, [newValue, sequenceId, currentValue]);
 
-                // Verify the update actually happened by checking the new value
-                const verifySequence = await this.findById(sequenceId);
-                const verifiedValue = verifySequence ? this.parseNumber(verifySequence.getIdGen()) : 0;
-
-                if (verifiedValue === newValue) {
+                if (affectedRows === 1) {
                     // Update succeeded
                     this.logger.debug('ID generated (retry method)', {
                         operation: 'generate-id-retry',
@@ -394,8 +359,8 @@ export class IdGenTableController extends BaseController<IdGenTableModel> {
 
         const { count, returnIds = false, skipExistenceCheck = false } = options;
 
-        if (count <= 0) {
-            throw new ValidationError('count', count, 'Count must be greater than 0');
+        if (!Number.isSafeInteger(count) || count <= 0) {
+            throw new ValidationError('count', count, 'Count must be a safe integer greater than 0');
         }
 
         if (count > 10000) {
@@ -414,7 +379,7 @@ export class IdGenTableController extends BaseController<IdGenTableModel> {
                 UPDATE ID_GEN_TABLE 
                 SET ID_GEN = ID_GEN + ? 
                 WHERE ID = ? 
-                RETURNING ID_GEN - ? as start_id, ID_GEN as new_value
+                RETURNING ID_GEN - ? as "start_id", ID_GEN as "new_value"
             `;
 
             const result = await this.executeQuery(sql, [count, sequenceId, count]);
@@ -428,8 +393,8 @@ export class IdGenTableController extends BaseController<IdGenTableModel> {
             }
 
             const row = result[0];
-            const startId = this.parseNumber(row.start_id || row.START_ID);
-            const newValue = this.parseNumber(row.new_value || row.NEW_VALUE);
+            const startId = this.parseNumber(row.start_id ?? row.START_ID);
+            const newValue = this.parseNumber(row.new_value ?? row.NEW_VALUE);
             const endId = startId + count - 1;
 
             const result_obj: BatchIdResult = {
@@ -473,11 +438,11 @@ export class IdGenTableController extends BaseController<IdGenTableModel> {
 
         // Use optimistic locking approach for batch generation
         let lastError: Error | null = null;
-        const maxRetries = 3;
+        const maxRetries = 100;
         
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
-                const sequence = await this.findById(sequenceId);
+                const sequence = await this.findById(sequenceId, { skipCache: true });
                 
                 if (!sequence) {
                     throw new ValidationError(
@@ -493,13 +458,9 @@ export class IdGenTableController extends BaseController<IdGenTableModel> {
 
                 // Try to update with WHERE clause including the current value (optimistic locking)
                 const updateSql = `UPDATE ID_GEN_TABLE SET ID_GEN = ? WHERE ID = ? AND ID_GEN = ?`;
-                await this.executeQuery(updateSql, [newValue, sequenceId, startId]);
+                const affectedRows = await this.executeUpdate(updateSql, [newValue, sequenceId, startId]);
 
-                // Verify the update actually happened
-                const verifySequence = await this.findById(sequenceId);
-                const verifiedValue = verifySequence ? this.parseNumber(verifySequence.getIdGen()) : 0;
-
-                if (verifiedValue === newValue) {
+                if (affectedRows === 1) {
                     const result_obj: BatchIdResult = {
                         startId,
                         endId,

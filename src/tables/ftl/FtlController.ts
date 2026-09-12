@@ -115,7 +115,9 @@ export interface FtlStatistics {
  * Controller for FTL table with jump connection management capabilities
  */
 export class FtlController extends BaseController<FtlModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<FtlModel> = FtlModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'FtlController';
 
     /**
@@ -168,6 +170,7 @@ export class FtlController extends BaseController<FtlModel> {
      * @throws {ErrorFactory} If the query fails
      */
     public async findAll(options: FtlSearchOptions = {}): Promise<FtlModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -431,11 +434,11 @@ export class FtlController extends BaseController<FtlModel> {
 
         try {
             const [totalResult, typeResult, peaceResult, lockedResult, unrestrictedResult] = await Promise.all([
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM FTL', []),
-                this.executeQuery('SELECT TYPE, COUNT(*) AS cnt FROM FTL GROUP BY TYPE', []),
-                this.executeQuery(`SELECT COUNT(*) AS cnt FROM FTL WHERE PERMISSION = ${FTL_PERMISSION_COMBINATIONS.PEACE_ZONE}`, []),
-                this.executeQuery(`SELECT COUNT(*) AS cnt FROM FTL WHERE PERMISSION = ${FTL_PERMISSION_COMBINATIONS.LOCKED}`, []),
-                this.executeQuery(`SELECT COUNT(*) AS cnt FROM FTL WHERE PERMISSION = ${FTL_PERMISSION_COMBINATIONS.NORMAL}`, [])
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM FTL', []),
+                this.executeQuery('SELECT TYPE, COUNT(*) AS "cnt" FROM FTL GROUP BY TYPE', []),
+                this.executeQuery(`SELECT COUNT(*) AS "cnt" FROM FTL WHERE PERMISSION = ${FTL_PERMISSION_COMBINATIONS.PEACE_ZONE}`, []),
+                this.executeQuery(`SELECT COUNT(*) AS "cnt" FROM FTL WHERE PERMISSION = ${FTL_PERMISSION_COMBINATIONS.LOCKED}`, []),
+                this.executeQuery(`SELECT COUNT(*) AS "cnt" FROM FTL WHERE PERMISSION = ${FTL_PERMISSION_COMBINATIONS.NORMAL}`, [])
             ]);
 
             const byType: Record<string, number> = {};

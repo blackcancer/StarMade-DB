@@ -282,79 +282,94 @@ export class CacheStatsCollector implements BaseModule, ModuleEventEmitter<Modul
      */
     public get isInitialized(): boolean { return this._initialized; }
 
-    /** 
+    /**
+     * Whether initialization completed successfully. 
      * @private 
      * @type {boolean}
      */
     private _initialized = false;
-    /** 
+    /**
+     * Owning manager used to resolve configuration and module dependencies. 
      * @private 
      * @type {HSQLManager | undefined}
      */
     private manager?: HSQLManager;
-    /** 
+    /**
+     * Cache module used to store and invalidate shared results. 
      * @private 
      * @type {CacheManager | undefined}
      */
     private cacheManager?: CacheManager;
-    /** 
+    /**
+     * Metrics collection module receiving cache measurements. 
      * @private 
      * @type {MetricsCollector | undefined}
      */
     private metricsCollector?: MetricsCollector;
-    /** 
+    /**
+     * Effective configuration applied to this instance. 
      * @private 
      * @type {CacheStatsConfig | undefined}
      */
     private config?: CacheStatsConfig;
-    /** 
+    /**
+     * Whether destruction has started; prevents operations after resource cleanup. 
      * @private 
      * @type {boolean}
      */
     private destroyed = false;
-    /** 
+    /**
+     * Creation timestamp in milliseconds used to calculate uptime. 
      * @private 
      * @readonly
      * @type {number}
      */
     private readonly startTime = Date.now();
-    /** 
+    /**
+     * Module logger for operation context and diagnostic errors. 
      * @private 
      * @type {ModuleLogger}
      */
     private logger: ModuleLogger;
-    /** 
+    /**
+     * Emitter that dispatches this module’s lifecycle and operation events. 
      * @private 
      * @type {ModuleEventEmitterImpl<ModuleEvent>}
      */
     private eventEmitter: ModuleEventEmitterImpl<ModuleEvent>;
 
-    /** 
+    /**
+     * Whether periodic statistics collection is running. 
      * @private 
      * @type {boolean}
      */
     private collecting = false;
-    /** 
+    /**
+     * Timer that schedules periodic statistics collection. 
      * @private 
      * @type {NodeJS.Timeout | undefined}
      */
     private collectionTimer?: NodeJS.Timeout;
-    /** 
+    /**
+     * Hit, miss and access statistics indexed by cache key. 
      * @private 
      * @type {Map<string, KeyStatistics>}
      */
     private keyStats: Map<string, KeyStatistics> = new Map();
-    /** 
+    /**
+     * Retained metric samples used for trend analysis. 
      * @private 
      * @type {CachePerformanceMetrics[]}
      */
     private metricsHistory: CachePerformanceMetrics[] = [];
-    /** 
+    /**
+     * Currently active threshold alerts. 
      * @private 
      * @type {Map<string, CacheAlert>}
      */
     private activeAlerts: Map<string, CacheAlert> = new Map();
-    /** 
+    /**
+     * Timestamp of the most recent statistics collection. 
      * @private 
      * @type {number}
      */

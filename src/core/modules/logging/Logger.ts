@@ -76,9 +76,11 @@ export interface LoggerConfig {
  * @description Centralized logger for SMToolkit-DB using Winston.
  */
 class StarMadeLogger {
-    /** @private @type {winston.Logger} */
+    /**
+     * Module logger for operation context and diagnostic errors. @private @type {winston.Logger} */
     private logger: winston.Logger;
-    /** @public @type {LoggerConfig} */
+    /**
+     * Effective configuration applied to this instance. @public @type {LoggerConfig} */
     public config: LoggerConfig;  // Make config public so ModuleLogger can access it
     
     /**
@@ -163,7 +165,7 @@ class StarMadeLogger {
             format: winston.format.combine(...formats),
             transports,
             exitOnError: false,
-            silent: transports.length === 1 && transports[0].constructor.name === 'Console'
+            silent: !this.config.enableConsole && !(this.config.enableFile && this.config.logDir)
         });
     }
     
@@ -174,7 +176,7 @@ class StarMadeLogger {
      */
     private ensureLogDirectory(logDir: string): void {
         if (!existsSync(logDir)) {
-            mkdirSync(logDir);
+            mkdirSync(logDir, {recursive: true});
         }
     }
     
@@ -194,12 +196,8 @@ class StarMadeLogger {
         const value = parseInt(match[1], 10);
         const unit = match[2].toLowerCase();
         
-        switch (unit) {
-            case 'k': return value * 1024;
-            case 'm': return value * 1024 * 1024;
-            case 'g': return value * 1024 * 1024 * 1024;
-            default: throw new Error(`Unknown size unit: ${unit}`);
-        }
+        const multipliers: Record<string, number> = {k: 1024, m: 1024 ** 2, g: 1024 ** 3};
+        return value * multipliers[unit];
     }
     
     /**
@@ -307,9 +305,11 @@ class StarMadeLogger {
  * @description Logger for specific modules that automatically includes module context.
  */
 export class ModuleLogger {
-    /** @private @type {StarMadeLogger} */
+    /**
+     * Parent logger receiving messages with module context. @private @type {StarMadeLogger} */
     private parentLogger: StarMadeLogger;
-    /** @private @type {string} */
+    /**
+     * Module name attached to each log entry. @private @type {string} */
     private moduleName: string;
 
     /**
@@ -408,6 +408,7 @@ export class ModuleLogger {
 // GLOBAL LOGGER MANAGEMENT
 // =============================================================================
 
+/** Shared logger instance returned to callers that do not supply one. */
 let globalLogger: StarMadeLogger | null = null;
 
 /**

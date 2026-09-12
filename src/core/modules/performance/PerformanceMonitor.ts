@@ -293,89 +293,106 @@ export class PerformanceMonitor implements BaseModule, ModuleEventEmitter<Perfor
      */
     public get isInitialized(): boolean { return this._initialized; }
 
-    /** 
+    /**
+     * Whether initialization completed successfully. 
      * @private 
      * @type {boolean}
      */
     private _initialized = false;
-    /** 
+    /**
+     * Owning manager used to resolve configuration and module dependencies. 
      * @private 
      * @type {HSQLManager | undefined}
      */
     private manager?: HSQLManager;
-    /** 
+    /**
+     * Connection pool module used to borrow and release JDBC sessions. 
      * @private 
      * @type {ConnectionManager | undefined}
      */
     private connectionManager?: ConnectionManager;
-    /** 
+    /**
+     * Effective configuration applied to this instance. 
      * @private 
      * @type {PerformanceConfig | undefined}
      */
     private config?: PerformanceConfig;
-    /** 
+    /**
+     * Whether destruction has started; prevents operations after resource cleanup. 
      * @private 
      * @type {boolean}
      */
     private destroyed = false;
-    /** 
+    /**
+     * Creation timestamp in milliseconds used to calculate uptime. 
      * @private 
      * @readonly
      * @type {number}
      */
     private readonly startTime = Date.now();
-    /** 
+    /**
+     * Module logger for operation context and diagnostic errors. 
      * @private 
      * @type {ModuleLogger}
      */
     private logger: ModuleLogger;
-    /** 
+    /**
+     * Emitter that dispatches this module’s lifecycle and operation events. 
      * @private 
      * @type {ModuleEventEmitterImpl<PerformanceEvent>}
      */
     private eventEmitter: ModuleEventEmitterImpl<PerformanceEvent>;
     
-    /** 
+    /**
+     * Recent query metrics retained for analysis. 
      * @private 
      * @type {PerformanceMetric[]}
      */
     private recentMetrics: PerformanceMetric[] = [];
-    /** 
+    /**
+     * Timer that schedules periodic statistics collection. 
      * @private 
      * @type {NodeJS.Timeout | undefined}
      */
     private collectionTimer?: NodeJS.Timeout;
-    /** 
+    /**
+     * Timer that collects database-level performance metrics. 
      * @private 
      * @type {NodeJS.Timeout | undefined}
      */
     private databaseMetricsTimer?: NodeJS.Timeout;
-    /** 
+    /**
+     * Timer that checks performance values against configured thresholds. 
      * @private 
      * @type {NodeJS.Timeout | undefined}
      */
     private thresholdTimer?: NodeJS.Timeout;
-    /** 
+    /**
+     * Timer that periodically exports collected metrics. 
      * @private 
      * @type {NodeJS.Timeout | undefined}
      */
     private exportTimer?: NodeJS.Timeout;
-    /** 
+    /**
+     * Reference performance measurements used for comparison. 
      * @private 
      * @type {Map<MetricType, MetricStatistics> | undefined}
      */
     private baseline?: Map<MetricType, MetricStatistics>;
-    /** 
+    /**
+     * Number of queries recorded by this instance. 
      * @private 
      * @type {number}
      */
     private queryCount = 0;
-    /** 
+    /**
+     * Number of recorded query failures. 
      * @private 
      * @type {number}
      */
     private errorCount = 0;
-    /** 
+    /**
+     * Connection establishment durations used for performance statistics. 
      * @private 
      * @type {number[]}
      */
@@ -778,7 +795,7 @@ export class PerformanceMonitor implements BaseModule, ModuleEventEmitter<Perfor
         }
 
         for (const threshold of this.config.thresholds) {
-            if (!threshold.enabled) continue;
+            if (!threshold.enabled || (metric && metric.type !== threshold.type)) continue;
 
             const stats = metric ? this.getStatistics(metric.type) : this.getStatistics(threshold.type);
             if (!stats) continue;
@@ -934,6 +951,7 @@ export class PerformanceMonitor implements BaseModule, ModuleEventEmitter<Perfor
         const thresholdViolations: PerformanceReport['thresholdViolations'] = [];
         if (this.config?.thresholds) {
             for (const threshold of this.config.thresholds) {
+                if (!threshold.enabled) continue;
                 const stats = statistics.get(threshold.type);
                 if (stats) {
                     if (stats.average >= threshold.criticalThreshold) {

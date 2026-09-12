@@ -121,7 +121,9 @@ export interface TradeHistoryStatistics {
  * All operations are implemented and functional should the table become active.
  */
 export class TradeHistoryController extends BaseController<TradeHistoryModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<TradeHistoryModel> = TradeHistoryModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'TradeHistoryController';
 
     /**
@@ -174,6 +176,7 @@ export class TradeHistoryController extends BaseController<TradeHistoryModel> {
      * @throws {ErrorFactory} If the query fails
      */
     public async findAll(options: TradeHistorySearchOptions = {}): Promise<TradeHistoryModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -251,6 +254,7 @@ export class TradeHistoryController extends BaseController<TradeHistoryModel> {
      * @throws {ValidationError} If owner is empty
      */
     public async findByOwner(owner: string, options: QueryOptions = {}): Promise<TradeHistoryModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         if (!owner || owner.trim().length === 0) {
@@ -453,12 +457,12 @@ export class TradeHistoryController extends BaseController<TradeHistoryModel> {
                 valueResult, deliveryResult,
                 factionResult
             ] = await Promise.all([
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM TRADE_HISTORY', []),
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM TRADE_HISTORY WHERE SUCCESS = TRUE', []),
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM TRADE_HISTORY WHERE SUCCESS = FALSE', []),
-                this.executeQuery('SELECT SUM(TOTAL_COST) AS total FROM TRADE_HISTORY', []),
-                this.executeQuery('SELECT SUM(DELIVERY_COST) AS total FROM TRADE_HISTORY', []),
-                this.executeQuery('SELECT FROM_FACTION_ID AS fid, COUNT(*) AS cnt, SUM(TOTAL_COST) AS val FROM TRADE_HISTORY GROUP BY FROM_FACTION_ID ORDER BY cnt DESC LIMIT 5', [])
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM TRADE_HISTORY', []),
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM TRADE_HISTORY WHERE SUCCESS = TRUE', []),
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM TRADE_HISTORY WHERE SUCCESS = FALSE', []),
+                this.executeQuery('SELECT SUM(TOTAL_COST) AS "total" FROM TRADE_HISTORY', []),
+                this.executeQuery('SELECT SUM(DELIVERY_COST) AS "total" FROM TRADE_HISTORY', []),
+                this.executeQuery('SELECT FROM_FACTION_ID AS "fid", COUNT(*) AS "cnt", SUM(TOTAL_COST) AS "val" FROM TRADE_HISTORY GROUP BY FROM_FACTION_ID ORDER BY "cnt" DESC LIMIT 5', [])
             ]);
 
             const total = Number(totalResult[0]?.cnt ?? 0);

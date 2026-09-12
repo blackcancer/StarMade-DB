@@ -1,3 +1,7 @@
+import * as decoder from 'starmade-decoder';
+import * as related0 from '../entities/EntitiesModel.js';
+import * as related1 from './FleetsModel.js';
+import * as related2 from '../players/PlayersModel.js';
 /**
  * @fileoverview Fleets Model
  * 
@@ -32,27 +36,49 @@ import {
  * subsequent ordinals to be off by one.
  */
 export enum FleetCommand {
+    /** Fleet command value for idle, serialized as 0. */
     IDLE             = 0,
+    /** Fleet command value for move fleet, serialized as 1. */
     MOVE_FLEET       = 1,
+    /** Fleet command value for patrol fleet, serialized as 2. */
     PATROL_FLEET     = 2,
+    /** Fleet command value for trade fleet, serialized as 3. */
     TRADE_FLEET      = 3,
+    /** Fleet command value for repair fleet, serialized as 4. */
     REPAIR_FLEET     = 4,
+    /** Fleet command value for fleet attack, serialized as 5. */
     FLEET_ATTACK     = 5,
+    /** Fleet command value for fleet defend, serialized as 6. */
     FLEET_DEFEND     = 6,
+    /** Fleet command value for escort, serialized as 7. */
     ESCORT           = 7,
+    /** Fleet command value for repair, serialized as 8. */
     REPAIR           = 8,
+    /** Fleet command value for artillery, serialized as 9. */
     ARTILLERY        = 9,
+    /** Fleet command value for sentry formation, serialized as 10. */
     SENTRY_FORMATION = 10,
+    /** Fleet command value for sentry, serialized as 11. */
     SENTRY           = 11,
+    /** Fleet command value for fleet idle formation, serialized as 12. */
     FLEET_IDLE_FORMATION = 12,
+    /** Fleet command value for call to carrier, serialized as 13. */
     CALL_TO_CARRIER  = 13,
+    /** Fleet command value for mine in sector, serialized as 14. */
     MINE_IN_SECTOR   = 14,
+    /** Fleet command value for cloak, serialized as 15. */
     CLOAK            = 15,
+    /** Fleet command value for uncloak, serialized as 16. */
     UNCLOAK          = 16,
+    /** Fleet command value for jam, serialized as 17. */
     JAM              = 17,
+    /** Fleet command value for unjam, serialized as 18. */
     UNJAM            = 18,
+    /** Fleet command value for activate remote, serialized as 19. */
     ACTIVATE_REMOTE  = 19,
+    /** Fleet command value for interdict, serialized as 20. */
     INTERDICT        = 20,
+    /** Fleet command value for stop interdict, serialized as 21. */
     STOP_INTERDICT   = 21,
 }
 
@@ -60,11 +86,17 @@ export enum FleetCommand {
  * Fleet faction access levels
  */
 export enum FactionAccess {
+    /** Faction access value for none, serialized as 0. */
     NONE = 0,      // Only owner can access
+    /** Faction access value for officer, serialized as 1. */
     OFFICER = 1,   // Officers and above
+    /** Faction access value for commander, serialized as 2. */
     COMMANDER = 2, // Commanders and above
+    /** Faction access value for member, serialized as 3. */
     MEMBER = 3,    // All faction members
+    /** Faction access value for recruit, serialized as 4. */
     RECRUIT = 4,   // Including new recruits
+    /** Faction access value for all, serialized as 5. */
     ALL = 5        // Public access
 }
 
@@ -72,9 +104,13 @@ export enum FactionAccess {
  * Combat behavior settings
  */
 export enum CombatSetting {
+    /** Combat setting value for passive, serialized as 'PASSIVE'. */
     PASSIVE = 'PASSIVE',
+    /** Combat setting value for sometimes engage, serialized as 'SOMETIMES ENGAGE'. */
     SOMETIMES_ENGAGE = 'SOMETIMES ENGAGE',
+    /** Combat setting value for always engage, serialized as 'ALWAYS ENGAGE'. */
     ALWAYS_ENGAGE = 'ALWAYS ENGAGE',
+    /** Combat setting value for always flee, serialized as 'ALWAYS FLEE'. */
     ALWAYS_FLEE = 'ALWAYS FLEE'
 }
 
@@ -82,25 +118,45 @@ export enum CombatSetting {
  * Active mission states
  */
 export enum MissionString {
+    /** Mission string value for idle, serialized as 'IDLE'. */
     IDLE = 'IDLE',
+    /** Mission string value for idle sentry, serialized as 'IDLE - SENTRY'. */
     IDLE_SENTRY = 'IDLE - SENTRY',
+    /** Mission string value for sentry formation, serialized as 'SENTRY - FORMATION'. */
     SENTRY_FORMATION = 'SENTRY - FORMATION',
+    /** Mission string value for callback to carrier, serialized as 'CALLBACK TO CARRIER'. */
     CALLBACK_TO_CARRIER = 'CALLBACK TO CARRIER',
+    /** Mission string value for mining, serialized as 'MINING'. */
     MINING = 'MINING',
+    /** Mission string value for patrolling, serialized as 'PATROLLING'. */
     PATROLLING = 'PATROLLING',
+    /** Mission string value for trading, serialized as 'TRADING'. */
     TRADING = 'TRADING',
+    /** Mission string value for moving, serialized as 'MOVING'. */
     MOVING = 'MOVING',
+    /** Mission string value for repairing, serialized as 'REPAIRING'. */
     REPAIRING = 'REPAIRING',
+    /** Mission string value for standoff, serialized as 'STANDOFF'. */
     STANDOFF = 'STANDOFF',
+    /** Mission string value for attacking, serialized as 'ATTACKING'. */
     ATTACKING = 'ATTACKING',
+    /** Mission string value for sentry, serialized as 'SENTRY'. */
     SENTRY = 'SENTRY',
+    /** Mission string value for defending, serialized as 'DEFENDING'. */
     DEFENDING = 'DEFENDING',
+    /** Mission string value for escorting, serialized as 'ESCORTING'. */
     ESCORTING = 'ESCORTING',
+    /** Mission string value for cloaking, serialized as 'CLOAKING'. */
     CLOAKING = 'CLOAKING',
+    /** Mission string value for uncloaking, serialized as 'UNCLOAKING'. */
     UNCLOAKING = 'UNCLOAKING',
+    /** Mission string value for jamming, serialized as 'JAMMING'. */
     JAMMING = 'JAMMING',
+    /** Mission string value for stop jamming, serialized as 'STOP JAMMING'. */
     STOP_JAMMING = 'STOP JAMMING',
+    /** Mission string value for ftl interdicting, serialized as 'FTL INTERDICTING'. */
     FTL_INTERDICTING = 'FTL INTERDICTING',
+    /** Mission string value for stop ftl interdiction, serialized as 'STOP FTL INTERDICTION'. */
     STOP_FTL_INTERDICTION = 'STOP FTL INTERDICTION'
 }
 
@@ -108,10 +164,15 @@ export enum MissionString {
  * Fleet type indicators from naming patterns
  */
 export enum FleetType {
+    /** Fleet type value for attacking, serialized as 'ATTACKING'. */
     ATTACKING = 'ATTACKING',
+    /** Fleet type value for defending, serialized as 'DEFENDING'. */
     DEFENDING = 'DEFENDING',
+    /** Fleet type value for mining, serialized as 'MINING'. */
     MINING = 'MINING',
+    /** Fleet type value for trading, serialized as 'TRADING'. */
     TRADING = 'TRADING',
+    /** Fleet type value for scavenging, serialized as 'SCAVENGING'. */
     SCAVENGING = 'SCAVENGING'
 }
 
@@ -119,7 +180,9 @@ export enum FleetType {
  * NPC fleet prefixes
  */
 export enum NPCFleetPrefix {
+    /** Npcfleet prefix value for standard, serialized as 'NPCFLT'. */
     STANDARD = 'NPCFLT',
+    /** Npcfleet prefix value for general, serialized as 'GNPCFLT'. */
     GENERAL = 'GNPCFLT'
 }
 
@@ -127,10 +190,15 @@ export enum NPCFleetPrefix {
  * Mission categories for classification
  */
 export enum FleetMissionCategory {
+    /** Fleet mission category value for idle, serialized as 'IDLE'. */
     IDLE = 'IDLE',
+    /** Fleet mission category value for movement, serialized as 'MOVEMENT'. */
     MOVEMENT = 'MOVEMENT',
+    /** Fleet mission category value for combat, serialized as 'COMBAT'. */
     COMBAT = 'COMBAT',
+    /** Fleet mission category value for operations, serialized as 'OPERATIONS'. */
     OPERATIONS = 'OPERATIONS',
+    /** Fleet mission category value for special, serialized as 'SPECIAL'. */
     SPECIAL = 'SPECIAL'
 }
 
@@ -181,8 +249,10 @@ export const FLEET_MISSION_CATEGORIES = {
  * comprehensive mission analytics, and hierarchical fleet management.
  */
 export class FleetsModel extends BaseModel {
+    /** SQL table name used to generate queries for this model. */
     public static tableName = 'FLEETS';
     
+    /** SQL column, key, index and validation definitions for this table. */
     public static schema: TableSchema = {
         tableName: 'FLEETS',
         comment: 'Fleet command and control system',
@@ -318,7 +388,7 @@ export class FleetsModel extends BaseModel {
             flagship: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../entities/EntitiesModel.js').EntitiesModel;
+                    return related0.EntitiesModel;
                 },
                 {
                     from: 'FLEETS.FLAGSHIP_ID',
@@ -330,7 +400,7 @@ export class FleetsModel extends BaseModel {
             parentFleet: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../fleets/FleetsModel.js').FleetsModel;
+                    return related1.FleetsModel;
                 },
                 {
                     from: 'FLEETS.PARENT_FLEET',
@@ -342,7 +412,7 @@ export class FleetsModel extends BaseModel {
             ownerPlayer: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../players/PlayersModel.js').PlayersModel;
+                    return related2.PlayersModel;
                 },
                 {
                     from: 'FLEETS.OWNER',
@@ -354,7 +424,7 @@ export class FleetsModel extends BaseModel {
             childFleets: relation(
                 Model.HasManyRelation,
                 () => {
-                    return require('../fleets/FleetsModel.js').FleetsModel;
+                    return related1.FleetsModel;
                 },
                 {
                     from: 'FLEETS.ID',
@@ -368,34 +438,124 @@ export class FleetsModel extends BaseModel {
     // TYPED ACCESSORS
     // =============================================================================
 
+    /**
+     * Read the FLEETS.ID column from this model. Numeric strings are converted to integers.
+     * @returns The stored ID value, normalized to an integer when necessary.
+     */
     public getId(): number { const v = this.get('ID'); if (v === undefined || v === null) return undefined as any; return typeof v === 'string' ? parseInt(v, 10) : v; }
+    /**
+     * Store the FLEETS.ID column in this model and return this for chaining.
+     * @param id New value for the ID column.
+     * @returns This model for chaining.
+     */
     public setId(id: number): this { return this.set('ID', id); }
 
+    /**
+     * Read the FLEETS.FLAGSHIP_ID column from this model.
+     * @returns The stored FLAGSHIP_ID value.
+     */
     public getFlagshipId(): number { return this.get('FLAGSHIP_ID'); }
+    /**
+     * Store the FLEETS.FLAGSHIP_ID column in this model and return this for chaining.
+     * @param flagshipId New value for the FLAGSHIP_ID column.
+     * @returns This model for chaining.
+     */
     public setFlagshipId(flagshipId: number): this { return this.set('FLAGSHIP_ID', flagshipId); }
 
+    /**
+     * Read the FLEETS.PARENT_FLEET column from this model. Numeric strings are converted to integers.
+     * @returns The stored PARENT_FLEET value, normalized to an integer when necessary.
+     */
     public getParentFleet(): number { const v = this.get('PARENT_FLEET'); const n = v === undefined || v === null ? -1 : (typeof v === 'string' ? parseInt(v, 10) : v); return n; }
+    /**
+     * Store the FLEETS.PARENT_FLEET column in this model and return this for chaining.
+     * @param parentFleet New value for the PARENT_FLEET column.
+     * @returns This model for chaining.
+     */
     public setParentFleet(parentFleet: number): this { return this.set('PARENT_FLEET', parentFleet); }
 
+    /**
+     * Read the FLEETS.NAME column from this model.
+     * @returns The stored NAME value.
+     */
     public getName(): string | undefined { return this.get('NAME'); }
+    /**
+     * Store the FLEETS.NAME column in this model and return this for chaining.
+     * @param name New value for the NAME column.
+     * @returns This model for chaining.
+     */
     public setName(name: string | undefined): this { return this.set('NAME', name); }
 
+    /**
+     * Read the FLEETS.OWNER column from this model.
+     * @returns The stored OWNER value.
+     */
     public getOwner(): string | undefined { return this.get('OWNER'); }
+    /**
+     * Store the FLEETS.OWNER column in this model and return this for chaining.
+     * @param owner New value for the OWNER column.
+     * @returns This model for chaining.
+     */
     public setOwner(owner: string | undefined): this { return this.set('OWNER', owner); }
 
+    /**
+     * Read the FLEETS.MISSION_STRING column from this model.
+     * @returns The stored MISSION_STRING value.
+     */
     public getMissionString(): string | undefined { return this.get('MISSION_STRING'); }
+    /**
+     * Store the FLEETS.MISSION_STRING column in this model and return this for chaining.
+     * @param missionString New value for the MISSION_STRING column.
+     * @returns This model for chaining.
+     */
     public setMissionString(missionString: string | undefined): this { return this.set('MISSION_STRING', missionString); }
 
+    /**
+     * Read the FLEETS.COMMAND column from this model.
+     * @returns The stored COMMAND value.
+     */
     public getCommand(): Buffer | undefined { return this.get('COMMAND'); }
+    /**
+     * Store the FLEETS.COMMAND column in this model and return this for chaining.
+     * @param command New value for the COMMAND column.
+     * @returns This model for chaining.
+     */
     public setCommand(command: Buffer | undefined): this { return this.set('COMMAND', command); }
 
+    /**
+     * Read the FLEETS.FACTION_ACCESS column from this model.
+     * @returns The stored FACTION_ACCESS value.
+     */
     public getFactionAccess(): FactionAccess { return this.get('FACTION_ACCESS') || FactionAccess.NONE; }
+    /**
+     * Store the FLEETS.FACTION_ACCESS column in this model and return this for chaining.
+     * @param factionAccess New value for the FACTION_ACCESS column.
+     * @returns This model for chaining.
+     */
     public setFactionAccess(factionAccess: FactionAccess): this { return this.set('FACTION_ACCESS', factionAccess); }
 
+    /**
+     * Read the FLEETS.SAVED_REMOTES column from this model.
+     * @returns The stored SAVED_REMOTES value.
+     */
     public getSavedRemotes(): Buffer | undefined { return this.get('SAVED_REMOTES'); }
+    /**
+     * Store the FLEETS.SAVED_REMOTES column in this model and return this for chaining.
+     * @param savedRemotes New value for the SAVED_REMOTES column.
+     * @returns This model for chaining.
+     */
     public setSavedRemotes(savedRemotes: Buffer | undefined): this { return this.set('SAVED_REMOTES', savedRemotes); }
 
+    /**
+     * Read the FLEETS.COMBAT_SETTING column from this model.
+     * @returns The stored COMBAT_SETTING value.
+     */
     public getCombatSetting(): CombatSetting | undefined { return this.get('COMBAT_SETTING') as CombatSetting; }
+    /**
+     * Store the FLEETS.COMBAT_SETTING column in this model and return this for chaining.
+     * @param combatSetting New value for the COMBAT_SETTING column.
+     * @returns This model for chaining.
+     */
     public setCombatSetting(combatSetting: CombatSetting | undefined): this { return this.set('COMBAT_SETTING', combatSetting); }
 
     // =============================================================================
@@ -749,7 +909,7 @@ export class FleetsModel extends BaseModel {
      */
     public isNPCFleet(): boolean {
         const name = this.getName();
-        return name?.match(/^(NPCFLT|GNPCFLT)#/) !== null;
+        return typeof name === 'string' && /^(NPCFLT|GNPCFLT)#/.test(name);
     }
 
     /**
@@ -776,7 +936,7 @@ export class FleetsModel extends BaseModel {
         if (!name) return null;
 
         const match = name.match(/^(NPCFLT|GNPCFLT)#[A-Z]+#(-?\d+)#/);
-        return match ? parseInt(match[1]) : null;
+        return match ? parseInt(match[2], 10) : null;
     }
 
     /**
@@ -957,7 +1117,7 @@ export class FleetsModel extends BaseModel {
     public decodeCommand(): import('starmade-decoder').FleetCommandObject | null {
         const raw = this.getCommand();
         if (!raw || raw.length === 0) return null;
-        const { FleetCommandObject } = require('starmade-decoder');
+        const { FleetCommandObject } = decoder;
         return FleetCommandObject.fromBytes(raw);
     }
 
@@ -973,7 +1133,7 @@ export class FleetsModel extends BaseModel {
      */
     public decodeRemotes(): import('starmade-decoder').FleetRemotesObject {
         const raw = this.getSavedRemotes();
-        const { FleetRemotesObject } = require('starmade-decoder');
+        const { FleetRemotesObject } = decoder;
         return FleetRemotesObject.fromBytes(raw ?? null);
     }
 
@@ -985,7 +1145,7 @@ export class FleetsModel extends BaseModel {
      * bytes by default, matching the StarMade Java VARBINARY size.
      *
      * @example
-     * const { FleetCommandObject } = require('starmade-decoder');
+     * const { FleetCommandObject } = decoder;
      * fleet.encodeCommand(FleetCommandObject.create(42n, 'IDLE'));
      */
     public encodeCommand(
@@ -995,9 +1155,9 @@ export class FleetsModel extends BaseModel {
         if (!command) return this.setCommand(undefined);
 
         const anyCommand = command as any;
-        const raw = typeof anyCommand.toBytes === 'function'
-            ? anyCommand.toBytes(padTo)
-            : require('starmade-decoder').encodeFleetCommand(command, padTo);
+        const raw = 'toBytes' in command
+            ? command.toBytes(padTo)
+            : decoder.encodeFleetCommand(command, padTo);
 
         return this.setCommand(raw);
     }
@@ -1025,7 +1185,7 @@ export class FleetsModel extends BaseModel {
         const entries = remotes instanceof Map
             ? remotes
             : new Map(Object.entries(remotes as Record<string, boolean>));
-        const { encodeFleetRemotes } = require('starmade-decoder');
+        const { encodeFleetRemotes } = decoder;
         return this.setSavedRemotes(encodeFleetRemotes(entries));
     }
 

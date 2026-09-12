@@ -1021,12 +1021,12 @@ describe('SectorsModel Complete Tests', function() {
             expect(transientColumn!.defaultValue).to.be.true;
         });
 
-        it('should have coordinate index with STELLAR for uniqueness', function() {
+        it('should have a globally unique coordinate index', function() {
             const schema = SectorsModel.getSchema();
             const coordIndex = schema.indexes.find(idx => idx.name === 'secCoordIndex');
             
             expect(coordIndex).to.exist;
-            expect(coordIndex!.columns).to.deep.equal(['X', 'Y', 'Z', 'STELLAR']);
+            expect(coordIndex!.columns).to.deep.equal(['X', 'Y', 'Z']);
             expect(coordIndex!.unique).to.be.true;
         });
     });
@@ -1047,12 +1047,12 @@ describe('SectorsModel Complete Tests', function() {
                 X: 15, Y: 25, Z: 35, STELLAR: 1000000
             });
 
-            expect(sector1.getUniqueCoordinateKey()).to.equal('1000000:(10, 20, 30)');
-            expect(sector2.getUniqueCoordinateKey()).to.equal('1000001:(10, 20, 30)');
-            expect(sector3.getUniqueCoordinateKey()).to.equal('1000000:(15, 25, 35)');
+            expect(sector1.getUniqueCoordinateKey()).to.equal('(10, 20, 30)');
+            expect(sector2.getUniqueCoordinateKey()).to.equal('(10, 20, 30)');
+            expect(sector3.getUniqueCoordinateKey()).to.equal('(15, 25, 35)');
 
-            // Same coordinates in different systems should have different keys
-            expect(sector1.getUniqueCoordinateKey()).to.not.equal(sector2.getUniqueCoordinateKey());
+            // The same global coordinates retain the same key even with inconsistent system IDs
+            expect(sector1.getUniqueCoordinateKey()).to.equal(sector2.getUniqueCoordinateKey());
             // Different coordinates in same system should have different keys
             expect(sector1.getUniqueCoordinateKey()).to.not.equal(sector3.getUniqueCoordinateKey());
         });
@@ -1065,9 +1065,9 @@ describe('SectorsModel Complete Tests', function() {
             const validation = sector.validateCoordinateUniqueness();
 
             expect(validation.isUnique).to.be.true;
-            expect(validation.conflictKey).to.equal('1000000:(10, 20, 30)');
+            expect(validation.conflictKey).to.equal('(10, 20, 30)');
             expect(validation.systemId).to.equal(1000000);
-            expect(validation.message).to.include('Sector at (10, 20, 30) in system 1000000 must be unique');
+            expect(validation.message).to.include('Sector at (10, 20, 30) must be globally unique (system 1000000)');
         });
 
         it('should detect coordinate conflicts correctly', function() {
@@ -1085,7 +1085,7 @@ describe('SectorsModel Complete Tests', function() {
             });
 
             expect(sector1.hasCoordinateConflictWith(sector2)).to.be.true; // Same coords, same system, different IDs
-            expect(sector1.hasCoordinateConflictWith(sector3)).to.be.false; // Same coords, different systems
+            expect(sector1.hasCoordinateConflictWith(sector3)).to.be.true; // Same coords, different systems
             expect(sector1.hasCoordinateConflictWith(sector4)).to.be.false; // Same ID (same sector)
         });
 
@@ -1099,7 +1099,7 @@ describe('SectorsModel Complete Tests', function() {
             expect(message).to.include('Sector coordinates (10, 20, 30)');
             expect(message).to.include('system 1000000');
             expect(message).to.include('must be unique');
-            expect(message).to.include('Only one sector can exist at these coordinates per star system');
+            expect(message).to.include('Only one sector can exist at these coordinates in the universe');
         });
 
         it('should handle edge cases in coordinate validation', function() {
@@ -1113,9 +1113,9 @@ describe('SectorsModel Complete Tests', function() {
                 X: 999999, Y: 999999, Z: 999999, STELLAR: 1000000
             });
 
-            expect(negativeSector.getUniqueCoordinateKey()).to.equal('1000000:(-100, -200, -300)');
-            expect(zeroSector.getUniqueCoordinateKey()).to.equal('1000000:(0, 0, 0)');
-            expect(extremeSector.getUniqueCoordinateKey()).to.equal('1000000:(999999, 999999, 999999)');
+            expect(negativeSector.getUniqueCoordinateKey()).to.equal('(-100, -200, -300)');
+            expect(zeroSector.getUniqueCoordinateKey()).to.equal('(0, 0, 0)');
+            expect(extremeSector.getUniqueCoordinateKey()).to.equal('(999999, 999999, 999999)');
 
             // All should be valid
             expect(negativeSector.validateCoordinateUniqueness().isUnique).to.be.true;
@@ -1159,9 +1159,9 @@ describe('SectorsModel Complete Tests', function() {
             expect(solStation.hasCoordinateConflictWith(solPlanet)).to.be.false;
 
             // All should have same system but different coordinate keys
-            expect(solPrime.getUniqueCoordinateKey()).to.equal('1000000:(0, 0, 0)');
-            expect(solStation.getUniqueCoordinateKey()).to.equal('1000000:(1, 0, 0)');
-            expect(solPlanet.getUniqueCoordinateKey()).to.equal('1000000:(0, 1, 0)');
+            expect(solPrime.getUniqueCoordinateKey()).to.equal('(0, 0, 0)');
+            expect(solStation.getUniqueCoordinateKey()).to.equal('(1, 0, 0)');
+            expect(solPlanet.getUniqueCoordinateKey()).to.equal('(0, 1, 0)');
         });
 
         it('should work correctly in multi-system scenarios', function() {
@@ -1176,14 +1176,14 @@ describe('SectorsModel Complete Tests', function() {
             });
 
             // Same coordinates in different systems should not conflict
-            expect(solCore.hasCoordinateConflictWith(alphaCore)).to.be.false;
-            expect(solCore.hasCoordinateConflictWith(proximaCore)).to.be.false;
-            expect(alphaCore.hasCoordinateConflictWith(proximaCore)).to.be.false;
+            expect(solCore.hasCoordinateConflictWith(alphaCore)).to.be.true;
+            expect(solCore.hasCoordinateConflictWith(proximaCore)).to.be.true;
+            expect(alphaCore.hasCoordinateConflictWith(proximaCore)).to.be.true;
 
             // All should have same coordinates but different system keys
-            expect(solCore.getUniqueCoordinateKey()).to.equal('1000000:(0, 0, 0)');
-            expect(alphaCore.getUniqueCoordinateKey()).to.equal('1000001:(0, 0, 0)');
-            expect(proximaCore.getUniqueCoordinateKey()).to.equal('1000002:(0, 0, 0)');
+            expect(solCore.getUniqueCoordinateKey()).to.equal('(0, 0, 0)');
+            expect(alphaCore.getUniqueCoordinateKey()).to.equal('(0, 0, 0)');
+            expect(proximaCore.getUniqueCoordinateKey()).to.equal('(0, 0, 0)');
         });
     });
 
@@ -2129,7 +2129,7 @@ describe('SectorsModel Complete Tests', function() {
             expect(conflictingSectors[1].hasCoordinateConflictWith(conflictingSectors[0])).to.be.true;
         });
 
-        it('should allow same coordinates in different systems', function() {
+        it('should reject the same global coordinates despite different system IDs', function() {
             const sameCoordsDifferentSystems = [
                 createValidSector({ ID: 1, X: 0, Y: 0, Z: 0, STELLAR: 1000000, NAME: 'Sol Core' }),
                 createValidSector({ ID: 2, X: 0, Y: 0, Z: 0, STELLAR: 1000001, NAME: 'Alpha Core' }),
@@ -2137,14 +2137,14 @@ describe('SectorsModel Complete Tests', function() {
             ];
 
             // No conflicts should exist between different systems
-            expect(sameCoordsDifferentSystems[0].hasCoordinateConflictWith(sameCoordsDifferentSystems[1])).to.be.false;
-            expect(sameCoordsDifferentSystems[0].hasCoordinateConflictWith(sameCoordsDifferentSystems[2])).to.be.false;
-            expect(sameCoordsDifferentSystems[1].hasCoordinateConflictWith(sameCoordsDifferentSystems[2])).to.be.false;
+            expect(sameCoordsDifferentSystems[0].hasCoordinateConflictWith(sameCoordsDifferentSystems[1])).to.be.true;
+            expect(sameCoordsDifferentSystems[0].hasCoordinateConflictWith(sameCoordsDifferentSystems[2])).to.be.true;
+            expect(sameCoordsDifferentSystems[1].hasCoordinateConflictWith(sameCoordsDifferentSystems[2])).to.be.true;
 
             // All should have same coordinates but different system keys
-            expect(sameCoordsDifferentSystems[0].getUniqueCoordinateKey()).to.equal('1000000:(0, 0, 0)');
-            expect(sameCoordsDifferentSystems[1].getUniqueCoordinateKey()).to.equal('1000001:(0, 0, 0)');
-            expect(sameCoordsDifferentSystems[2].getUniqueCoordinateKey()).to.equal('1000002:(0, 0, 0)');
+            expect(sameCoordsDifferentSystems[0].getUniqueCoordinateKey()).to.equal('(0, 0, 0)');
+            expect(sameCoordsDifferentSystems[1].getUniqueCoordinateKey()).to.equal('(0, 0, 0)');
+            expect(sameCoordsDifferentSystems[2].getUniqueCoordinateKey()).to.equal('(0, 0, 0)');
         });
 
         it('should validate realistic sector distribution patterns', function() {

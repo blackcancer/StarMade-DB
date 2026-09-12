@@ -1,6 +1,6 @@
-# Contributing to SMToolkit-DB
+# Contributing to StarMade-DB
 
-First off, thank you for considering contributing to SMToolkit-DB! It's people like you that make SMToolkit-DB such a great tool for the StarMade community.
+First off, thank you for considering contributing to StarMade-DB! It's people like you that make StarMade-DB such a great tool for the StarMade community.
 
 ## Table of Contents
 
@@ -31,8 +31,8 @@ This project and everyone participating in it is governed by our Code of Conduct
 ### Prerequisites
 
 Before you begin, ensure you have the following installed:
-- Node.js 18+ (for ES2023 support)
-- Java 8+ (for HSQLDB)
+- Node.js 20.19+ on the 20.x line, or Node.js 22.12+
+- A JDK compatible with the installed StarMade HSQLDB driver, plus a C/C++ compiler and Python for the native bridge
 - Git
 - npm or yarn
 
@@ -45,13 +45,13 @@ Before you begin, ensure you have the following installed:
 
 2. **Clone your fork**
    ```bash
-   git clone https://github.com/blackcancer/smtoolkit-db.git
-   cd smtoolkit-db
+   git clone https://github.com/blackcancer/StarMade-DB.git
+   cd StarMade-DB
    ```
 
 3. **Add upstream remote**
    ```bash
-   git remote add upstream https://github.com/blackcancer/smtoolkit-db.git
+   git remote add upstream https://github.com/blackcancer/StarMade-DB.git
    ```
 
 4. **Install dependencies**
@@ -99,7 +99,7 @@ Before creating bug reports, please check existing issues to avoid duplicates. W
 [What actually happened]
 
 ### Environment
-- SMToolkit-DB Version: [e.g., 0.202.86]
+- StarMade-DB Version: [e.g., 0.202.86]
 - Node.js Version: [e.g., 18.17.0]
 - Operating System: [e.g., Windows 10, Ubuntu 22.04]
 - Java Version: [e.g., OpenJDK 11]
@@ -193,7 +193,7 @@ export class MyModule implements BaseModule {
     #privateField;
     
     constructor(config) {
-        this.#privateField = config?.value 'default';
+        this.#privateField = config?.value ?? 'default';
     }
     
     async initialize(manager) {
@@ -292,10 +292,10 @@ Closes #123"
 
 ## Pull Request Process
 
-1. **Ensure all tests pass** and coverage remains above 80%
+1. **Ensure all tests pass** and every source file reaches 100% line and branch coverage
 2. **Update documentation** for any API changes
 3. **Add examples** for new features
-4. **Update HISTORY.md** with your changes
+4. **Update CHANGELOG.md** with your changes
 5. **Ensure clean commit history** (squash if needed)
 
 ### PR Template
@@ -312,13 +312,13 @@ Closes #123"
 ### Testing
 - [ ] All tests pass
 - [ ] Added new tests
-- [ ] Coverage ≥ 80%
+- [ ] Coverage: 100% lines and branches per source file
 
 ### Checklist
 - [ ] Code follows style guidelines
 - [ ] Self-review completed
 - [ ] Documentation updated
-- [ ] HISTORY.md updated
+- [ ] CHANGELOG.md updated
 - [ ] No new warnings
 
 ### Related Issues
@@ -332,39 +332,43 @@ Closes #[issue number]
 Tests should mirror the source structure:
 ```
 src/core/modules/connection/ConnectionManager.ts
-tests/core/modules/connection/ConnectionManager.test.js
+tests/core/modules/connection/ConnectionManager.test.ts
 ```
 
 ### Writing Tests
 
-```javascript
+```typescript
+// tests/core/modules/connection/ConnectionManager.contract.test.ts
 import { expect } from 'chai';
-import { ConnectionManager } from '../../../dist/core/modules/connection/ConnectionManager.js';
+import { describe, it } from 'mocha';
+import { HSQLManager } from '../../../../src/core/HSQLManager.js';
+import type { ConnectionManager } from '../../../../src/core/modules/connection/ConnectionManager.js';
 
-describe('ConnectionManager', () => {
-    let manager;
-    
-    beforeEach(() => {
-        manager = new ConnectionManager();
+it('borrows and returns an initialized connection', async () => {
+    const manager = new HSQLManager({
+        starmadeDir: './tests/sandbox',
+        worldName: 'test_world',
+        connection: { readOnly: true },
+        modules: { enableConnectionFactory: true }
     });
-    
-    afterEach(async () => {
+    try {
+        await manager.initialize();
+        const pool = manager.getModule<ConnectionManager>('connection-manager')!;
+        const connection = await pool.getConnection();
+        try {
+            expect(connection.isActive).to.equal(true);
+            expect(await connection.ping()).to.equal(true);
+        } finally {
+            await pool.releaseConnection(connection);
+        }
+    } finally {
         await manager.destroy();
-    });
-    
-    describe('getConnection()', () => {
-        it('should return a valid connection', async () => {
-            const connection = await manager.getConnection();
-            expect(connection).to.exist;
-            expect(connection.isValid()).to.be.true;
-        });
-        
-        it('should handle connection errors gracefully', async () => {
-            // Test error scenarios
-        });
-    });
+    }
 });
 ```
+
+For a regression, assert the broken behavior first and keep its dependencies
+controlled. The test runner supplies the disposable fixture working directory.
 
 ### Test Categories
 
@@ -410,4 +414,21 @@ Contributors will be recognized in:
 
 Feel free to open an issue with the `question` label or start a discussion in the GitHub Discussions tab.
 
-Thank you for contributing to SMToolkit-DB!
+Thank you for contributing to StarMade-DB!
+## Local verification contract
+
+Follow [README setup](README.md#requirements-and-installation), including the sibling
+`StarMade-Decoder` checkout and `HSQLDB_JAR`. The test runner makes a disposable copy
+of `tests/sandbox`; do not run integration tests against a live game database.
+
+Run `npm run validate` before submitting changes. It checks TypeScript, JSDoc descriptions
+and 100% lines/branches for every source file, including private implementation paths.
+Do not add coverage exclusions or ignore annotations to satisfy the threshold.
+Exercise error paths through controlled dependency failures and test database semantics
+against the bundled fixture or isolated HSQLDB memory databases.
+
+Run `npm run docs:build` after editing declarations or comments. Update the public and
+internal references together with examples and behavioral limitations. The documentation
+check includes private/protected declarations; it does not replace a review of accuracy.
+Schema corrections should cite the local game source and schema evidence in
+[SCHEMA_VALIDATION.md](docs/SCHEMA_VALIDATION.md).

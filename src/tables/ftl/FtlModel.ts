@@ -1,3 +1,5 @@
+import * as related0 from '../sectors/SectorsModel.js';
+import * as related1 from '../entities/EntitiesModel.js';
 /**
  * @fileoverview FTL Model
  * 
@@ -28,8 +30,11 @@ import {
  * FTL connection types according to TABLE_FTL.md
  */
 export enum FtlType {
+    /** Ftl type value for warp gate, serialized as 0. */
     WARP_GATE = 0,  // Fixed jump gate connection
+    /** Ftl type value for worm hole, serialized as 1. */
     WORM_HOLE = 1,  // Natural space anomaly
+    /** Ftl type value for race way, serialized as 2. */
     RACE_WAY = 2    // Racing/transit corridor
 }
 
@@ -37,11 +42,17 @@ export enum FtlType {
  * Permission flags for FTL access control (bitwise)
  */
 export enum FtlPermission {
+    /** Ftl permission value for no spawn, serialized as 1. */
     NO_SPAWN = 1,       // Bit 0: No spawning allowed
+    /** Ftl permission value for no attack, serialized as 2. */
     NO_ATTACK = 2,      // Bit 1: No attacks allowed
+    /** Ftl permission value for no enter, serialized as 4. */
     NO_ENTER = 4,       // Bit 2: Entry prohibited
+    /** Ftl permission value for no exit, serialized as 8. */
     NO_EXIT = 8,        // Bit 3: Exit prohibited
+    /** Ftl permission value for no indications, serialized as 16. */
     NO_INDICATIONS = 16, // Bit 4: No notifications
+    /** Ftl permission value for no fp loss, serialized as 32. */
     NO_FP_LOSS = 32     // Bit 5: No faction point loss
 }
 
@@ -66,8 +77,10 @@ export const FTL_PERMISSION_COMBINATIONS = {
  * comprehensive jump analytics, and routing optimization.
  */
 export class FtlModel extends BaseModel {
+    /** SQL table name used to generate queries for this model. */
     public static tableName = 'FTL';
     
+    /** SQL column, key, index and validation definitions for this table. */
     public static schema: TableSchema = {
         tableName: 'FTL',
         comment: 'Faster-than-light jump connections',
@@ -221,7 +234,7 @@ export class FtlModel extends BaseModel {
             fromSector: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../sectors/SectorsModel.js').SectorsModel;
+                    return related0.SectorsModel;
                 },
                 {
                     from: ['FTL.FROM_X', 'FTL.FROM_Y', 'FTL.FROM_Z'],
@@ -233,7 +246,7 @@ export class FtlModel extends BaseModel {
             toSector: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../sectors/SectorsModel.js').SectorsModel;
+                    return related0.SectorsModel;
                 },
                 {
                     from: ['FTL.TO_X', 'FTL.TO_Y', 'FTL.TO_Z'],
@@ -245,7 +258,7 @@ export class FtlModel extends BaseModel {
             fromEntity: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../entities/EntitiesModel.js').EntitiesModel;
+                    return related1.EntitiesModel;
                 },
                 {
                     from: 'FTL.FROM_UID',
@@ -257,7 +270,7 @@ export class FtlModel extends BaseModel {
             toEntity: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../entities/EntitiesModel.js').EntitiesModel;
+                    return related1.EntitiesModel;
                 },
                 {
                     from: 'FTL.TO_UID',
@@ -271,55 +284,208 @@ export class FtlModel extends BaseModel {
     // TYPED ACCESSORS
     // =============================================================================
 
+    /**
+     * Read the FTL.ID column from this model. Numeric strings are converted to integers.
+     * @returns The stored ID value, normalized to an integer when necessary.
+     */
     public getId(): number { const v = this.get('ID'); if (v === undefined || v === null) return undefined as any; return typeof v === 'string' ? parseInt(v, 10) : v; }
+    /**
+     * Store the FTL.ID column in this model and return this for chaining.
+     * @param id New value for the ID column.
+     * @returns This model for chaining.
+     */
     public setId(id: number): this { return this.set('ID', id); }
 
+    /**
+     * Read the FTL.FROM_X column from this model.
+     * @returns The stored FROM_X value.
+     */
     public getFromX(): number { return this.get('FROM_X'); }
+    /**
+     * Store the FTL.FROM_X column in this model and return this for chaining.
+     * @param fromX New value for the FROM_X column.
+     * @returns This model for chaining.
+     */
     public setFromX(fromX: number): this { return this.set('FROM_X', fromX); }
 
+    /**
+     * Read the FTL.FROM_Y column from this model.
+     * @returns The stored FROM_Y value.
+     */
     public getFromY(): number { return this.get('FROM_Y'); }
+    /**
+     * Store the FTL.FROM_Y column in this model and return this for chaining.
+     * @param fromY New value for the FROM_Y column.
+     * @returns This model for chaining.
+     */
     public setFromY(fromY: number): this { return this.set('FROM_Y', fromY); }
 
+    /**
+     * Read the FTL.FROM_Z column from this model.
+     * @returns The stored FROM_Z value.
+     */
     public getFromZ(): number { return this.get('FROM_Z'); }
+    /**
+     * Store the FTL.FROM_Z column in this model and return this for chaining.
+     * @param fromZ New value for the FROM_Z column.
+     * @returns This model for chaining.
+     */
     public setFromZ(fromZ: number): this { return this.set('FROM_Z', fromZ); }
 
+    /**
+     * Read the FTL.FROM_X_LOC column from this model.
+     * @returns The stored FROM_X_LOC value.
+     */
     public getFromXLoc(): number { return this.get('FROM_X_LOC'); }
+    /**
+     * Store the FTL.FROM_X_LOC column in this model and return this for chaining.
+     * @param fromXLoc New value for the FROM_X_LOC column.
+     * @returns This model for chaining.
+     */
     public setFromXLoc(fromXLoc: number): this { return this.set('FROM_X_LOC', fromXLoc); }
 
+    /**
+     * Read the FTL.FROM_Y_LOC column from this model.
+     * @returns The stored FROM_Y_LOC value.
+     */
     public getFromYLoc(): number { return this.get('FROM_Y_LOC'); }
+    /**
+     * Store the FTL.FROM_Y_LOC column in this model and return this for chaining.
+     * @param fromYLoc New value for the FROM_Y_LOC column.
+     * @returns This model for chaining.
+     */
     public setFromYLoc(fromYLoc: number): this { return this.set('FROM_Y_LOC', fromYLoc); }
 
+    /**
+     * Read the FTL.FROM_Z_LOC column from this model.
+     * @returns The stored FROM_Z_LOC value.
+     */
     public getFromZLoc(): number { return this.get('FROM_Z_LOC'); }
+    /**
+     * Store the FTL.FROM_Z_LOC column in this model and return this for chaining.
+     * @param fromZLoc New value for the FROM_Z_LOC column.
+     * @returns This model for chaining.
+     */
     public setFromZLoc(fromZLoc: number): this { return this.set('FROM_Z_LOC', fromZLoc); }
 
+    /**
+     * Read the FTL.FROM_UID column from this model.
+     * @returns The stored FROM_UID value.
+     */
     public getFromUid(): string { return this.get('FROM_UID'); }
+    /**
+     * Store the FTL.FROM_UID column in this model and return this for chaining.
+     * @param fromUid New value for the FROM_UID column.
+     * @returns This model for chaining.
+     */
     public setFromUid(fromUid: string): this { return this.set('FROM_UID', fromUid); }
 
+    /**
+     * Read the FTL.TO_X column from this model.
+     * @returns The stored TO_X value.
+     */
     public getToX(): number { return this.get('TO_X'); }
+    /**
+     * Store the FTL.TO_X column in this model and return this for chaining.
+     * @param toX New value for the TO_X column.
+     * @returns This model for chaining.
+     */
     public setToX(toX: number): this { return this.set('TO_X', toX); }
 
+    /**
+     * Read the FTL.TO_Y column from this model.
+     * @returns The stored TO_Y value.
+     */
     public getToY(): number { return this.get('TO_Y'); }
+    /**
+     * Store the FTL.TO_Y column in this model and return this for chaining.
+     * @param toY New value for the TO_Y column.
+     * @returns This model for chaining.
+     */
     public setToY(toY: number): this { return this.set('TO_Y', toY); }
 
+    /**
+     * Read the FTL.TO_Z column from this model.
+     * @returns The stored TO_Z value.
+     */
     public getToZ(): number { return this.get('TO_Z'); }
+    /**
+     * Store the FTL.TO_Z column in this model and return this for chaining.
+     * @param toZ New value for the TO_Z column.
+     * @returns This model for chaining.
+     */
     public setToZ(toZ: number): this { return this.set('TO_Z', toZ); }
 
+    /**
+     * Read the FTL.TO_X_LOC column from this model.
+     * @returns The stored TO_X_LOC value.
+     */
     public getToXLoc(): number { return this.get('TO_X_LOC'); }
+    /**
+     * Store the FTL.TO_X_LOC column in this model and return this for chaining.
+     * @param toXLoc New value for the TO_X_LOC column.
+     * @returns This model for chaining.
+     */
     public setToXLoc(toXLoc: number): this { return this.set('TO_X_LOC', toXLoc); }
 
+    /**
+     * Read the FTL.TO_Y_LOC column from this model.
+     * @returns The stored TO_Y_LOC value.
+     */
     public getToYLoc(): number { return this.get('TO_Y_LOC'); }
+    /**
+     * Store the FTL.TO_Y_LOC column in this model and return this for chaining.
+     * @param toYLoc New value for the TO_Y_LOC column.
+     * @returns This model for chaining.
+     */
     public setToYLoc(toYLoc: number): this { return this.set('TO_Y_LOC', toYLoc); }
 
+    /**
+     * Read the FTL.TO_Z_LOC column from this model.
+     * @returns The stored TO_Z_LOC value.
+     */
     public getToZLoc(): number { return this.get('TO_Z_LOC'); }
+    /**
+     * Store the FTL.TO_Z_LOC column in this model and return this for chaining.
+     * @param toZLoc New value for the TO_Z_LOC column.
+     * @returns This model for chaining.
+     */
     public setToZLoc(toZLoc: number): this { return this.set('TO_Z_LOC', toZLoc); }
 
+    /**
+     * Read the FTL.TO_UID column from this model.
+     * @returns The stored TO_UID value.
+     */
     public getToUid(): string { return this.get('TO_UID'); }
+    /**
+     * Store the FTL.TO_UID column in this model and return this for chaining.
+     * @param toUid New value for the TO_UID column.
+     * @returns This model for chaining.
+     */
     public setToUid(toUid: string): this { return this.set('TO_UID', toUid); }
 
+    /**
+     * Read the FTL.TYPE column from this model.
+     * @returns The stored TYPE value.
+     */
     public getType(): FtlType { return this.get('TYPE'); }
+    /**
+     * Store the FTL.TYPE column in this model and return this for chaining.
+     * @param type New value for the TYPE column.
+     * @returns This model for chaining.
+     */
     public setType(type: FtlType): this { return this.set('TYPE', type); }
 
+    /**
+     * Read the FTL.PERMISSION column from this model.
+     * @returns The stored PERMISSION value.
+     */
     public getPermission(): number { return this.get('PERMISSION'); }
+    /**
+     * Store the FTL.PERMISSION column in this model and return this for chaining.
+     * @param permission New value for the PERMISSION column.
+     * @returns This model for chaining.
+     */
     public setPermission(permission: number): this { return this.set('PERMISSION', permission); }
 
     // =============================================================================

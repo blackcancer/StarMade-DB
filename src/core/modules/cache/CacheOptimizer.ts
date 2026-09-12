@@ -208,74 +208,82 @@ export class CacheOptimizer implements BaseModule, ModuleEventEmitter<ModuleEven
      */
     public get isInitialized(): boolean { return this._initialized; }
 
-    /** 
+    /**
+     * Whether initialization completed successfully. 
      * @private 
      * @type {boolean}
      */
     private _initialized = false;
-    /** 
+    /**
+     * Owning manager used to resolve configuration and module dependencies. 
      * @private 
      * @type {HSQLManager | undefined}
      */
     private manager?: HSQLManager;
-    /** 
+    /**
+     * Cache module used to store and invalidate shared results. 
      * @private 
      * @type {CacheManager | undefined}
      */
     private cacheManager?: CacheManager;
-    /** 
+    /**
+     * Effective configuration applied to this instance. 
      * @private 
      * @type {OptimizerConfig | undefined}
      */
     private config?: OptimizerConfig;
-    /** 
+    /**
+     * Whether destruction has started; prevents operations after resource cleanup. 
      * @private 
      * @type {boolean}
      */
     private destroyed = false;
-    /** 
+    /**
+     * Creation timestamp in milliseconds used to calculate uptime. 
      * @private 
      * @readonly
      * @type {number}
      */
     private readonly startTime = Date.now();
-    /** 
+    /**
+     * Module logger for operation context and diagnostic errors. 
      * @private 
      * @type {ModuleLogger}
      */
     private logger: ModuleLogger;
-    /** 
+    /**
+     * Emitter that dispatches this module’s lifecycle and operation events. 
      * @private 
      * @type {ModuleEventEmitterImpl<ModuleEvent>}
      */
     private eventEmitter: ModuleEventEmitterImpl<ModuleEvent>;
 
-    /** 
+    /**
+     * Observed access patterns indexed by cache key. 
      * @private 
      * @type {Map<string, AccessPattern>}
      */
     private accessPatterns: Map<string, AccessPattern> = new Map();
-    /** 
+    /**
+     * Recent cache access observations used for optimization analysis. 
      * @private 
      * @type {Array<{ key: string; timestamp: Date; hit: boolean }>}
      */
     private accessHistory: Array<{ key: string; timestamp: Date; hit: boolean }> = [];
-    /** 
+    /**
+     * Supported cache eviction strategies and their scoring rules. 
      * @private 
      * @type {Map<string, EvictionStrategy>}
      */
     private evictionStrategies: Map<string, EvictionStrategy> = new Map();
-    /** 
-     * @private 
-     * @type {OptimizationRecommendation[]}
-     */
-    private optimizationHistory: OptimizationRecommendation[] = [];
-    /** 
+    /**
+     * Periodic timer that triggers cache optimization analysis. 
      * @private 
      * @type {NodeJS.Timeout | undefined}
      */
     private optimizationTimer?: NodeJS.Timeout;
-    /** 
+    /**
+     * Reference cache performance values used to estimate improvements. 
      * @private 
      * @type {object}
      */
@@ -722,7 +730,7 @@ export class CacheOptimizer implements BaseModule, ModuleEventEmitter<ModuleEven
             totalPatterns++;
         }
         
-        return totalPatterns > 0 ? alignmentScore / totalPatterns : 50;
+        return alignmentScore / totalPatterns;
     }
 
     /**
@@ -748,7 +756,7 @@ export class CacheOptimizer implements BaseModule, ModuleEventEmitter<ModuleEven
                     description: `Adjust TTL to ${Math.round(optimalTtl / 1000)}s based on access interval of ${Math.round(pattern.averageInterval / 1000)}s`,
                     expectedImprovement: 15,
                     effort: 'low',
-                    autoApplicable: true,
+                    autoApplicable: false,
                     parameters: {
                         keyPattern: pattern.key,
                         recommendedTtl: optimalTtl,
@@ -920,10 +928,11 @@ export class CacheOptimizer implements BaseModule, ModuleEventEmitter<ModuleEven
     }
 
     /**
-     * Applies a given optimization recommendation.
-     * @async
-     * @param {OptimizationRecommendation} recommendation - The recommendation to apply.
-     * @returns {Promise<boolean>} True if the recommendation was applied successfully, false otherwise.
+     * Reports that a recommendation requires manual cache configuration.
+     * CacheManager currently supports LRU eviction and exposes no runtime strategy,
+     * TTL-policy or memory-limit mutation API, so recommendations are advisory.
+     * @param recommendation - Recommendation to inspect without mutating the cache.
+     * @returns False: no cache configuration was changed.
      * @throws {ModuleNotInitializedError} If the optimizer is not initialized.
      */
     public async applyRecommendation(recommendation: OptimizationRecommendation): Promise<boolean> {
@@ -932,132 +941,12 @@ export class CacheOptimizer implements BaseModule, ModuleEventEmitter<ModuleEven
                 operation: 'apply-recommendation'
             });
         }
-
-        this.logger.info('Applying optimization recommendation', {
+        this.logger.warn('Automatic cache recommendation application is not supported; configure the cache manually', {
             operation: 'apply-recommendation',
             type: recommendation.type,
-            title: recommendation.title,
-            confidence: recommendation.confidence
+            title: recommendation.title
         });
-
-        try {
-            let applied = false;
-
-            switch (recommendation.type) {
-                case 'ttl-adjustment':
-                    applied = await this.applyTtlOptimization(recommendation);
-                    break;
-                case 'eviction-tuning':
-                    applied = await this.applyEvictionOptimization(recommendation);
-                    break;
-                case 'size-optimization':
-                    applied = await this.applyMemoryOptimization(recommendation);
-                    break;
-                default:
-                    this.logger.warn('Unknown recommendation type', {
-                        operation: 'apply-recommendation',
-                        type: recommendation.type
-                    });
-                    applied = false;
-            }
-
-            if (applied) {
-                // Add to optimization history
-                this.optimizationHistory.push({
-                    ...recommendation,
-                    parameters: {
-                        ...recommendation.parameters,
-                        appliedAt: new Date().toISOString()
-                    }
-                });
-
-                // Trim history to last 100 optimizations
-                if (this.optimizationHistory.length > 100) {
-                    this.optimizationHistory = this.optimizationHistory.slice(-100);
-                }
-
-                this.emit(ModuleEvent.INITIALIZED, createEventData('optimization-applied', {
-                    type: recommendation.type,
-                    expectedImprovement: recommendation.expectedImprovement
-                }, this.name));
-            }
-
-            return applied;
-
-        } catch (error) {
-            this.logger.error('Failed to apply optimization recommendation', {
-                operation: 'apply-recommendation',
-                type: recommendation.type,
-                error: error instanceof Error ? error.message : String(error)
-            });
-            return false;
-        }
-    }
-
-    /**
-     * Applies a TTL optimization recommendation.
-     * @private
-     * @async
-     * @param {OptimizationRecommendation} recommendation - The TTL recommendation to apply.
-     * @returns {Promise<boolean>} True if the optimization was applied.
-     */
-    private async applyTtlOptimization(recommendation: OptimizationRecommendation): Promise<boolean> {
-        // TTL optimization would require integration with CacheManager
-        // For now, just log the recommendation
-        this.logger.info('TTL optimization recommended', {
-            operation: 'apply-ttl-optimization',
-            parameters: recommendation.parameters
-        });
-        return true; // Placeholder
-    }
-
-    /**
-     * Applies an eviction strategy optimization recommendation.
-     * @private
-     * @async
-     * @param {OptimizationRecommendation} recommendation - The eviction recommendation to apply.
-     * @returns {Promise<boolean>} True if the new strategy was enabled.
-     */
-    private async applyEvictionOptimization(recommendation: OptimizationRecommendation): Promise<boolean> {
-        const strategyType = recommendation.parameters.recommendedStrategy;
-        const strategy = this.evictionStrategies.get(strategyType);
-        
-        if (strategy) {
-            // Disable current strategy
-            for (const s of this.evictionStrategies.values()) {
-                s.enabled = false;
-            }
-            
-            // Enable recommended strategy
-            strategy.enabled = true;
-            
-            this.logger.info('Eviction strategy changed', {
-                operation: 'apply-eviction-optimization',
-                newStrategy: strategy.name,
-                type: strategyType
-            });
-            
-            return true;
-        }
-        
         return false;
-    }
-
-    /**
-     * Applies a memory optimization recommendation.
-     * @private
-     * @async
-     * @param {OptimizationRecommendation} recommendation - The memory recommendation to apply.
-     * @returns {Promise<boolean>} True if the optimization was applied.
-     */
-    private async applyMemoryOptimization(recommendation: OptimizationRecommendation): Promise<boolean> {
-        // Memory optimization would require CacheManager configuration changes
-        // For now, just log the recommendation
-        this.logger.info('Memory optimization recommended', {
-            operation: 'apply-memory-optimization',
-            parameters: recommendation.parameters
-        });
-        return true; // Placeholder
     }
 
     /**
@@ -1087,7 +976,7 @@ export class CacheOptimizer implements BaseModule, ModuleEventEmitter<ModuleEven
             efficiency,
             patterns: Array.from(this.accessPatterns.values()).slice(0, 20), // Top 20 patterns
             strategies: Array.from(this.evictionStrategies.values()),
-            recentOptimizations: this.optimizationHistory.slice(-10), // Last 10 optimizations
+            recentOptimizations: [], // Recommendations remain advisory until CacheManager supports applying them.
             trends: {
                 hitRatio: {
                     current: stats.hitRatio,
@@ -1128,7 +1017,7 @@ export class CacheOptimizer implements BaseModule, ModuleEventEmitter<ModuleEven
     }
 
     /**
-     * Performs an automatic optimization cycle, analyzing and applying high-confidence recommendations.
+     * Periodically analyzes cache behavior and reports advisory recommendations without changing cache policies.
      * @private
      * @async
      */
@@ -1136,22 +1025,11 @@ export class CacheOptimizer implements BaseModule, ModuleEventEmitter<ModuleEven
         try {
             const recommendations = await this.analyzeAndOptimize();
             
-            // Apply high-confidence, auto-applicable recommendations
-            for (const recommendation of recommendations) {
-                if (recommendation.autoApplicable && 
-                    recommendation.confidence >= this.config!.autoApplyThreshold) {
-                    
-                    await this.applyRecommendation(recommendation);
-                }
-            }
-            
             if (recommendations.length > 0) {
                 this.logger.debug('Automatic optimization completed', {
                     operation: 'automatic-optimization',
                     totalRecommendations: recommendations.length,
-                    autoApplied: recommendations.filter(r => 
-                        r.autoApplicable && r.confidence >= this.config!.autoApplyThreshold
-                    ).length
+                    autoApplied: 0
                 });
             }
             
@@ -1198,7 +1076,6 @@ export class CacheOptimizer implements BaseModule, ModuleEventEmitter<ModuleEven
         this.accessPatterns.clear();
         this.accessHistory = [];
         this.evictionStrategies.clear();
-        this.optimizationHistory = [];
 
         // Clear references
         this.cacheManager = undefined;

@@ -95,9 +95,13 @@ export const DEFAULT_RELATIONSHIP_CONFIG: Required<RelationshipDiscoveryConfig> 
  * Relationship types
  */
 export enum RelationshipType {
+    /** Relationship type value for one to one, serialized as 'one-to-one'. */
     ONE_TO_ONE = 'one-to-one',
+    /** Relationship type value for one to many, serialized as 'one-to-many'. */
     ONE_TO_MANY = 'one-to-many',
+    /** Relationship type value for many to one, serialized as 'many-to-one'. */
     MANY_TO_ONE = 'many-to-one',
+    /** Relationship type value for many to many, serialized as 'many-to-many'. */
     MANY_TO_MANY = 'many-to-many'
 }
 
@@ -105,9 +109,13 @@ export enum RelationshipType {
  * Relationship discovery methods
  */
 export enum DiscoveryMethod {
+    /** Discovery method value for foreign key, serialized as 'foreign-key'. */
     FOREIGN_KEY = 'foreign-key',
+    /** Discovery method value for naming pattern, serialized as 'naming-pattern'. */
     NAMING_PATTERN = 'naming-pattern',
+    /** Discovery method value for data analysis, serialized as 'data-analysis'. */
     DATA_ANALYSIS = 'data-analysis',
+    /** Discovery method value for statistical, serialized as 'statistical'. */
     STATISTICAL = 'statistical'
 }
 
@@ -256,22 +264,34 @@ export interface AnalysisMetrics {
  * for HSQLDB databases with focus on data integrity and performance.
  */
 export class RelationshipAnalyzer implements BaseModule {
+    /** Stable module identifier used when registering and looking up the module. */
     public readonly name = 'relationship-analyzer';
+    /** Version of this module implementation. */
     public readonly version = '1.0.0';
 
+    /** Owning manager used to resolve configuration and module dependencies. */
     private manager!: HSQLManager;
+    /** Connection pool module used to borrow and release JDBC sessions. */
     private connectionManager!: ConnectionManager;
+    /** Schema module used to inspect tables and columns. */
     private schemaAnalyzer!: SchemaAnalyzer;
+    /** Module logger for operation context and diagnostic errors. */
     private logger!: ModuleLogger;
+    /** Effective configuration applied to this instance. */
     private config: Required<RelationshipDiscoveryConfig>;
+    /** Whether initialization completed successfully. */
     private initialized = false;
+    /** Whether destruction has started; prevents operations after resource cleanup. */
     private destroyed = false;
+    /** Previously analyzed relationships indexed by analysis key. */
     private relationshipCache: Map<string, RelationshipPattern[]> = new Map();
 
+    /** Creates a relationship analyzer with the supplied discovery options. */
     constructor(config: RelationshipDiscoveryConfig = {}) {
         this.config = { ...DEFAULT_RELATIONSHIP_CONFIG, ...config };
     }
 
+    /** Whether initialization completed and the module is available for use. */
     public get isInitialized(): boolean {
         return this.initialized;
     }
@@ -456,11 +476,13 @@ export class RelationshipAnalyzer implements BaseModule {
             const relationships = await this.discoverRelationships();
             const issues: IntegrityIssue[] = [];
             let orphanedRecords = 0;
+            let allRelationshipsValid = true;
 
             // Validate each relationship
             for (const relationship of relationships) {
                 const relationshipIssues = await this.validateSingleRelationship(relationship);
                 issues.push(...relationshipIssues.integrityIssues);
+                allRelationshipsValid = allRelationshipsValid && relationshipIssues.isValid;
                 orphanedRecords += relationshipIssues.orphanedRecords || 0;
             }
 
@@ -468,7 +490,7 @@ export class RelationshipAnalyzer implements BaseModule {
             const duplicateRelationships = this.findDuplicateRelationships(relationships);
 
             const validation: RelationshipValidation = {
-                isValid: issues.length === 0,
+                isValid: allRelationshipsValid,
                 integrityIssues: issues,
                 orphanedRecords,
                 duplicateRelationships: duplicateRelationships.length > 0 ? duplicateRelationships : undefined,
@@ -720,10 +742,10 @@ export class RelationshipAnalyzer implements BaseModule {
                 sampleSize: this.config.sampleSize
             });
 
-            // Analyser les relations implicites basÈes sur les valeurs des donnÈes
+            // Analyser les relations implicites bas√©es sur les valeurs des donn√©es
             for (const sourceTable of tables) {
                 for (const sourceColumn of sourceTable.columns) {
-                    // Ignorer les colonnes dÈj‡ identifiÈes comme FK ou PK
+                    // Ignorer les colonnes d√©j√† identifi√©es comme FK ou PK
                     if (sourceColumn.isPrimaryKey || sourceColumn.isForeignKey) {
                         continue;
                     }
@@ -733,13 +755,13 @@ export class RelationshipAnalyzer implements BaseModule {
                         if (sourceTable.name === targetTable.name) continue;
 
                         for (const targetColumn of targetTable.columns) {
-                            // VÈrifier si les types sont compatibles
+                            // V√©rifier si les types sont compatibles
                             if (sourceColumn.dataType !== targetColumn.dataType) {
                                 continue;
                             }
 
                             try {
-                                // …chantillonner les donnÈes pour analyser les correspondances
+                                // √âchantillonner les donn√©es pour analyser les correspondances
                                 const matchRatio = await this.analyzeDataCorrelation(
                                     connection,
                                     sourceTable.name,
@@ -748,7 +770,7 @@ export class RelationshipAnalyzer implements BaseModule {
                                     targetColumn.name
                                 );
 
-                                // Si le ratio de correspondance est ÈlevÈ, suggÈrer une relation
+                                // Si le ratio de correspondance est √©lev√©, sugg√©rer une relation
                                 if (matchRatio >= this.config.confidenceThreshold) {
                                     const relationship: RelationshipPattern = {
                                         name: `${sourceTable.name}_${targetTable.name}_DATA`,
@@ -800,6 +822,16 @@ export class RelationshipAnalyzer implements BaseModule {
     }
 
     /**
+     * Quotes a metadata identifier for HSQLDB SQL while preserving its exact spelling.
+     * @param identifier - Table or column name obtained from schema metadata.
+     * @returns A delimited SQL identifier with embedded quotes doubled.
+     * @private
+     */
+    private quoteIdentifier(identifier: string): string {
+        return `"${identifier.replace(/"/g, '""')}"`;
+    }
+
+    /**
      * Analyze correlation between two columns by sampling data
      */
     private async analyzeDataCorrelation(
@@ -810,20 +842,20 @@ export class RelationshipAnalyzer implements BaseModule {
         targetColumn: string
     ): Promise<number> {
         try {
-            // …chantillonner les donnÈes des deux colonnes
+            // √âchantillonner les donn√©es des deux colonnes
             const sampleSize = Math.min(this.config.sampleSize, 1000);
 
             const sourceSampleSql = `
-                SELECT DISTINCT ${sourceColumn} 
-                FROM ${sourceTable} 
-                WHERE ${sourceColumn} IS NOT NULL
+                SELECT DISTINCT ${this.quoteIdentifier(sourceColumn)} 
+                FROM ${this.quoteIdentifier(sourceTable)} 
+                WHERE ${this.quoteIdentifier(sourceColumn)} IS NOT NULL
                 LIMIT ${sampleSize}
             `;
 
             const targetSampleSql = `
-                SELECT DISTINCT ${targetColumn} 
-                FROM ${targetTable} 
-                WHERE ${targetColumn} IS NOT NULL
+                SELECT DISTINCT ${this.quoteIdentifier(targetColumn)} 
+                FROM ${this.quoteIdentifier(targetTable)} 
+                WHERE ${this.quoteIdentifier(targetColumn)} IS NOT NULL
                 LIMIT ${sampleSize}
             `;
 
@@ -874,7 +906,7 @@ export class RelationshipAnalyzer implements BaseModule {
         targetColumns: string[];
     }>> {
         try {
-            // CORRECTION CRITIQUE: Utiliser des requÍtes HSQLDB-compatibles
+            // CORRECTION CRITIQUE: Utiliser des requ√™tes HSQLDB-compatibles
             const sql = `
                 SELECT 
                     FK_NAME,
@@ -936,18 +968,21 @@ export class RelationshipAnalyzer implements BaseModule {
             let orphanedRecords = 0;
 
             try {
-                // Valider l'intÈgritÈ des donnÈes pour cette relation
+                // Valider l'int√©grit√© des donn√©es pour cette relation
                 if (relationship.isEnforced) {
-                    // Pour les relations avec contraintes FK, vÈrifier l'intÈgritÈ
+                    if (relationship.sourceColumns.length === 0 || relationship.sourceColumns.length !== relationship.targetColumns.length) {
+                        throw new ModuleError('RelationshipAnalyzer', 'validate-relationship', 'Relationship columns must form non-empty matching pairs');
+                    }
+                    // Pour les relations avec contraintes FK, v√©rifier l'int√©grit√©
                     const checkSql = `
                         SELECT COUNT(*) as orphaned_count
-                        FROM ${relationship.sourceTable} s
-                        LEFT JOIN ${relationship.targetTable} t 
+                        FROM ${this.quoteIdentifier(relationship.sourceTable)} s
+                        LEFT JOIN ${this.quoteIdentifier(relationship.targetTable)} t 
                         ON ${relationship.sourceColumns.map((col, i) => 
-                            `s.${col} = t.${relationship.targetColumns[i] || relationship.targetColumns[0]}`
+                            `s.${this.quoteIdentifier(col)} = t.${this.quoteIdentifier(relationship.targetColumns[i])}`
                         ).join(' AND ')}
-                        WHERE t.${relationship.targetColumns[0]} IS NULL 
-                        AND s.${relationship.sourceColumns[0]} IS NOT NULL
+                        WHERE t.${this.quoteIdentifier(relationship.targetColumns[0])} IS NULL 
+                        AND ${relationship.sourceColumns.map(column => `s.${this.quoteIdentifier(column)} IS NOT NULL`).join(' AND ')}
                     `;
 
                     const result = await connection.execute(checkSql);
@@ -1022,14 +1057,14 @@ export class RelationshipAnalyzer implements BaseModule {
                 const sourceTableInfo = await this.schemaAnalyzer.analyzeTable(relationship.sourceTable);
                 const targetTableInfo = await this.schemaAnalyzer.analyzeTable(relationship.targetTable);
 
-                // VÈrifier si les colonnes sources sont indexÈes
+                // V√©rifier si les colonnes sources sont index√©es
                 const sourceIndexed = relationship.sourceColumns.every(col =>
                     sourceTableInfo.indexes.some(idx =>
                         idx.columns.some(idxCol => idxCol.name === col)
                     )
                 );
 
-                // VÈrifier si les colonnes cibles sont indexÈes
+                // V√©rifier si les colonnes cibles sont index√©es
                 const targetIndexed = relationship.targetColumns.every(col =>
                     targetTableInfo.indexes.some(idx =>
                         idx.columns.some(idxCol => idxCol.name === col)
@@ -1047,13 +1082,13 @@ export class RelationshipAnalyzer implements BaseModule {
                     optimizations.push(`Add index on ${relationship.targetTable}(${relationship.targetColumns.join(', ')})`);
                 }
 
-                // Calculer la sÈlectivitÈ basique (estimation)
+                // Calculer la s√©lectivit√© basique (estimation)
                 const sourceRowCount = sourceTableInfo.statistics.rowCount;
                 const targetRowCount = targetTableInfo.statistics.rowCount;
                 let selectivity = 1.0;
 
                 if (sourceRowCount > 0 && targetRowCount > 0) {
-                    // Estimation simple de la sÈlectivitÈ
+                    // Estimation simple de la s√©lectivit√©
                     selectivity = Math.min(sourceRowCount / targetRowCount, 1.0);
                 }
 
@@ -1061,8 +1096,8 @@ export class RelationshipAnalyzer implements BaseModule {
                     indexCoverage,
                     optimizations,
                     selectivity,
-                    averageJoinTime: undefined, // NÈcessiterait des mesures rÈelles
-                    queryFrequency: undefined   // NÈcessiterait des statistiques d'utilisation
+                    averageJoinTime: undefined, // N√©cessiterait des mesures r√©elles
+                    queryFrequency: undefined   // N√©cessiterait des statistiques d'utilisation
                 };
 
             } catch (error) {
@@ -1072,7 +1107,7 @@ export class RelationshipAnalyzer implements BaseModule {
                     error: error instanceof Error ? error.message : String(error)
                 });
 
-                // Valeurs par dÈfaut en cas d'erreur
+                // Valeurs par d√©faut en cas d'erreur
                 relationship.performance = {
                     indexCoverage: false,
                     optimizations: ['Unable to analyze - add manual index review']
@@ -1137,10 +1172,10 @@ export class RelationshipAnalyzer implements BaseModule {
             graph.get(dep.sourceTable)!.push(dep.targetTable);
         }
 
-        // Fonction DFS pour dÈtecter les cycles
+        // Fonction DFS pour d√©tecter les cycles
         const dfs = (node: string, path: string[]): void => {
             if (recursionStack.has(node)) {
-                // Cycle dÈtectÈ, extraire le cycle
+                // Cycle d√©tect√©, extraire le cycle
                 const cycleStart = path.indexOf(node);
                 if (cycleStart >= 0) {
                     const cycle = path.slice(cycleStart);
@@ -1166,14 +1201,14 @@ export class RelationshipAnalyzer implements BaseModule {
             recursionStack.delete(node);
         };
 
-        // ExÈcuter DFS depuis chaque núud non visitÈ
+        // Ex√©cuter DFS depuis chaque n≈ìud non visit√©
         for (const table of graph.keys()) {
             if (!visited.has(table)) {
                 dfs(table, []);
             }
         }
 
-        // …liminer les doublons
+        // √âliminer les doublons
         const uniqueCycles: string[][] = [];
         const cycleStrings = new Set<string>();
 

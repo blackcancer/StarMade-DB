@@ -1,3 +1,4 @@
+import * as related0 from '../systems/SystemsModel.js';
 /**
  * @fileoverview NPC Stats Model
  * 
@@ -26,8 +27,10 @@ import {
  * and comprehensive analytics for faction spawn patterns.
  */
 export class NPCStatsModel extends BaseModel {
+    /** SQL table name used to generate queries for this model. */
     public static tableName = 'NPC_STATS';
     
+    /** SQL column, key, index and validation definitions for this table. */
     public static schema: TableSchema = {
         tableName: 'NPC_STATS',
         comment: 'NPC spawn statistics by system',
@@ -104,7 +107,7 @@ export class NPCStatsModel extends BaseModel {
             system: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../systems/SystemsModel.js').SystemsModel;
+                    return related0.SystemsModel;
                 },
                 {
                     from: ['NPC_STATS.SYS_X', 'NPC_STATS.SYS_Y', 'NPC_STATS.SYS_Z'],
@@ -118,22 +121,76 @@ export class NPCStatsModel extends BaseModel {
     // TYPED ACCESSORS
     // =============================================================================
 
+    /**
+     * Read the NPC_STATS.ID column from this model. Numeric strings are converted to integers.
+     * @returns The stored ID value, normalized to an integer when necessary.
+     */
     public getId(): number { const v = this.get('ID'); if (v === undefined || v === null) return undefined as any; return typeof v === 'string' ? parseInt(v, 10) : v; }
+    /**
+     * Store the NPC_STATS.ID column in this model and return this for chaining.
+     * @param id New value for the ID column.
+     * @returns This model for chaining.
+     */
     public setId(id: number): this { return this.set('ID', id); }
 
+    /**
+     * Read the NPC_STATS.SYS_X column from this model.
+     * @returns The stored SYS_X value.
+     */
     public getSysX(): number { return this.get('SYS_X'); }
+    /**
+     * Store the NPC_STATS.SYS_X column in this model and return this for chaining.
+     * @param sysX New value for the SYS_X column.
+     * @returns This model for chaining.
+     */
     public setSysX(sysX: number): this { return this.set('SYS_X', sysX); }
 
+    /**
+     * Read the NPC_STATS.SYS_Y column from this model.
+     * @returns The stored SYS_Y value.
+     */
     public getSysY(): number { return this.get('SYS_Y'); }
+    /**
+     * Store the NPC_STATS.SYS_Y column in this model and return this for chaining.
+     * @param sysY New value for the SYS_Y column.
+     * @returns This model for chaining.
+     */
     public setSysY(sysY: number): this { return this.set('SYS_Y', sysY); }
 
+    /**
+     * Read the NPC_STATS.SYS_Z column from this model.
+     * @returns The stored SYS_Z value.
+     */
     public getSysZ(): number { return this.get('SYS_Z'); }
+    /**
+     * Store the NPC_STATS.SYS_Z column in this model and return this for chaining.
+     * @param sysZ New value for the SYS_Z column.
+     * @returns This model for chaining.
+     */
     public setSysZ(sysZ: number): this { return this.set('SYS_Z', sysZ); }
 
+    /**
+     * Read the NPC_STATS.FLEET_SPAWNS column from this model.
+     * @returns The stored FLEET_SPAWNS value.
+     */
     public getFleetSpawns(): number { return this.get('FLEET_SPAWNS') || 0; }
+    /**
+     * Store the NPC_STATS.FLEET_SPAWNS column in this model and return this for chaining.
+     * @param fleetSpawns New value for the FLEET_SPAWNS column.
+     * @returns This model for chaining.
+     */
     public setFleetSpawns(fleetSpawns: number): this { return this.set('FLEET_SPAWNS', fleetSpawns); }
 
+    /**
+     * Read the NPC_STATS.ENTITY_SPAWNS column from this model.
+     * @returns The stored ENTITY_SPAWNS value.
+     */
     public getEntitySpawns(): number { return this.get('ENTITY_SPAWNS') || 0; }
+    /**
+     * Store the NPC_STATS.ENTITY_SPAWNS column in this model and return this for chaining.
+     * @param entitySpawns New value for the ENTITY_SPAWNS column.
+     * @returns This model for chaining.
+     */
     public setEntitySpawns(entitySpawns: number): this { return this.set('ENTITY_SPAWNS', entitySpawns); }
 
     // =============================================================================
@@ -159,14 +216,17 @@ export class NPCStatsModel extends BaseModel {
     // BUSINESS LOGIC METHODS - ENHANCED EDITION
     // =============================================================================
 
+    /** Format the system coordinates as a parenthesized x, y, z triple. */
     public getSystemCoordinatesString(): string {
         return `(${this.getSysX()}, ${this.getSysY()}, ${this.getSysZ()})`;
     }
 
+    /** Return the sum of fleet and individual entity spawn counts. */
     public getTotalSpawns(): number {
         return this.getFleetSpawns() + this.getEntitySpawns();
     }
 
+    /** Resolve the three built-in NPC faction identifiers, falling back to the numeric faction identifier. */
     public getFactionName(): string {
         const id = this.getId();
         if (id === -10000000) return 'Trading Guild';

@@ -126,7 +126,9 @@ export interface MineStatistics {
  * Controller for MINES table with tactical mine management capabilities
  */
 export class MinesController extends BaseController<MinesModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<MinesModel> = MinesModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'MinesController';
 
     /**
@@ -179,6 +181,7 @@ export class MinesController extends BaseController<MinesModel> {
      * @throws {ErrorFactory} If the query fails
      */
     public async findAll(options: MineSearchOptions = {}): Promise<MinesModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -443,14 +446,14 @@ export class MinesController extends BaseController<MinesModel> {
                 totalResult, armedResult, armingResult, disarmedResult, depletedResult,
                 npcResult, factionResult, ownerResult
             ] = await Promise.all([
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM MINES', []),
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM MINES WHERE ARMED = TRUE', []),
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM MINES WHERE ARMED = FALSE AND ARMED_IN_SECS > 0', []),
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM MINES WHERE ARMED = FALSE AND ARMED_IN_SECS = -1', []),
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM MINES WHERE AMMO = 0', []),
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM MINES WHERE FACTION < 0', []),
-                this.executeQuery('SELECT FACTION, COUNT(*) AS cnt FROM MINES GROUP BY FACTION', []),
-                this.executeQuery('SELECT OWNER, COUNT(*) AS cnt FROM MINES WHERE OWNER IS NOT NULL GROUP BY OWNER ORDER BY cnt DESC LIMIT 10', [])
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM MINES', []),
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM MINES WHERE ARMED = TRUE', []),
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM MINES WHERE ARMED = FALSE AND ARMED_IN_SECS > 0', []),
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM MINES WHERE ARMED = FALSE AND ARMED_IN_SECS = -1', []),
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM MINES WHERE AMMO = 0', []),
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM MINES WHERE FACTION < 0', []),
+                this.executeQuery('SELECT FACTION, COUNT(*) AS "cnt" FROM MINES GROUP BY FACTION', []),
+                this.executeQuery('SELECT OWNER, COUNT(*) AS "cnt" FROM MINES WHERE OWNER IS NOT NULL GROUP BY OWNER ORDER BY "cnt" DESC LIMIT 10', [])
             ]);
 
             const total = Number(totalResult[0]?.cnt ?? 0);
@@ -496,7 +499,7 @@ export class MinesController extends BaseController<MinesModel> {
     public async countInSector(x: number, y: number, z: number): Promise<number> {
         this.ensureInitialized();
 
-        const sql = 'SELECT COUNT(*) AS cnt FROM MINES WHERE SECTOR_X = ? AND SECTOR_Y = ? AND SECTOR_Z = ?';
+        const sql = 'SELECT COUNT(*) AS "cnt" FROM MINES WHERE SECTOR_X = ? AND SECTOR_Y = ? AND SECTOR_Z = ?';
         try {
             const result = await this.executeQuery(sql, [x, y, z]);
             return Number(result[0]?.cnt ?? 0);

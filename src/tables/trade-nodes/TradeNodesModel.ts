@@ -1,3 +1,6 @@
+import * as decoder from 'starmade-decoder';
+import * as related0 from '../sectors/SectorsModel.js';
+import * as related1 from '../players/PlayersModel.js';
 /**
  * @fileoverview Trade Nodes Model
  * 
@@ -43,10 +46,15 @@ export const DEFAULT_PERMISSION = 15;
  * Trade permission flags (bitwise) as documented in TABLE_TRADE_NODES.md
  */
 export enum TradePermissionFlag {
+    /** Trade permission flag value for neutral, serialized as 1. */
     NEUTRAL = 1,    // Bit 0 - Neutral players
+    /** Trade permission flag value for faction, serialized as 2. */
     FACTION = 2,    // Bit 1 - Faction members  
+    /** Trade permission flag value for ally, serialized as 4. */
     ALLY = 4,       // Bit 2 - Allied factions
+    /** Trade permission flag value for npc, serialized as 8. */
     NPC = 8,        // Bit 3 - NPC entities
+    /** Trade permission flag value for enemy, serialized as 16. */
     ENEMY = 16      // Bit 4 - Enemy factions
 }
 
@@ -54,11 +62,17 @@ export enum TradePermissionFlag {
  * Common permission combinations as documented
  */
 export enum TradePermissionPreset {
+    /** Trade permission preset value for no access, serialized as 0. */
     NO_ACCESS = 0,          // 00000 - Station closed
+    /** Trade permission preset value for neutral only, serialized as 1. */
     NEUTRAL_ONLY = 1,       // 00001 - Public trading post
+    /** Trade permission preset value for neutral faction, serialized as 3. */
     NEUTRAL_FACTION = 3,    // 00011 - Faction-friendly trading
+    /** Trade permission preset value for diplomatic hub, serialized as 7. */
     DIPLOMATIC_HUB = 7,     // 00111 - Neutral + Faction + Ally
+    /** Trade permission preset value for standard commercial, serialized as 15. */
     STANDARD_COMMERCIAL = 15, // 01111 - All except enemies (default)
+    /** Trade permission preset value for universal access, serialized as 31. */
     UNIVERSAL_ACCESS = 31   // 11111 - Free trade zone
 }
 
@@ -66,9 +80,13 @@ export enum TradePermissionPreset {
  * Known faction IDs for trade nodes
  */
 export enum KnownTradeFactions {
+    /** Known trade factions value for no faction, serialized as 0. */
     NO_FACTION = 0,         // No faction
+    /** Known trade factions value for trading guild, serialized as -10000000. */
     TRADING_GUILD = -10000000,  // NPC Trading Guild
+    /** Known trade factions value for outcasts, serialized as -9999999. */
     OUTCASTS = -9999999,    // NPC Outcasts
+    /** Known trade factions value for scavengers, serialized as -9999998. */
     SCAVENGERS = -9999998   // NPC Scavengers
 }
 
@@ -84,8 +102,10 @@ export enum KnownTradeFactions {
  * and advanced trading analytics.
  */
 export class TradeNodesModel extends BaseModel {
+    /** SQL table name used to generate queries for this model. */
     public static tableName = 'TRADE_NODES';
     
+    /** SQL column, key, index and validation definitions for this table. */
     public static schema: TableSchema = {
         tableName: 'TRADE_NODES',
         comment: 'Economic hub table managing station marketplaces for item exchange',
@@ -227,7 +247,7 @@ export class TradeNodesModel extends BaseModel {
             sector: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../sectors/SectorsModel.js').SectorsModel;
+                    return related0.SectorsModel;
                 },
                 {
                     from: ['TRADE_NODES.SEC_X', 'TRADE_NODES.SEC_Y', 'TRADE_NODES.SEC_Z'],
@@ -239,7 +259,7 @@ export class TradeNodesModel extends BaseModel {
             player: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../players/PlayersModel.js').PlayersModel;
+                    return related1.PlayersModel;
                 },
                 {
                     from: 'TRADE_NODES.PLAYER',
@@ -253,40 +273,148 @@ export class TradeNodesModel extends BaseModel {
     // TYPED ACCESSORS
     // =============================================================================
 
+    /**
+     * Read the TRADE_NODES.ID column from this model. Numeric strings are converted to integers.
+     * @returns The stored ID value, normalized to an integer when necessary.
+     */
     public getId(): number { const v = this.get('ID'); if (v === undefined || v === null) return undefined as any; return typeof v === 'string' ? parseInt(v, 10) : v; }
+    /**
+     * Store the TRADE_NODES.ID column in this model and return this for chaining.
+     * @param id New value for the ID column.
+     * @returns This model for chaining.
+     */
     public setId(id: number): this { return this.set('ID', id); }
 
+    /**
+     * Read the TRADE_NODES.SEC_X column from this model.
+     * @returns The stored SEC_X value.
+     */
     public getSecX(): number { return this.get('SEC_X'); }
+    /**
+     * Store the TRADE_NODES.SEC_X column in this model and return this for chaining.
+     * @param secX New value for the SEC_X column.
+     * @returns This model for chaining.
+     */
     public setSecX(secX: number): this { return this.set('SEC_X', secX); }
 
+    /**
+     * Read the TRADE_NODES.SEC_Y column from this model.
+     * @returns The stored SEC_Y value.
+     */
     public getSecY(): number { return this.get('SEC_Y'); }
+    /**
+     * Store the TRADE_NODES.SEC_Y column in this model and return this for chaining.
+     * @param secY New value for the SEC_Y column.
+     * @returns This model for chaining.
+     */
     public setSecY(secY: number): this { return this.set('SEC_Y', secY); }
 
+    /**
+     * Read the TRADE_NODES.SEC_Z column from this model.
+     * @returns The stored SEC_Z value.
+     */
     public getSecZ(): number { return this.get('SEC_Z'); }
+    /**
+     * Store the TRADE_NODES.SEC_Z column in this model and return this for chaining.
+     * @param secZ New value for the SEC_Z column.
+     * @returns This model for chaining.
+     */
     public setSecZ(secZ: number): this { return this.set('SEC_Z', secZ); }
 
+    /**
+     * Read the TRADE_NODES.PLAYER column from this model.
+     * @returns The stored PLAYER value.
+     */
     public getPlayer(): string { return this.get('PLAYER'); }
+    /**
+     * Store the TRADE_NODES.PLAYER column in this model and return this for chaining.
+     * @param player New value for the PLAYER column.
+     * @returns This model for chaining.
+     */
     public setPlayer(player: string): this { return this.set('PLAYER', player); }
 
+    /**
+     * Read the TRADE_NODES.STATION_NAME column from this model.
+     * @returns The stored STATION_NAME value.
+     */
     public getStationName(): string { return this.get('STATION_NAME'); }
+    /**
+     * Store the TRADE_NODES.STATION_NAME column in this model and return this for chaining.
+     * @param stationName New value for the STATION_NAME column.
+     * @returns This model for chaining.
+     */
     public setStationName(stationName: string): this { return this.set('STATION_NAME', stationName); }
 
+    /**
+     * Read the TRADE_NODES.FACTION column from this model.
+     * @returns The stored FACTION value.
+     */
     public getFaction(): number { return this.get('FACTION'); }
+    /**
+     * Store the TRADE_NODES.FACTION column in this model and return this for chaining.
+     * @param faction New value for the FACTION column.
+     * @returns This model for chaining.
+     */
     public setFaction(faction: number): this { return this.set('FACTION', faction); }
 
+    /**
+     * Read the TRADE_NODES.PERMISSION column from this model.
+     * @returns The stored PERMISSION value.
+     */
     public getPermission(): number { return this.get('PERMISSION'); }
+    /**
+     * Store the TRADE_NODES.PERMISSION column in this model and return this for chaining.
+     * @param permission New value for the PERMISSION column.
+     * @returns This model for chaining.
+     */
     public setPermission(permission: number): this { return this.set('PERMISSION', permission); }
 
+    /**
+     * Read the TRADE_NODES.ITEMS column from this model.
+     * @returns The stored ITEMS value.
+     */
     public getItems(): Buffer { return this.get('ITEMS'); }
+    /**
+     * Store the TRADE_NODES.ITEMS column in this model and return this for chaining.
+     * @param items New value for the ITEMS column.
+     * @returns This model for chaining.
+     */
     public setItems(items: Buffer): this { return this.set('ITEMS', items); }
 
+    /**
+     * Read the TRADE_NODES.VOLUME column from this model.
+     * @returns The stored VOLUME value.
+     */
     public getVolume(): number { return this.get('VOLUME'); }
+    /**
+     * Store the TRADE_NODES.VOLUME column in this model and return this for chaining.
+     * @param volume New value for the VOLUME column.
+     * @returns This model for chaining.
+     */
     public setVolume(volume: number): this { return this.set('VOLUME', volume); }
 
+    /**
+     * Read the TRADE_NODES.CAPACITY column from this model.
+     * @returns The stored CAPACITY value.
+     */
     public getCapacity(): number { return this.get('CAPACITY'); }
+    /**
+     * Store the TRADE_NODES.CAPACITY column in this model and return this for chaining.
+     * @param capacity New value for the CAPACITY column.
+     * @returns This model for chaining.
+     */
     public setCapacity(capacity: number): this { return this.set('CAPACITY', capacity); }
 
+    /**
+     * Read the TRADE_NODES.CREDITS column from this model.
+     * @returns The stored CREDITS value.
+     */
     public getCredits(): number { return this.get('CREDITS'); }
+    /**
+     * Store the TRADE_NODES.CREDITS column in this model and return this for chaining.
+     * @param credits New value for the CREDITS column.
+     * @returns This model for chaining.
+     */
     public setCredits(credits: number): this { return this.set('CREDITS', credits); }
 
     // =============================================================================
@@ -1003,7 +1131,7 @@ export class TradeNodesModel extends BaseModel {
     public decodeItems(): import('starmade-decoder').TradePricesObject | null {
         const raw = this.getItems();
         if (!raw || raw.length === 0) return null;
-        const { TradePricesObject } = require('starmade-decoder');
+        const { TradePricesObject } = decoder;
         return TradePricesObject.fromBytes(raw);
     }
 
@@ -1019,9 +1147,9 @@ export class TradeNodesModel extends BaseModel {
         prices: import('starmade-decoder').TradePricesObject | import('starmade-decoder').TradePrices
     ): this {
         const anyPrices = prices as any;
-        const raw = typeof anyPrices.toBytes === 'function'
-            ? anyPrices.toBytes()
-            : require('starmade-decoder').encodeTradeNodeItems(prices);
+        const raw = 'toBytes' in prices
+            ? prices.toBytes()
+            : decoder.encodeTradeNodeItems(prices);
 
         return this.setItems(raw);
     }

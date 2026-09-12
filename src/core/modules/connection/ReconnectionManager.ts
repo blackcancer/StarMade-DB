@@ -129,7 +129,7 @@ export class ModuleEventEmitterImpl<T extends string | number | symbol> implemen
      * @param {T} [event] - The event to remove listeners from.
      */
     public removeAllListeners(event?: T): void {
-        if (event) {
+        if (event !== undefined) {
             this.eventListeners.get(event)?.clear();
             this.onceListeners.get(event)?.clear();
         } else {
@@ -387,43 +387,51 @@ export class ReconnectionManager implements BaseModule {
      */
     public get isInitialized(): boolean { return this._initialized; }
 
-    /** 
+    /**
+     * Whether initialization completed successfully. 
      * @private 
      * @type {boolean}
      */
     private _initialized = false;
-    /** 
+    /**
+     * Owning manager used to resolve configuration and module dependencies. 
      * @private 
      * @type {HSQLManager | undefined}
      */
     private manager?: HSQLManager;
-    /** 
+    /**
+     * Connection pool module used to borrow and release JDBC sessions. 
      * @private 
      * @type {ConnectionManager | undefined}
      */
     private connectionManager?: ConnectionManager;
-    /** 
+    /**
+     * Effective configuration applied to this instance. 
      * @private 
      * @type {ReconnectionConfig | undefined}
      */
     private config?: ReconnectionConfig;
-    /** 
+    /**
+     * Whether destruction has started; prevents operations after resource cleanup. 
      * @private 
      * @type {boolean}
      */
     private destroyed = false;
-    /** 
+    /**
+     * Creation timestamp in milliseconds used to calculate uptime. 
      * @private 
      * @readonly
      * @type {number}
      */
     private readonly startTime = Date.now();
-    /** 
+    /**
+     * Module logger for operation context and diagnostic errors. 
      * @private 
      * @type {ModuleLogger}
      */
     private logger: ModuleLogger;
-    /** 
+    /**
+     * Accumulated operation counters and timestamps exposed through statistics. 
      * @private 
      * @type {ReconnectionStats}
      */
@@ -436,42 +444,56 @@ export class ReconnectionManager implements BaseModule {
         timeSinceLastConnectionMs: 0,
         averageReconnectionTimeMs: 0
     };
-    /** 
+    /**
+     * Persistent listeners indexed by event name. 
      * @private 
      * @type {Map<ConnectionEvent, Set<ConnectionEventListener>>}
      */
     private eventListeners: Map<ConnectionEvent, Set<ConnectionEventListener>> = new Map();
-    /** 
+    /**
+     * Listeners removed after their first invocation. 
      * @private 
      * @type {Map<ConnectionEvent, Set<ConnectionEventListener>>}
      */
     private onceListeners: Map<ConnectionEvent, Set<ConnectionEventListener>> = new Map();
-    /** 
+    /**
+     * Identifier of the current reconnection session. 
      * @private 
      * @type {string | undefined}
      */
     private currentSessionId?: string;
-    /** 
+    /**
+     * Timer scheduled for the next reconnection attempt. 
      * @private 
      * @type {NodeJS.Timeout | undefined}
      */
     private reconnectionTimer?: NodeJS.Timeout;
-    /** 
+    /** Resolve the pending retry delay when shutdown cancels its timer. */
+    private retryWaitResolve?: () => void;
+    /** Shared reconnection operation for simultaneous manual or health triggers. */
+    private activeReconnection?: Promise<boolean>;
+    /** Circuit-breaker cooldown, cancelled when the manager is destroyed. */
+    private circuitBreakerTimer?: NodeJS.Timeout;
+    /**
+     * Timer that schedules connection health checks. 
      * @private 
      * @type {NodeJS.Timeout | undefined}
      */
     private healthCheckTimer?: NodeJS.Timeout;
-    /** 
+    /**
+     * Consecutive failures used to trip the reconnection circuit breaker. 
      * @private 
      * @type {number}
      */
     private circuitBreakerFailureCount = 0;
-    /** 
+    /**
+     * Timestamp of the most recent successful connection. 
      * @private 
      * @type {number}
      */
     private lastSuccessfulConnectionTime = Date.now();
-    /** 
+    /**
+     * Number of attempts in the current reconnection session. 
      * @private 
      * @type {ReconnectionAttempt[]}
      */
@@ -499,7 +521,6 @@ export class ReconnectionManager implements BaseModule {
      */
     private recordFailure(): void {
         this.circuitBreakerFailureCount++;
-        this.stats.failedReconnections++;
         
         if (this.config?.strategy === ReconnectionStrategy.CIRCUIT_BREAKER &&
             this.circuitBreakerFailureCount >= (this.config?.circuitBreakerThreshold || 5)) {
@@ -784,7 +805,14 @@ export class ReconnectionManager implements BaseModule {
             return false;
         }
 
-        return await this.startReconnectionSession();
+        if (this.activeReconnection) return await this.activeReconnection;
+        const operation = this.startReconnectionSession();
+        this.activeReconnection = operation;
+        try {
+            return await operation;
+        } finally {
+            this.activeReconnection = undefined;
+        }
     }
 
     /**
@@ -1035,6 +1063,7 @@ export class ReconnectionManager implements BaseModule {
      * @returns {Promise<boolean>} True if the attempt was successful.
      */
     private async performSingleReconnectionAttempt(attemptNumber: number, delayMs: number): Promise<boolean> {
+        if (this.destroyed) return false;
         const startTime = new Date();
         let success = false;
         let error: HSQLDBError | undefined;
@@ -1056,11 +1085,13 @@ export class ReconnectionManager implements BaseModule {
             // Test if connection manager can get a working connection
             const connection = await this.connectionManager!.getConnection();
             
-            // Test the connection with a simple query
-            await connection.execute('SELECT 1 FROM INFORMATION_SCHEMA.SYSTEM_USERS LIMIT 1');
-            
-            // Release the connection back to the pool
-            await this.connectionManager!.releaseConnection(connection);
+            try {
+                await connection.execute('SELECT 1 FROM INFORMATION_SCHEMA.SYSTEM_USERS LIMIT 1', [], {
+                    timeoutMs: this.config?.attemptTimeoutMs
+                });
+            } finally {
+                await this.connectionManager!.releaseConnection(connection);
+            }
             
             success = true;
             this.stats.successfulReconnections++;
@@ -1127,7 +1158,15 @@ export class ReconnectionManager implements BaseModule {
      * @returns {Promise<void>}
      */
     private async wait(ms: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, ms));
+        if (this.destroyed) return;
+        return new Promise(resolve => {
+            this.retryWaitResolve = resolve;
+            this.reconnectionTimer = setTimeout(() => {
+                this.reconnectionTimer = undefined;
+                this.retryWaitResolve = undefined;
+                resolve();
+            }, ms);
+        });
     }
 
     /**
@@ -1202,7 +1241,9 @@ export class ReconnectionManager implements BaseModule {
 
         // Schedule circuit breaker to half-open after cooldown
         if (this.config?.circuitBreakerCooldownMs) {
-            setTimeout(() => {
+            if (this.circuitBreakerTimer) clearTimeout(this.circuitBreakerTimer);
+            this.circuitBreakerTimer = setTimeout(() => {
+                this.circuitBreakerTimer = undefined;
                 if (this.stats.circuitBreakerState === CircuitBreakerState.OPEN && !this.destroyed) {
                     this.stats.circuitBreakerState = CircuitBreakerState.HALF_OPEN;
                     this.logger.info('Circuit breaker moved to half-open state', {
@@ -1390,11 +1431,18 @@ export class ReconnectionManager implements BaseModule {
         if (this.reconnectionTimer) {
             clearTimeout(this.reconnectionTimer);
             this.reconnectionTimer = undefined;
+            this.retryWaitResolve?.();
+            this.retryWaitResolve = undefined;
         }
         
         if (this.healthCheckTimer) {
             clearInterval(this.healthCheckTimer);
             this.healthCheckTimer = undefined;
+        }
+
+        if (this.circuitBreakerTimer) {
+            clearTimeout(this.circuitBreakerTimer);
+            this.circuitBreakerTimer = undefined;
         }
 
         // Clear event listeners

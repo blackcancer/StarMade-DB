@@ -70,9 +70,13 @@ export { TransactionContext };
  * Transaction isolation levels
  */
 export enum IsolationLevel {
+    /** Isolation level value for read uncommitted, serialized as 'READ_UNCOMMITTED'. */
     READ_UNCOMMITTED = 'READ_UNCOMMITTED',
+    /** Isolation level value for read committed, serialized as 'READ_COMMITTED'. */
     READ_COMMITTED = 'READ_COMMITTED',
+    /** Isolation level value for repeatable read, serialized as 'REPEATABLE_READ'. */
     REPEATABLE_READ = 'REPEATABLE_READ',
+    /** Isolation level value for serializable, serialized as 'SERIALIZABLE'. */
     SERIALIZABLE = 'SERIALIZABLE'
 }
 
@@ -80,14 +84,23 @@ export enum IsolationLevel {
  * Transaction states
  */
 export enum TransactionState {
+    /** Transaction state value for active, serialized as 'active'. */
     ACTIVE = 'active',
+    /** Transaction state value for preparing, serialized as 'preparing'. */
     PREPARING = 'preparing',
+    /** Transaction state value for prepared, serialized as 'prepared'. */
     PREPARED = 'prepared',
+    /** Transaction state value for committing, serialized as 'committing'. */
     COMMITTING = 'committing',
+    /** Transaction state value for committed, serialized as 'committed'. */
     COMMITTED = 'committed',
+    /** Transaction state value for rolling back, serialized as 'rolling_back'. */
     ROLLING_BACK = 'rolling_back',
+    /** Transaction state value for rolled back, serialized as 'rolled_back'. */
     ROLLED_BACK = 'rolled_back',
+    /** Transaction state value for failed, serialized as 'failed'. */
     FAILED = 'failed',
+    /** Transaction state value for timeout, serialized as 'timeout'. */
     TIMEOUT = 'timeout'
 }
 
@@ -101,7 +114,7 @@ export interface TransactionOptions {
     timeout?: number;
     /** Whether to auto-commit on success */
     autoCommit?: boolean;
-    /** Maximum retry attempts on deadlock */
+    /** Maximum total attempts on deadlock (historical API); zero disables retries. */
     maxRetries?: number;
     /** Retry delay in milliseconds */
     retryDelay?: number;
@@ -318,28 +331,47 @@ export type TransactionEvent =
  * with improved reliability, simplified architecture, and better error handling.
  */
 export class TransactionManager implements BaseModule {
+    /** Stable module identifier used when registering and looking up the module. */
     public readonly name = 'TransactionManager';
+    /** Version of this module implementation. */
     public readonly version = '2.0.0';
     
+    /** Owning manager used to resolve configuration and module dependencies. */
     private manager!: HSQLManager;
+    /** Connection pool module used to borrow and release JDBC sessions. */
     private connectionManager!: ConnectionManager;
+    /** Performance module that receives query and operation measurements. */
     private performanceMonitor?: PerformanceMonitor;
+    /** Module logger for operation context and diagnostic errors. */
     private logger!: ModuleLogger;
+    /** Emitter that dispatches this module’s lifecycle and operation events. */
     private eventEmitter!: ModuleEventEmitter<TransactionEvent>;
+    /** Effective configuration applied to this instance. */
     private config!: TransactionConfig;
+    /** Whether initialization completed successfully. */
     private initialized = false;
+    /** Whether shutdown has begun; prevents new work while existing transactions are rolled back. */
+    private destroying = false;
+    /** Identifiers reserved by transaction starts that have not yet acquired a session. */
+    private pendingTransactionIds = new Set<string>();
     
     // Simplified transaction tracking
+    /** Active transaction contexts indexed by transaction identifier. */
     private activeTransactions: Map<string, InternalTransactionInfo> = new Map();
+    /** Accumulated operation statistics exposed by this module. */
     private statistics: TransactionStatistics;
+    /** Timer that periodically examines active transactions for deadlocks. */
     private deadlockDetectionTimer?: NodeJS.Timeout;
+    /** Sequence used to generate transaction identifiers. */
     private nextTransactionId = 1;
     
+    /** Creates a transaction manager with default configuration and lifecycle state. */
     constructor(config: TransactionConfig = {}) {
         this.config = { ...DEFAULT_TRANSACTION_CONFIG, ...config };
         this.statistics = this.initializeStatistics();
     }
 
+    /** Whether initialization completed and the module is available for use. */
     public get isInitialized(): boolean {
         return this.initialized;
     }
@@ -392,12 +424,14 @@ export class TransactionManager implements BaseModule {
         this.performanceMonitor = manager.getModule<PerformanceMonitor>('performance-monitor');
 
         this.initialized = true;
+        this.destroying = false;
         this.logger.info('TransactionManager v2.0 initialized successfully', {
             hasPerformanceMonitor: !!this.performanceMonitor,
             maxConcurrentTransactions: this.config.maxConcurrentTransactions
         });
     }
 
+    /** Create zeroed transaction statistics before operations are recorded. */
     private initializeStatistics(): TransactionStatistics {
         const now = new Date();
         return {
@@ -422,10 +456,10 @@ export class TransactionManager implements BaseModule {
      * Begin a new transaction with simplified connection management
      */
     public async beginTransaction(transactionId?: string, options: TransactionOptions = {}): Promise<TransactionContext> {
-        this.ensureInitialized();
+        this.ensureCanBeginTransaction();
         
         // Check transaction limits
-        if (this.activeTransactions.size >= this.config.maxConcurrentTransactions!) {
+        if ((this.activeTransactions.size + this.pendingTransactionIds.size) >= this.config.maxConcurrentTransactions!) {
             throw new ModuleError(
                 'TransactionManager',
                 'beginTransaction',
@@ -434,6 +468,9 @@ export class TransactionManager implements BaseModule {
         }
 
         const id = transactionId || this.generateTransactionId();
+        if (this.activeTransactions.has(id) || this.pendingTransactionIds.has(id)) {
+            throw new ModuleError('TransactionManager', 'beginTransaction', `Transaction '${id}' already exists`);
+        }
         const mergedOptions = { ...this.getDefaultOptions(), ...options };
         
         this.logger.info('Beginning transaction v2.0', {
@@ -444,10 +481,14 @@ export class TransactionManager implements BaseModule {
 
         let connection: any = null;
         let context: TransactionContext | null = null;
+        let previousState: {autoCommit: boolean; readOnly: boolean; isolationLevel: number} | undefined;
 
+        this.pendingTransactionIds.add(id);
         try {
             // Get connection directly from ConnectionManager
             connection = await this.connectionManager.getConnection();
+            this.ensureCanBeginTransaction();
+            previousState = await connection.getSessionState?.() ?? {autoCommit: true, readOnly: false, isolationLevel: 2};
             
             // Set isolation level if specified
             if (mergedOptions.isolationLevel) {
@@ -455,12 +496,11 @@ export class TransactionManager implements BaseModule {
             }
 
             // Set read-only if specified
-            if (mergedOptions.readOnly) {
-                await this.setReadOnly(connection, true);
-            }
+            await this.setReadOnly(connection, mergedOptions.readOnly ?? false);
 
             // Begin transaction
             await connection.setAutoCommit(false);
+            this.ensureCanBeginTransaction();
 
             // Create transaction context
             context = new TransactionContext(
@@ -490,9 +530,15 @@ export class TransactionManager implements BaseModule {
             internalInfo.cleanupHandlers.push(async () => {
                 if (connection) {
                     try {
+                        if (internalInfo.state === TransactionState.FAILED) await connection.rollback();
+                        await connection.setTransactionIsolation(previousState!.isolationLevel);
+                        await connection.setReadOnly(previousState!.readOnly);
+                        await connection.setAutoCommit(previousState!.autoCommit);
                         await this.connectionManager.releaseConnection(connection);
                     } catch (error) {
-                        this.logger.warn('Failed to release connection during cleanup', {
+                        await (connection.discard ? connection.discard() : connection.close());
+                        await this.connectionManager.releaseConnection(connection);
+                        this.logger.warn('Failed to restore connection during cleanup', {
                             transactionId: id,
                             error: error instanceof Error ? error.message : String(error)
                         });
@@ -501,6 +547,7 @@ export class TransactionManager implements BaseModule {
             });
 
             // Track transaction
+            this.pendingTransactionIds.delete(id);
             this.activeTransactions.set(id, internalInfo);
             
             // Update statistics
@@ -531,9 +578,19 @@ export class TransactionManager implements BaseModule {
                         transactionId: id,
                         error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError)
                     });
+                    const tracked = this.activeTransactions.get(id);
+                    if (tracked) {
+                        if (tracked.state === TransactionState.ACTIVE) {
+                            tracked.state = TransactionState.FAILED;
+                            this.statistics.failedTransactions++;
+                            this.statistics.activeTransactions--;
+                        }
+                        await this.cleanupTransaction(id);
+                    }
                 }
             } else if (connection) {
                 try {
+                    await (connection.discard ? connection.discard() : connection.close());
                     await this.connectionManager.releaseConnection(connection);
                 } catch (releaseError) {
                     this.logger.warn('Failed to release connection during transaction creation failure', {
@@ -554,6 +611,8 @@ export class TransactionManager implements BaseModule {
                 'beginTransaction',
                 `Failed to begin transaction: ${error instanceof Error ? error.message : String(error)}`
             );
+        } finally {
+            this.pendingTransactionIds.delete(id);
         }
     }
 
@@ -566,10 +625,17 @@ export class TransactionManager implements BaseModule {
     ): Promise<T> {
         this.ensureInitialized();
         
-        const maxRetries = options.maxRetries || 3;
-        const retryDelay = options.retryDelay || 1000;
+        const requestedAttempts = options.maxRetries ?? 3;
+        if (!Number.isInteger(requestedAttempts) || requestedAttempts < 0) {
+            throw new ModuleError('TransactionManager', 'executeTransaction', 'Retry attempts must be a non-negative integer');
+        }
+        const maxRetries = Math.max(1, requestedAttempts);
+        const retryDelay = options.retryDelay ?? 1000;
+        if (!Number.isFinite(retryDelay) || retryDelay < 0) {
+            throw new ModuleError('TransactionManager', 'executeTransaction', 'Retry delay must be a finite non-negative number');
+        }
         
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        for (let attempt = 1; ; attempt++) {
             const transaction = await this.beginTransaction(undefined, options);
             
             try {
@@ -578,7 +644,9 @@ export class TransactionManager implements BaseModule {
                 return result;
                 
             } catch (error) {
-                await transaction.rollback(`Transaction failed on attempt ${attempt}`);
+                if (transaction.isHealthy()) {
+                    await transaction.rollback(`Transaction failed on attempt ${attempt}`);
+                }
                 
                 // Check if this is a deadlock error that we should retry
                 const isDeadlock = this.isDeadlockError(error);
@@ -601,11 +669,6 @@ export class TransactionManager implements BaseModule {
             }
         }
         
-        throw new ModuleError(
-            'TransactionManager',
-            'executeTransaction',
-            `Transaction failed after ${maxRetries} attempts`
-        );
     }
 
     /**
@@ -707,14 +770,9 @@ export class TransactionManager implements BaseModule {
             // Update state
             internalInfo.state = TransactionState.ROLLING_BACK;
             
-            // ENHANCED: Add timeout protection to rollback operation
-            await Promise.race([
-                internalInfo.connection.rollback(),
-                new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Rollback operation timeout')), 5000) // 5s timeout
-                )
-            ]);
-            
+            // Do not release or reset a session while its rollback is still running.
+            await internalInfo.connection.rollback();
+
             // Update transaction info
             internalInfo.state = TransactionState.ROLLED_BACK;
             internalInfo.endTime = new Date();
@@ -749,25 +807,11 @@ export class TransactionManager implements BaseModule {
                 error: error instanceof Error ? error.message : String(error)
             });
             
-            // Don't throw the error here - we still want to cleanup
-            // throw error;
+            this.statistics.failedTransactions++;
+            this.statistics.activeTransactions--;
+            throw internalInfo.error;
         } finally {
-            // Always cleanup, even if rollback failed
-            try {
-                await Promise.race([
-                    this.cleanupTransaction(transactionId),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Cleanup timeout')), 2000) // 2s cleanup timeout
-                    )
-                ]);
-            } catch (cleanupError) {
-                this.logger.warn('Cleanup timeout during rollback, forcing removal', {
-                    transactionId,
-                    error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
-                });
-                // Force remove from tracking
-                this.activeTransactions.delete(transactionId);
-            }
+            await this.cleanupTransaction(transactionId);
         }
     }
 
@@ -786,9 +830,10 @@ export class TransactionManager implements BaseModule {
         });
 
         try {
+            internalInfo.context.invalidate();
             // Execute all cleanup handlers
             const cleanupPromises = internalInfo.cleanupHandlers.map(handler => 
-                handler().catch(error => {
+                Promise.resolve().then(handler).catch(error => {
                     this.logger.warn('Cleanup handler failed', {
                         transactionId,
                         error: error instanceof Error ? error.message : String(error)
@@ -798,15 +843,9 @@ export class TransactionManager implements BaseModule {
 
             await Promise.allSettled(cleanupPromises);
             
-            // Remove from tracking
-            this.activeTransactions.delete(transactionId);
             
-        } catch (error) {
-            this.logger.warn('Error during transaction cleanup v2.0', {
-                operation: 'cleanup-transaction',
-                transactionId,
-                error: error instanceof Error ? error.message : String(error)
-            });
+        } finally {
+            this.activeTransactions.delete(transactionId);
         }
     }
 
@@ -856,83 +895,35 @@ export class TransactionManager implements BaseModule {
      * This is intended for emergency cleanup scenarios.
      */
     public async rollbackAllTransactions(reason?: string): Promise<void> {
-        this.logger.warn('Rolling back all active transactions v2.0', {
+        const transactionIds = Array.from(this.activeTransactions.keys());
+        this.logger.warn('Rolling back all active transactions', {
             operation: 'rollback-all-transactions',
-            activeTransactions: this.activeTransactions.size,
+            activeTransactions: transactionIds.length,
             reason: reason || 'Emergency cleanup'
         });
-
-        const activeTransactionIds = Array.from(this.activeTransactions.keys());
-        
-        // ENHANCED: Add timeout protection to prevent hanging
-        const rollbackPromises = activeTransactionIds.map(async (transactionId) => {
-            try {
-                // Race each rollback against a timeout
-                await Promise.race([
-                    this.rollbackTransaction(transactionId, reason || 'Forced rollback'),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error(`Rollback timeout for transaction ${transactionId}`)), 3000)
-                    )
-                ]);
-            } catch (error) {
-                this.logger.warn('Failed to rollback transaction during mass rollback v2.0', {
+        // A JDBC rollback must finish before cleanup can restore or release its session.
+        const results = await Promise.allSettled(transactionIds.map(id =>
+            this.rollbackTransaction(id, reason || 'Forced rollback')
+        ));
+        const failures: unknown[] = [];
+        results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+                failures.push(result.reason);
+                this.logger.warn('Failed to rollback transaction during mass rollback', {
                     operation: 'rollback-all-error',
-                    transactionId,
-                    error: error instanceof Error ? error.message : String(error)
+                    transactionId: transactionIds[index],
+                    error: result.reason instanceof Error ? result.reason.message : String(result.reason)
                 });
-                
-                // ENHANCED: Force cleanup even if rollback fails
-                try {
-                    const internalInfo = this.activeTransactions.get(transactionId);
-                    if (internalInfo) {
-                        // Force connection release
-                        await Promise.race([
-                            Promise.allSettled(internalInfo.cleanupHandlers.map(handler => handler())),
-                            new Promise((_, reject) => 
-                                setTimeout(() => reject(new Error('Cleanup timeout')), 1000)
-                            )
-                        ]);
-                        // Remove from tracking
-                        this.activeTransactions.delete(transactionId);
-                        this.logger.info('Force removed transaction from tracking', {
-                            transactionId,
-                            operation: 'force-cleanup'
-                        });
-                    }
-                } catch (forceError) {
-                    this.logger.warn('Force cleanup also failed', {
-                        transactionId,
-                        error: forceError instanceof Error ? forceError.message : String(forceError)
-                    });
-                    // Still remove from tracking to prevent infinite loops
-                    this.activeTransactions.delete(transactionId);
-                }
             }
         });
-
-        // ENHANCED: Add global timeout for the entire operation
-        try {
-            await Promise.race([
-                Promise.allSettled(rollbackPromises),
-                new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Global rollback timeout')), 10000) // 10s total timeout
-                )
-            ]);
-        } catch (globalTimeout) {
-            this.logger.error('Global rollback timeout exceeded, forcing cleanup', {
-                operation: 'rollback-all-timeout',
-                remainingTransactions: this.activeTransactions.size
-            });
-            
-            // Force clear all remaining transactions
-            this.activeTransactions.clear();
-        }
-
-        this.logger.info('All active transactions rolled back v2.0', {
+        this.logger.info('Mass rollback finished', {
             operation: 'rollback-all-complete',
-            processedTransactions: activeTransactionIds.length,
+            processedTransactions: transactionIds.length,
             remainingActive: this.activeTransactions.size
         });
+        if (failures.length > 0) {
+            throw new AggregateError(failures, `Failed to rollback ${failures.length} transaction(s)`);
+        }
     }
 
     /**
@@ -948,7 +939,9 @@ export class TransactionManager implements BaseModule {
 
         const transactionIds = Array.from(this.activeTransactions.keys());
         
-        // Force clear the map without attempting rollbacks
+        // Prevent retained contexts from executing against sessions no longer tracked here.
+        for (const info of this.activeTransactions.values()) info.context.invalidate();
+        // This emergency API only clears tracking; normal rollback performs session cleanup.
         this.activeTransactions.clear();
         
         // Reset statistics
@@ -990,17 +983,17 @@ export class TransactionManager implements BaseModule {
     }
 
     /**
-     * Update duration statistics
+     * Update duration statistics for committed transactions, excluding failed and rolled-back attempts.
      */
     private updateDurationStatistics(duration: number): void {
-        if (this.statistics.totalTransactions === 0) {
+        if (this.statistics.successfulTransactions <= 1) {
             this.statistics.averageDuration = duration;
             this.statistics.maxDuration = duration;
             this.statistics.minDuration = duration;
         } else {
             this.statistics.averageDuration = 
-                (this.statistics.averageDuration * (this.statistics.totalTransactions - 1) + duration) / 
-                this.statistics.totalTransactions;
+                (this.statistics.averageDuration * (this.statistics.successfulTransactions - 1) + duration) / 
+                this.statistics.successfulTransactions;
             this.statistics.maxDuration = Math.max(this.statistics.maxDuration, duration);
             this.statistics.minDuration = Math.min(this.statistics.minDuration, duration);
         }
@@ -1048,6 +1041,7 @@ export class TransactionManager implements BaseModule {
                 level,
                 error: error instanceof Error ? error.message : String(error)
             });
+            throw error;
         }
     }
 
@@ -1063,6 +1057,7 @@ export class TransactionManager implements BaseModule {
                 readOnly,
                 error: error instanceof Error ? error.message : String(error)
             });
+            throw error;
         }
     }
 
@@ -1079,6 +1074,18 @@ export class TransactionManager implements BaseModule {
         return message.toLowerCase().includes('deadlock') ||
                message.toLowerCase().includes('timeout') ||
                message.includes('40001'); // SQL State for deadlock
+    }
+
+    /**
+     * Rejects transaction creation outside the initialized, non-shutdown lifecycle state.
+     * @throws {ModuleError} If initialization has not completed or shutdown has started.
+     * @private
+     */
+    private ensureCanBeginTransaction(): void {
+        this.ensureInitialized();
+        if (this.destroying) {
+            throw new ModuleError('TransactionManager', 'beginTransaction', 'Transaction manager is shutting down');
+        }
     }
 
     /**
@@ -1102,6 +1109,7 @@ export class TransactionManager implements BaseModule {
             return;
         }
 
+        this.destroying = true;
         this.logger.info('Destroying TransactionManager v2.0', {
             operation: 'destroy'
         });

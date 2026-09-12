@@ -1,3 +1,4 @@
+import {writeFile} from 'node:fs/promises';
 /**
  * @fileoverview Metrics Collector Module - Refactored v1.0.0
  * 
@@ -209,69 +210,82 @@ export class MetricsCollector implements BaseModule, ModuleEventEmitter<Performa
      */
     public get isInitialized(): boolean { return this._initialized; }
 
-    /** 
+    /**
+     * Whether initialization completed successfully. 
      * @private 
      * @type {boolean}
      */
     private _initialized = false;
-    /** 
+    /**
+     * Owning manager used to resolve configuration and module dependencies. 
      * @private 
      * @type {HSQLManager | undefined}
      */
     private manager?: HSQLManager;
-    /** 
+    /**
+     * Effective configuration applied to this instance. 
      * @private 
      * @type {MetricsCollectorConfig | undefined}
      */
     private config?: MetricsCollectorConfig;
-    /** 
+    /**
+     * Whether destruction has started; prevents operations after resource cleanup. 
      * @private 
      * @type {boolean}
      */
     private destroyed = false;
-    /** 
+    /**
+     * Creation timestamp in milliseconds used to calculate uptime. 
      * @private 
      * @readonly
      * @type {number}
      */
     private readonly startTime = Date.now();
-    /** 
+    /**
+     * Module logger for operation context and diagnostic errors. 
      * @private 
      * @type {ModuleLogger}
      */
     private logger: ModuleLogger;
-    /** 
+    /**
+     * Emitter that dispatches this module’s lifecycle and operation events. 
      * @private 
      * @type {ModuleEventEmitterImpl<PerformanceEvent>}
      */
     private eventEmitter: ModuleEventEmitterImpl<PerformanceEvent>;
     
-    /** 
+    /**
+     * Pending metric samples awaiting aggregation or export. 
      * @private 
      * @type {PerformanceMetric[]}
      */
     private metricsBuffer: PerformanceMetric[] = [];
-    /** 
+    /**
+     * Time buckets used to aggregate collected metrics. 
      * @private 
      * @type {Map<string, Map<string, MetricBucket>>}
      */
     private buckets: Map<string, Map<string, MetricBucket>> = new Map();
-    /** 
+    /**
+     * Timer that flushes buffered metric samples. 
      * @private 
      * @type {NodeJS.Timeout | undefined}
      */
     private flushTimer?: NodeJS.Timeout;
-    /** 
+    /**
+     * Timer that periodically exports collected metrics. 
      * @private 
      * @type {NodeJS.Timeout | undefined}
      */
     private exportTimer?: NodeJS.Timeout;
-    /** 
+    /**
+     * Periodic timer for removing expired or idle entries. 
      * @private 
      * @type {NodeJS.Timeout | undefined}
      */
     private cleanupTimer?: NodeJS.Timeout;
-    /** 
+    /**
+     * Estimated memory occupied by retained metric data. 
      * @private 
      * @type {number}
      */
@@ -904,16 +918,7 @@ export class MetricsCollector implements BaseModule, ModuleEventEmitter<Performa
             metrics: timeSeries
         };
 
-        if (this.config?.export.destination.type === 'console') {
-            console.log(JSON.stringify(data, null, 2));
-        } else if (this.config?.export.destination.path) {
-            // In a real implementation, this would write to file
-            this.logger.debug('Would export JSON to file', {
-                operation: 'export-json',
-                path: this.config.export.destination.path,
-                size: JSON.stringify(data).length
-            });
-        }
+        await this.writeExport(JSON.stringify(data, null, 2));
     }
 
     /**
@@ -933,21 +938,13 @@ export class MetricsCollector implements BaseModule, ModuleEventEmitter<Performa
                     point.value.toString(),
                     series.metadata.source,
                     series.metadata.unit
-                ].join(','));
+                ].map(value => /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value).join(','));
             }
         }
 
         const csvData = csvLines.join('\n');
 
-        if (this.config?.export.destination.type === 'console') {
-            console.log(csvData);
-        } else {
-            this.logger.debug('Would export CSV to file', {
-                operation: 'export-csv',
-                lines: csvLines.length,
-                size: csvData.length
-            });
-        }
+        await this.writeExport(csvData);
     }
 
     /**
@@ -968,7 +965,7 @@ export class MetricsCollector implements BaseModule, ModuleEventEmitter<Performa
 
             for (const point of series.points) {
                 const labels = Object.entries(point.tags || {})
-                    .map(([key, value]) => `${key}="${value}"`)
+                    .map(([key, value]) => `${key}="${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`)
                     .join(',');
                 
                 const labelString = labels ? `{${labels}}` : '';
@@ -978,15 +975,29 @@ export class MetricsCollector implements BaseModule, ModuleEventEmitter<Performa
 
         const prometheusData = prometheusLines.join('\n');
 
-        if (this.config?.export.destination.type === 'console') {
-            console.log(prometheusData);
-        } else {
-            this.logger.debug('Would export Prometheus format to file', {
-                operation: 'export-prometheus',
-                lines: prometheusLines.length,
-                size: prometheusData.length
-            });
+        await this.writeExport(prometheusData);
+    }
+
+    /**
+     * Writes a serialized metrics snapshot to the configured destination.
+     * @param data - Complete UTF-8 contents of the snapshot.
+     * @returns Resolves after the destination accepts the snapshot.
+     * @throws {ConfigurationError} When a file destination has no path or HTTP export is requested.
+     * @private
+     */
+    private async writeExport(data: string): Promise<void> {
+        const destination = this.config?.export.destination;
+        if (destination?.type === 'console') {
+            console.log(data);
+            return;
         }
+        if (destination?.type === 'http') {
+            throw new ConfigurationError('HTTP metrics export is not supported', ['export.destination.type']);
+        }
+        if (!destination?.path) {
+            throw new ConfigurationError('Metrics export file path is required', ['export.destination.path']);
+        }
+        await writeFile(destination.path, data, 'utf8');
     }
 
     /**

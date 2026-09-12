@@ -329,7 +329,7 @@ export class ModuleEventEmitterImpl<T extends string | number | symbol> implemen
      * @param {T} [event] - The event to remove all listeners from.
      */
     public removeAllListeners(event?: T): void {
-        if (event) {
+        if (event !== undefined) {
             const regularCount = this.eventListeners.get(event)?.size || 0;
             const onceCount = this.onceListeners.get(event)?.size || 0;
             
@@ -536,7 +536,7 @@ export function createEventData<T = any>(
  * @returns {obj is ModuleEventEmitter<any>} True if the object is a valid event emitter, false otherwise.
  */
 export function isEventEmitter(obj: any): obj is ModuleEventEmitter<any> {
-    return obj && 
+    return Boolean(obj) && 
            typeof obj.on === 'function' &&
            typeof obj.once === 'function' &&
            typeof obj.off === 'function' &&
@@ -592,6 +592,7 @@ export function forwardEvents<T extends string | number | symbol>(
  */
 export class GlobalEventBus extends ModuleEventEmitterImpl<string> {
     /**
+     * Shared event bus instance, created on first access.
      * @private
      * @static
      * @type {GlobalEventBus | undefined}
@@ -599,6 +600,7 @@ export class GlobalEventBus extends ModuleEventEmitterImpl<string> {
     private static instance?: GlobalEventBus;
 
     /**
+     * Prevent direct construction of the global event bus; use getInstance().
      * @private
      */
     private constructor() {

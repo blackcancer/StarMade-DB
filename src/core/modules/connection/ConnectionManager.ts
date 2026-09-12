@@ -156,6 +156,8 @@ interface PooledJDBCConnection {
     health: ConnectionHealth;
     /** A flag indicating if the connection is currently reserved for use. */
     isReserved: boolean;
+    /** True while maintenance owns the connection for a health probe. */
+    isHealthChecking?: boolean;
 }
 
 /**
@@ -207,78 +209,102 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
      */
     public get isInitialized(): boolean { return this._initialized; }
 
-    /** 
+    /**
+     * Whether initialization completed successfully. 
      * @private 
      * @type {boolean}
      */
     private _initialized = false;
-    /** 
+    /**
+     * Timestamp of the last automatic reconnection request. 
      * @private 
      * @type {number}
      */
     private lastAutoReconnectionTrigger: number = 0;
-    /** 
+    /**
+     * Minimum delay in milliseconds between automatic reconnection requests. 
      * @private 
      * @type {number}
      */
     private readonly autoReconnectionCooldown: number = 10000; // 10 seconds
-    /** 
+    /**
+     * Owning manager used to resolve configuration and module dependencies. 
      * @private 
      * @type {HSQLManager | undefined}
      */
     private manager?: HSQLManager;
-    /** 
+    /**
+     * Effective configuration applied to this instance. 
      * @private 
      * @type {ConnectionConfig | undefined}
      */
     private config?: ConnectionConfig;
-    /** 
+    /**
+     * Factory that owns the physical JDBC sessions used by this pool. 
      * @private 
      * @type {JDBCConnectionFactory | undefined}
      */
     private jdbcFactory?: JDBCConnectionFactory;
-    /** 
+    /**
+     * Connection creations in progress, counted against the maximum pool size. 
      * @private 
      * @type {Map<string, PooledJDBCConnection>}
      */
+    private pendingCreations = 0;
+    /** Completion signals for connection creation, awaited before factory teardown. */
+    private pendingCreationCompletions = new Set<Promise<void>>();
+    /** Managed JDBC connections and their reservation and health state. */
     private connectionPool: Map<string, PooledJDBCConnection> = new Map();
-    /** 
+    /**
+     * Connections assigned to active transaction sessions. 
      * @private 
      * @type {Map<string, TransactionSession>}
      */
     private transactionSessions: Map<string, TransactionSession> = new Map();
-    /** 
+    /** Share in-flight legacy session acquisition so one ID cannot reserve multiple connections. */
+    private legacySessionRequests = new Map<string, Promise<TransactionSession>>();
+    /**
+     * Timer that schedules connection health checks. 
      * @private 
      * @type {NodeJS.Timeout | undefined}
      */
     private healthCheckTimer?: NodeJS.Timeout;
-    /** 
+    /**
+     * Periodic timer for removing expired or idle entries. 
      * @private 
      * @type {NodeJS.Timeout | undefined}
      */
     private cleanupTimer?: NodeJS.Timeout;
-    /** 
+
+    /** Pending deferred attachment to the reconnection module, cancelled during teardown. */
+    private reconnectionIntegrationTimer?: NodeJS.Timeout;
+    /**
+     * Whether destruction has started; prevents operations after resource cleanup. 
      * @private 
      * @type {boolean}
      */
     private destroyed = false;
-    /** 
+    /**
+     * Creation timestamp in milliseconds used to calculate uptime. 
      * @private 
      * @readonly
      * @type {number}
      */
     private readonly startTime = Date.now();
-    /** 
+    /**
+     * Module logger for operation context and diagnostic errors. 
      * @private 
      * @type {ModuleLogger}
      */
     private logger: ModuleLogger;
-    /** 
+    /**
+     * Emitter that dispatches this module’s lifecycle and operation events. 
      * @private 
      * @type {ModuleEventEmitterImpl<ConnectionEvent>}
      */
     private eventEmitter: ModuleEventEmitterImpl<ConnectionEvent>;
-    /** 
+    /**
+     * Accumulated operation counters and timestamps exposed through statistics. 
      * @private 
      * @type {ConnectionStats}
      */
@@ -378,6 +404,8 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
      * @async
      */
     private async setupReconnectionIntegration(): Promise<void> {
+        if (this.destroyed) return;
+        clearTimeout(this.reconnectionIntegrationTimer);
         if (!this.isAutoReconnectionEnabled()) {
             this.logger.debug('Auto-reconnection disabled, skipping ReconnectionManager integration', {
                 operation: 'setup-reconnection-integration'
@@ -386,7 +414,8 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
         }
 
         // Give some time for ReconnectionManager to be initialized by HSQLManager
-        setTimeout(() => {
+        this.reconnectionIntegrationTimer = setTimeout(() => {
+            this.reconnectionIntegrationTimer = undefined;
             const reconnectionManager = this.manager?.getModule<ReconnectionManager>('reconnection-manager');
             if (reconnectionManager?.isInitialized) {
                 this.logger.info('Setting up ReconnectionManager integration', {
@@ -471,7 +500,7 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
         // Close and remove unhealthy connections
         for (const connectionId of unhealthyConnections) {
             const connection = this.connectionPool.get(connectionId);
-            if (connection && !connection.isReserved) {
+            if (connection && !connection.isReserved && !connection.isHealthChecking) {
                 try {
                     await connection.jdbcConnection.close();
                     this.connectionPool.delete(connectionId);
@@ -717,7 +746,24 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
      * @throws {ConfigurationError} If configuration or JDBC factory is not set.
      * @throws {ConnectionError} If connection creation fails.
      */
-    private async createRealPoolConnection(): Promise<string> {
+    /**
+     * Register connection setup so destruction waits for its adoption or cleanup.
+     * @returns Callback that releases the lifecycle barrier after setup finishes.
+     * @throws ConnectionError When teardown has already started.
+     */
+    private beginConnectionCreation(): () => void {
+        if (this.destroyed) throw new ConnectionError('Connection manager destroyed during connection creation');
+        let complete!: () => void;
+        const completion = new Promise<void>(resolve => { complete = resolve; });
+        this.pendingCreationCompletions.add(completion);
+        return () => {
+            this.pendingCreationCompletions.delete(completion);
+            complete();
+        };
+    }
+
+    /** Create and register a pooled JDBC connection, or close it if teardown wins the race. */
+    private async createRealPoolConnection(reserved = false): Promise<string> {
         if (!this.config || !this.jdbcFactory) {
             throw new ConfigurationError('Configuration or JDBC factory not set', ['config', 'jdbcFactory'], {
                 operation: 'create-pool-connection',
@@ -733,9 +779,14 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
             connectionId
         });
 
+        const finishCreation = this.beginConnectionCreation();
         try {
             // Create real JDBC connection using factory
             const jdbcConnection = await this.jdbcFactory.createConnectionFromManager();
+            if (this.destroyed) {
+                await jdbcConnection.close();
+                throw new ConnectionError('Connection manager destroyed during connection creation');
+            }
 
             const pooledConnection: PooledJDBCConnection = {
                 id: connectionId,
@@ -744,7 +795,7 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
                 created: new Date(),
                 lastUsed: new Date(),
                 useCount: 0,
-                isReserved: false,
+                isReserved: reserved,
                 health: {
                     isHealthy: true,
                     lastCheck: new Date(),
@@ -794,6 +845,8 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
                 `Failed to create real JDBC connection: ${error instanceof Error ? error.message : String(error)}`,
                 { connectionId }
             );
+        } finally {
+            finishCreation();
         }
     }
 
@@ -829,8 +882,11 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
         // Try to get a healthy connection from the pool
         const availableConnection = this.findAvailablePooledConnection();
         if (availableConnection) {
-            // Validate connection before returning it
-            if (await this.validateConnectionBeforeUse(availableConnection)) {
+            // Reserve before awaiting validation so another borrower cannot select it.
+            availableConnection.isReserved = true;
+            const valid = await this.validateConnectionBeforeUse(availableConnection);
+            if (this.destroyed) throw new ConnectionError('Connection manager destroyed during connection validation');
+            if (valid) {
                 availableConnection.lastUsed = new Date();
                 availableConnection.useCount++;
                 availableConnection.isReserved = true;
@@ -857,8 +913,15 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
         }
 
         // Create new connection if pool has capacity
-        if (this.connectionPool.size < this.config.maxPoolSize) {
-            const connectionId = await this.createRealPoolConnection();
+        if (this.connectionPool.size + Math.max(this.pendingCreations, this.pendingCreationCompletions.size) < this.config.maxPoolSize) {
+            this.pendingCreations++;
+            let connectionId: string;
+            try {
+                connectionId = await this.createRealPoolConnection(true);
+            } finally {
+                this.pendingCreations--;
+            }
+            if (this.destroyed) throw new ConnectionError('Connection manager destroyed during connection acquisition');
             const pooledConnection = this.connectionPool.get(connectionId)!;
             pooledConnection.isReserved = true;
 
@@ -900,17 +963,23 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
             reason: 'TransactionManager v2.0 uses simplified connection management'
         });
 
-        // Fallback to regular connection for compatibility
-        const connection = await this.getConnection();
         const newSessionId = sessionId || `tx_legacy_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-
-        this.logger.debug('Created legacy transaction session for compatibility', {
-            operation: 'create-legacy-transaction-session',
-            sessionId: newSessionId,
-            jdbcConnectionId: connection.id
-        });
-
-        return { connection, sessionId: newSessionId };
+        const existing = this.transactionSessions.get(newSessionId);
+        if (existing) {
+            existing.lastUsed = new Date();
+            return { connection: existing.connection, sessionId: newSessionId };
+        }
+        let request = this.legacySessionRequests.get(newSessionId);
+        if (!request) {
+            request = this.getConnection().then(connection => {
+                const session = { connection, sessionId: newSessionId, created: new Date(), lastUsed: new Date() };
+                this.transactionSessions.set(newSessionId, session);
+                return session;
+            }).finally(() => { this.legacySessionRequests.delete(newSessionId); });
+            this.legacySessionRequests.set(newSessionId, request);
+        }
+        const session = await request;
+        return { connection: session.connection, sessionId: newSessionId };
     }
 
     /**
@@ -927,8 +996,13 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
             reason: 'TransactionManager v2.0 uses simplified connection management'
         });
 
-        // For backward compatibility, this method now does nothing
-        // since the refactored TransactionManager handles connections directly
+        const pending = this.legacySessionRequests.get(sessionId);
+        if (pending) await pending;
+        const session = this.transactionSessions.get(sessionId);
+        if (session) {
+            this.transactionSessions.delete(sessionId);
+            await this.releaseConnection(session.connection);
+        }
     }
 
     /**
@@ -940,7 +1014,7 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
         for (const connection of this.connectionPool.values()) {
             if (connection.state === ConnectionState.CONNECTED &&
                 connection.health.isHealthy &&
-                !connection.isReserved) {
+                !connection.isReserved && !connection.isHealthChecking) {
 
                 this.logger.debug('Found available pooled connection', {
                     operation: 'find-available-connection',
@@ -980,8 +1054,13 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
             });
         }
 
+        const finishCreation = this.beginConnectionCreation();
         try {
             const jdbcConnection = await this.jdbcFactory.createConnectionFromManager();
+            if (this.destroyed) {
+                await jdbcConnection.close();
+                throw new ConnectionError('Connection manager destroyed during connection creation');
+            }
 
             this.stats.totalConnections++;
             this.stats.activeConnections++;
@@ -1009,6 +1088,8 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
             throw new ConnectionError(
                 `Failed to create direct JDBC connection: ${error instanceof Error ? error.message : String(error)}`
             );
+        } finally {
+            finishCreation();
         }
     }
 
@@ -1085,8 +1166,8 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
                         reservedConnections: Array.from(this.connectionPool.values()).filter(c => c.isReserved).length
                     });
 
-                    // Force release stale connections that have been reserved for too long
-                    this.forceReleaseStaleConnections();
+                    // Report old leases; an expired waiter must never steal an active session.
+                    this.reportStaleConnections();
 
                     // AUTO-RECONNECTION TRIGGER: Connection wait timeout (pool exhaustion)
                     this.triggerAutoReconnection('connection-wait-timeout', {
@@ -1102,9 +1183,6 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
                 }
             };
 
-            // Initial check
-            checkForConnection();
-
             // Set up periodic checking with improved frequency
             checkInterval = setInterval(checkForConnection, 50); // Check every 50ms
 
@@ -1115,68 +1193,25 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
                     reservedConnections: Array.from(this.connectionPool.values()).filter(c => c.isReserved).length
                 }));
             }, timeoutMs);
+
+            // Install handles before the synchronous check can settle and clean up.
+            checkForConnection();
         });
     }
 
     /**
-     * Force release connections that have been reserved for too long.
-     * @private
+     * Report long-running reservations without probing or reassigning their sessions.
+     * The original borrower alone may release a connection while work is in progress.
      */
-    private forceReleaseStaleConnections(): void {
+    private reportStaleConnections(): void {
         const now = Date.now();
-        const staleThreshold = 45000; // 45 seconds - increased from 30 for more stability
-        let staleCount = 0;
-
         for (const connection of this.connectionPool.values()) {
-            if (connection.isReserved && (now - connection.lastUsed.getTime()) > staleThreshold) {
-                // Validate connection before releasing
-                connection.jdbcConnection.ping().then(isHealthy => {
-                    if (isHealthy) {
-                        connection.isReserved = false;
-                        connection.lastUsed = new Date();
-                        staleCount++;
-
-                        this.logger.warn('Force released stale but healthy connection', {
-                            operation: 'force-release-stale',
-                            connectionId: connection.id,
-                            jdbcConnectionId: connection.jdbcConnection.id,
-                            staleTime: now - connection.lastUsed.getTime()
-                        });
-                    } else {
-                        // Connection is unhealthy, mark for removal
-                        connection.state = ConnectionState.FAILED;
-                        connection.health.isHealthy = false;
-                        connection.isReserved = false;
-                        
-                        this.logger.warn('Force released stale unhealthy connection', {
-                            operation: 'force-release-stale-unhealthy',
-                            connectionId: connection.id,
-                            jdbcConnectionId: connection.jdbcConnection.id,
-                            staleTime: now - connection.lastUsed.getTime()
-                        });
-                    }
-                }).catch(error => {
-                    // Ping failed, mark as unhealthy and release
-                    connection.state = ConnectionState.FAILED;
-                    connection.health.isHealthy = false;
-                    connection.isReserved = false;
-                    
-                    this.logger.warn('Force released stale connection with ping error', {
-                        operation: 'force-release-stale-ping-error',
-                        connectionId: connection.id,
-                        jdbcConnectionId: connection.jdbcConnection.id,
-                        error: error instanceof Error ? error.message : String(error)
-                    });
+            if (connection.isReserved && now - connection.lastUsed.getTime() > 45000) {
+                this.logger.warn('Long-running connection reservation', {
+                    operation: 'stale-reservation', connectionId: connection.id,
+                    reservedForMs: now - connection.lastUsed.getTime()
                 });
             }
-        }
-
-        if (staleCount > 0) {
-            this.logger.info('Force released stale connections', {
-                operation: 'force-release-stale-complete',
-                staleConnectionsReleased: staleCount,
-                totalConnections: this.connectionPool.size
-            });
         }
     }
 
@@ -1374,11 +1409,12 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
         const startTime = Date.now();
 
         // Skip health check if connection is currently reserved and recently used
-        if (connection.isReserved && (Date.now() - connection.lastUsed.getTime()) < 5000) {
+        if (connection.isReserved || connection.isHealthChecking) {
             // Connection is actively being used, skip health check
             return;
         }
 
+        connection.isHealthChecking = true;
         try {
             // Use real JDBC connection ping() method
             const isHealthy = await connection.jdbcConnection.ping();
@@ -1430,6 +1466,8 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
                     consecutiveFailures: connection.health.consecutiveFailures
                 });
             }
+        } finally {
+            connection.isHealthChecking = false;
         }
     }
 
@@ -1462,87 +1500,35 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
      * @async
      */
     private async cleanupIdleConnections(): Promise<void> {
-        if (this.destroyed || !this.config) {
-            return;
-        }
+        if (this.destroyed || !this.config) return;
+        const idleThreshold = Date.now() - this.config.idleTimeoutMs;
+        for (const [connectionId, connection] of this.connectionPool) {
+            if (connection.isReserved || connection.isHealthChecking) continue;
+            const failed = connection.state === ConnectionState.FAILED;
+            const idle = connection.lastUsed.getTime() < idleThreshold;
+            if (!failed && (!idle || this.connectionPool.size <= this.config.minPoolSize)) continue;
 
-        const now = Date.now();
-        const idleThreshold = now - this.config.idleTimeoutMs;
-        const connectionsToRemove: string[] = [];
-
-        for (const [connectionId, connection] of this.connectionPool.entries()) {
-            if (!connection.isReserved &&
-                connection.lastUsed.getTime() < idleThreshold &&
-                this.connectionPool.size > this.config.minPoolSize) {
-                connectionsToRemove.push(connectionId);
+            // Remove before awaiting physical close so a borrower cannot select it.
+            this.connectionPool.delete(connectionId);
+            connection.state = ConnectionState.CLOSING;
+            this.stats.activeConnections = Math.max(0, this.stats.activeConnections - 1);
+            try {
+                await connection.jdbcConnection.close();
+                connection.state = ConnectionState.DISCONNECTED;
+                this.emit(ConnectionEvent.DISCONNECTED, createEventData('connection-idle-closed', {
+                    connectionId,
+                    jdbcConnectionId: connection.jdbcConnection.id,
+                    reason: failed ? 'failed-connection' : 'idle-timeout'
+                }, this.name));
+            } catch (error) {
+                connection.state = ConnectionState.FAILED;
+                this.logger.warn('Failed to close an evicted JDBC connection', {
+                    operation: 'cleanup-idle-error', connectionId,
+                    error: error instanceof Error ? error.message : String(error)
+                });
             }
         }
-
-        if (connectionsToRemove.length > 0) {
-            this.logger.debug('Cleaning up idle JDBC connections', {
-                operation: 'cleanup-idle',
-                connectionsToRemove: connectionsToRemove.length,
-                totalConnections: this.connectionPool.size
-            });
-
-            // Clean up failed connections that are not reserved
-            const failedConnectionsToRemove: string[] = [];
-            for (const [connectionId, connection] of this.connectionPool.entries()) {
-                if (connection.state === ConnectionState.FAILED && !connection.isReserved) {
-                    failedConnectionsToRemove.push(connectionId);
-                }
-            }
-
-            // Remove failed connections first
-            for (const connectionId of failedConnectionsToRemove) {
-                const connection = this.connectionPool.get(connectionId);
-                if (connection) {
-                    try {
-                        await connection.jdbcConnection.close();
-                        this.connectionPool.delete(connectionId);
-                        this.stats.activeConnections--;
-                    } catch (error) {
-                        // Remove from pool anyway
-                        this.connectionPool.delete(connectionId);
-                        this.stats.activeConnections--;
-                    }
-                }
-            }
-
-            // Now proceed with normal idle cleanup
-            for (const [connectionId, connection] of this.connectionPool.entries()) {
-                if (!connection.isReserved &&
-                    connection.lastUsed.getTime() < idleThreshold &&
-                    this.connectionPool.size > this.config.minPoolSize) {
-                    connectionsToRemove.push(connectionId);
-                }
-            }
-
-            for (const connectionId of connectionsToRemove) {
-                const connection = this.connectionPool.get(connectionId);
-                if (connection) {
-                    try {
-                        await connection.jdbcConnection.close();
-                        this.connectionPool.delete(connectionId);
-                        this.stats.activeConnections--;
-
-                        // Emit disconnection event for idle cleanup
-                        this.emit(ConnectionEvent.DISCONNECTED, createEventData('connection-idle-closed', {
-                            connectionId,
-                            jdbcConnectionId: connection.jdbcConnection.id,
-                            reason: 'idle-timeout',
-                            poolSize: this.connectionPool.size
-                        }, this.name));
-                    } catch (error) {
-                        this.logger.warn('Failed to close idle JDBC connection', {
-                            operation: 'cleanup-idle-error',
-                            connectionId,
-                            error: error instanceof Error ? error.message : String(error)
-                        });
-                    }
-                }
-            }
-        }
+        this.updateRealStats();
     }
 
     /**
@@ -1570,7 +1556,7 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
 
         if (healthyConnections.length > 0) {
             this.stats.averageResponseTime = healthyConnections
-                .reduce((sum, conn) => sum + (conn.health.lastPingTime || 0), 0) / healthyConnections.length;
+                .reduce((sum, conn) => sum + conn.health.lastPingTime!, 0) / healthyConnections.length;
         }
     }
 
@@ -1764,6 +1750,8 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
         this._initialized = false; // Reset initialization flag IMMEDIATELY to prevent new operations
 
         // Stop timers
+        clearTimeout(this.reconnectionIntegrationTimer);
+        this.reconnectionIntegrationTimer = undefined;
         if (this.healthCheckTimer) {
             clearInterval(this.healthCheckTimer);
             this.healthCheckTimer = undefined;
@@ -1773,6 +1761,9 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
             clearInterval(this.cleanupTimer);
             this.cleanupTimer = undefined;
         }
+
+        // Late creation must close its result before the owning factory is destroyed.
+        await Promise.all(this.pendingCreationCompletions);
 
         // Close all real JDBC connections SYNCHRONOUSLY to ensure proper shutdown
         const closePromises = Array.from(this.connectionPool.values()).map(connection =>
@@ -1796,36 +1787,9 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
             connectionsDestroyed: closePromises.length
         }, this.name));
 
-        // Execute HSQLDB SHUTDOWN command to ensure database is properly closed
+        // Closing a manager must not shut down sessions owned by other managers.
+        // HSQLDB's shutdown=true URL closes file databases on the last session.
         if (this.jdbcFactory) {
-            try {
-                this.logger.info('Executing HSQLDB SHUTDOWN command to ensure clean database state', {
-                    operation: 'database-shutdown'
-                });
-                
-                // Create a temporary connection just for shutdown
-                const shutdownConnection = await this.jdbcFactory.createConnectionFromManager();
-                try {
-                    const shutdownStatement = await shutdownConnection.createStatement();
-                    await shutdownStatement.execute('SHUTDOWN');
-                    this.logger.info('HSQLDB SHUTDOWN command executed successfully', {
-                        operation: 'database-shutdown-success'
-                    });
-                } catch (shutdownError) {
-                    this.logger.warn('HSQLDB SHUTDOWN command failed, but continuing cleanup', {
-                        operation: 'database-shutdown-error',
-                        error: shutdownError instanceof Error ? shutdownError.message : String(shutdownError)
-                    });
-                } finally {
-                    await shutdownConnection.close();
-                }
-            } catch (error) {
-                this.logger.warn('Could not create shutdown connection', {
-                    operation: 'shutdown-connection-error',
-                    error: error instanceof Error ? error.message : String(error)
-                });
-            }
-
             // Now destroy the JDBC factory
             try {
                 await this.jdbcFactory.destroy();
@@ -1842,7 +1806,7 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
 
         resourceCleaner.unregister(this);
 
-        this.logger.info('ConnectionManager v1.0 destroyed successfully with database shutdown', {
+        this.logger.info('ConnectionManager destroyed successfully', {
             operation: 'destroy-complete',
             uptime: Date.now() - this.startTime
         });
@@ -2013,7 +1977,8 @@ export class ConnectionManager implements BaseModule, ModuleEventEmitter<Connect
             // Mark as failed and close
             connection.state = ConnectionState.FAILED;
             connection.health.isHealthy = false;
-            connection.jdbcConnection.close().catch(error => {
+            const jdbc = connection.jdbcConnection;
+            (jdbc.discard ? jdbc.discard() : jdbc.close()).catch(error => {
                 this.logger.debug('Error closing invalid connection', {
                     operation: 'close-invalid-connection',
                     connectionId: connection.id,

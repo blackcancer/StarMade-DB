@@ -84,10 +84,15 @@ import type { PerformanceMonitor, PerformanceReport } from '../performance/Perfo
  * Report format types
  */
 export enum ReportFormat {
+    /** Report format value for json, serialized as 'json'. */
     JSON = 'json',
+    /** Report format value for html, serialized as 'html'. */
     HTML = 'html',
+    /** Report format value for markdown, serialized as 'markdown'. */
     MARKDOWN = 'markdown',
+    /** Report format value for pdf, serialized as 'pdf'. */
     PDF = 'pdf',
+    /** Report format value for csv, serialized as 'csv'. */
     CSV = 'csv'
 }
 
@@ -95,12 +100,19 @@ export enum ReportFormat {
  * Report types
  */
 export enum ReportType {
+    /** Report type value for schema, serialized as 'schema'. */
     SCHEMA = 'schema',
+    /** Report type value for performance, serialized as 'performance'. */
     PERFORMANCE = 'performance',
+    /** Report type value for relationships, serialized as 'relationships'. */
     RELATIONSHIPS = 'relationships',
+    /** Report type value for data distribution, serialized as 'data-distribution'. */
     DATA_DISTRIBUTION = 'data-distribution',
+    /** Report type value for executive summary, serialized as 'executive-summary'. */
     EXECUTIVE_SUMMARY = 'executive-summary',
+    /** Report type value for technical detailed, serialized as 'technical-detailed'. */
     TECHNICAL_DETAILED = 'technical-detailed',
+    /** Report type value for comparison, serialized as 'comparison'. */
     COMPARISON = 'comparison'
 }
 
@@ -480,69 +492,117 @@ export interface DatabaseInfo {
 }
 
 // Additional interfaces for supporting data structures...
+/** Data-quality measurements for a single SQL table. */
 export interface TableQualityMetrics {
+    /** SQL table name used to generate queries for this model. */
     tableName: string;
+    /** Aggregate quality score computed for the table. */
     qualityScore: number;
+    /** Number of null values found during analysis. */
     nullValues: number;
+    /** Number of duplicate records found during analysis. */
     duplicates: number;
+    /** Number of inconsistent records found during analysis. */
     inconsistencies: number;
 }
 
+/** A consistency problem identified across one or more database tables. */
 export interface DataConsistencyIssue {
+    /** Category assigned to this finding. */
     type: string;
+    /** Human-readable explanation of the finding. */
     description: string;
+    /** Names of SQL tables affected by the finding. */
     affectedTables: string[];
+    /** Severity assigned to the finding for prioritization. */
     severity: 'low' | 'medium' | 'high';
 }
 
+/** Summary of missing values across the database and per table. */
 export interface CompletenessMetrics {
+    /** Aggregate completeness score across the analyzed tables. */
     overallCompleteness: number;
+    /** Completeness scores indexed by table name. */
     tableCompleteness: Map<string, number>;
+    /** Descriptions of missing data classified as critical. */
     criticalMissingData: string[];
 }
 
+/** Summary of data-format, range and referential-integrity findings. */
 export interface AccuracyMetrics {
+    /** Aggregate accuracy score across the analyzed data. */
     overallAccuracy: number;
+    /** Number of values with unexpected formats. */
     dataFormatIssues: number;
+    /** Number of values outside the expected ranges. */
     rangeViolations: number;
+    /** Number of references that violate referential integrity. */
     referentialIntegrityViolations: number;
 }
 
+/** A reported security finding with its affected objects and suggested mitigation. */
 export interface SecurityVulnerability {
+    /** Category assigned to this finding. */
     type: string;
+    /** Severity assigned to the finding for prioritization. */
     severity: 'low' | 'medium' | 'high' | 'critical';
+    /** Human-readable explanation of the finding. */
     description: string;
+    /** Database object names affected by this finding. */
     affectedObjects: string[];
+    /** Suggested action to reduce or eliminate this finding. */
     mitigation: string;
 }
 
+/** Summary of database users, roles and permission findings. */
 export interface AccessControlAnalysis {
+    /** Number of database users identified. */
     userCount: number;
+    /** Number of database roles identified. */
     roleCount: number;
+    /** Descriptions of potentially unsafe permission assignments. */
     permissionIssues: string[];
+    /** Users whose privileges exceed the analyzed requirements. */
     overprivilegedUsers: string[];
 }
 
+/** Database objects grouped by their required confidentiality level. */
 export interface DataSensitivityClassification {
+    /** Objects classified as publicly accessible data. */
     publicData: string[];
+    /** Objects intended only for internal access. */
     internalData: string[];
+    /** Objects classified as confidential. */
     confidentialData: string[];
+    /** Objects requiring the most restrictive access controls. */
     restrictedData: string[];
 }
 
+/** Compliance findings and recommendations for one named standard. */
 export interface ComplianceStatus {
+    /** Name of the compliance standard being assessed. */
     standard: string;
+    /** Whether the analyzed database satisfies this standard. */
     compliant: boolean;
+    /** Unresolved findings for this compliance standard. */
     issues: string[];
+    /** Suggested actions for satisfying the standard. */
     recommendations: string[];
 }
 
+/** A proposed database optimization, its expected benefit and implementation effort. */
 export interface OptimizationRecommendation {
+    /** Category assigned to this finding. */
     type: 'index' | 'query' | 'schema' | 'configuration';
+    /** Priority assigned to implementing this recommendation. */
     priority: 'low' | 'medium' | 'high';
+    /** Human-readable explanation of the finding. */
     description: string;
+    /** Instructions for applying this recommendation. */
     implementation: string;
+    /** Expected benefit from applying this recommendation. */
     expectedImprovement: string;
+    /** Estimated implementation effort. */
     effort: 'low' | 'medium' | 'high';
 }
 
@@ -550,12 +610,14 @@ export interface OptimizationRecommendation {
  * Performance report data (simplified structure)
  */
 export interface PerformanceReportData {
+    /** Identity, creation time and scope of this performance report. */
     metadata: {
         reportId: string;
         generatedAt: Date;
         reportType: string;
         duration: number;
     };
+    /** CPU, memory and connection measurements included in the report. */
     systemMetrics: {
         timestamp: Date;
         cpu: { usage: number; cores: number };
@@ -563,9 +625,13 @@ export interface PerformanceReportData {
         disk: { used: number; available: number; usage: number };
         network: { bytesIn: number; bytesOut: number; connectionsActive: number };
     };
+    /** Collected performance measurements included in the report. */
     performanceMetrics: any[];
+    /** Configured alert thresholds used to interpret the measurements. */
     thresholds: any[];
+    /** Alerts raised while collecting these measurements. */
     alerts: any[];
+    /** Human-readable summary of the report findings. */
     summary: {
         overallHealthScore: number;
         criticalIssues: number;
@@ -607,21 +673,35 @@ export type ReportEvent =
  * with support for multiple output formats and automated scheduling.
  */
 export class DatabaseReporter implements BaseModule {
+    /** Stable module identifier used when registering and looking up the module. */
     public readonly name = 'database-reporter';
+    /** Version of this module implementation. */
     public readonly version = '1.0.0';
     
+    /** Owning manager used to resolve configuration and module dependencies. */
     private manager!: HSQLManager;
+    /** Connection pool module used to borrow and release JDBC sessions. */
     private connectionManager!: ConnectionManager;
+    /** Schema module used to inspect tables and columns. */
     private schemaAnalyzer!: SchemaAnalyzer;
+    /** Module used to infer and inspect table relationships. */
     private relationshipAnalyzer?: RelationshipAnalyzer;
+    /** Performance module that receives query and operation measurements. */
     private performanceMonitor?: PerformanceMonitor;
+    /** Module logger for operation context and diagnostic errors. */
     private logger!: ModuleLogger;
+    /** Emitter that dispatches this module’s lifecycle and operation events. */
     private eventEmitter!: ModuleEventEmitter<ReportEvent>;
+    /** Effective configuration applied to this instance. */
     private config: Required<Omit<ReportConfig, 'template' | 'customStyles'>>;
+    /** Whether initialization completed successfully. */
     private initialized = false;
+    /** Generated reports retained for reuse. */
     private reportCache: Map<string, any> = new Map();
+    /** Scheduled report jobs indexed by schedule identifier. */
     private schedules: Map<string, ReportSchedule> = new Map();
     
+    /** Creates a database reporter with the supplied output and content options. */
     constructor(config: Partial<ReportConfig> = {}) {
         this.config = { ...DEFAULT_REPORT_CONFIG, ...config };
         if (!this.config.filename) {
@@ -629,6 +709,7 @@ export class DatabaseReporter implements BaseModule {
         }
     }
 
+    /** Whether initialization completed and the module is available for use. */
     public get isInitialized(): boolean {
         return this.initialized;
     }
@@ -1115,9 +1196,9 @@ export class DatabaseReporter implements BaseModule {
             })),
             thresholds: report.thresholdViolations.map(violation => ({
                 name: violation.threshold.type,
-                value: violation.threshold.warningThreshold,
+                value: violation.violationType === 'critical' ? violation.threshold.criticalThreshold : violation.threshold.warningThreshold,
                 unit: this.getMetricUnit(violation.threshold.type),
-                type: 'warning'
+                type: violation.violationType
             })),
             alerts: report.thresholdViolations.map(violation => ({
                 alertId: `alert_${Date.now()}_${violation.threshold.type}`,
@@ -1362,6 +1443,17 @@ export class DatabaseReporter implements BaseModule {
     }
 
     /**
+     * Escapes untrusted database text for insertion into HTML text content.
+     * @param value - Metadata, table name or recommendation to render as text.
+     * @returns Text with HTML metacharacters encoded as entities.
+     * @private
+     */
+    private escapeHtml(value: unknown): string {
+        const entities: Record<string, string> = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'};
+        return String(value).replace(/[&<>"']/g, character => entities[character]);
+    }
+
+    /**
      * Generate comprehensive HTML report - FULLY IMPLEMENTED
      */
     private generateHtmlReport(report: any): string {
@@ -1548,11 +1640,11 @@ export class DatabaseReporter implements BaseModule {
         <div class="header">
             <h1>?? StarMade Database Report</h1>
             <div class="metadata">
-                <div><strong>Generated:</strong> ${report.metadata.generatedAt}</div>
-                <div><strong>Database:</strong> ${report.metadata.database.name} v${report.metadata.database.version}</div>
-                <div><strong>Report ID:</strong> ${report.metadata.id}</div>
+                <div><strong>Generated:</strong> ${this.escapeHtml(report.metadata.generatedAt)}</div>
+                <div><strong>Database:</strong> ${this.escapeHtml(report.metadata.database.name)} v${this.escapeHtml(report.metadata.database.version)}</div>
+                <div><strong>Report ID:</strong> ${this.escapeHtml(report.metadata.id)}</div>
                 <div><strong>Generation Time:</strong> ${report.metadata.generationDuration}ms</div>
-                <div><strong>Connection URL:</strong> ${report.metadata.database.connectionUrl}</div>
+                <div><strong>Connection URL:</strong> ${this.escapeHtml(report.metadata.database.connectionUrl)}</div>
             </div>
         </div>
 
@@ -1591,7 +1683,7 @@ export class DatabaseReporter implements BaseModule {
             <tbody>
                 ${schema.tables.map((table: any) => `
                     <tr>
-                        <td><strong>${table.name}</strong></td>
+                        <td><strong>${this.escapeHtml(table.name)}</strong></td>
                         <td>${table.columns?.length || 0}</td>
                         <td>${(table.statistics?.rowCount || 0).toLocaleString()}</td>
                         <td>${formatBytes(table.statistics?.sizeBytes || 0)}</td>
@@ -1630,7 +1722,7 @@ export class DatabaseReporter implements BaseModule {
         <h3>?? Performance Recommendations</h3>
         <div class="recommendations">
             ${performance.summary.recommendations.map((rec: string) => `
-                <div class="recommendation-item">${rec}</div>
+                <div class="recommendation-item">${this.escapeHtml(rec)}</div>
             `).join('')}
         </div>
         ` : ''}
@@ -1650,10 +1742,10 @@ export class DatabaseReporter implements BaseModule {
             <tbody>
                 ${relationships.relationships.slice(0, 10).map((rel: any) => `
                     <tr>
-                        <td>${rel.sourceTable}</td>
-                        <td>${rel.targetTable}</td>
-                        <td>${rel.type || 'Unknown'}</td>
-                        <td>${rel.discoveryMethod || 'Unknown'}</td>
+                        <td>${this.escapeHtml(rel.sourceTable)}</td>
+                        <td>${this.escapeHtml(rel.targetTable)}</td>
+                        <td>${this.escapeHtml(rel.type || 'Unknown')}</td>
+                        <td>${this.escapeHtml(rel.discoveryMethod || 'Unknown')}</td>
                         <td>${rel.confidence ? Math.round(rel.confidence * 100) + '%' : 'N/A'}</td>
                     </tr>
                 `).join('')}
@@ -1667,7 +1759,7 @@ export class DatabaseReporter implements BaseModule {
         ` : ''}
 
         <div class="footer">
-            <div>Report generated by <strong>StarMade Database Reporter v${report.metadata.version}</strong></div>
+            <div>Report generated by <strong>StarMade Database Reporter v${this.escapeHtml(report.metadata.version)}</strong></div>
             <div>Generated on ${new Date().toLocaleString()}</div>
         </div>
     </div>

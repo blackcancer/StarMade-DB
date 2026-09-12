@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.0] – 2026-09-12
+
+### Compatibility
+
+- Requires Node.js 20.19+ on the 20.x line, or Node.js 22.12+; older runtimes are no longer supported.
+- Invalid SQL identifiers, pagination, validation decisions and failed mutations now raise errors instead of being accepted or silently ignored.
+- Generated BIGINT identities preserve JDBC precision and may be strings; callers must not assume a JavaScript number.
+- Cache optimization suggestions are advisory; unsupported HTTP metric exports raise an explicit error.
+
+### Fixed
+
+- Retrieve generated identities on the insertion session and preserve BIGINT precision.
+- Reject invalid lazy relationship targets and incomplete column references; keep relationship dictionaries free of inherited properties.
+- Reserve pooled connections before asynchronous health checks and count pending creations against capacity.
+- Isolate JDBC pools by factory, URL and configuration; close only owned sessions during manager destruction.
+- Restore transaction session settings and invoke the correct no-savepoint JDBC rollback overload.
+- Await global rollbacks, invalidate completed contexts before session reuse, reserve pending transaction IDs/capacity, and surface cleanup failures.
+- Preserve exact query cache keys, invalidate executor caches after mutations, and validate SQL independently of metrics.
+- Forward query deadlines and row limits to JDBC; close statements after binding and execution errors.
+- Reject unsafe controller sort/update identifiers and invalid pagination values.
+- Replace CommonJS model imports with ESM imports and provide the declared `starmade-db/interfaces` export.
+
+- Validate every batch row, preserve SQL literal case in statement keys, and recognize named placeholders outside quoted literals only.
+- Honor per-call SQL validation policies and reject validator failures; ignore quoted parentheses in syntax checks.
+- Allocate ID ranges using affected-row-checked compare-and-swap and bypass stale cache entries during allocation.
+- Align table identity flags, sector coordinate rules, fleet parsing, docking checks and mutation counts with schema/game evidence.
+- Expire internal schema caches and invalidate only matching schema entries in the shared cache.
+- Read HSQLDB indexes and correctly pair composite foreign-key columns and actions; handle nullable composite references and quoted identifiers.
+- Preserve zero numeric averages and finite quality scores for all-null columns.
+- Write metric exports, preserve threshold severity, escape reports and identify advisory cache recommendations accurately.
+- Keep configured console logging active and create nested log directories.
+- Copy manager configuration arrays and prevent duplicate/self-registration and inherited-property module lookups.
+
+### Changed
+
+- Update the test/dependency toolchain and remove unused nodemon; Node.js minimum is now 20.19 (20.x) or 22.12.
+- Run tests against disposable copies of the database fixture and preserve the test process exit status.
+- Enforce 100% source line and branch coverage per file in the coverage command.
+- Check JSDoc descriptions for public, protected and private declarations and generate source-derived references.
+- Correct README examples, module identifiers, setup requirements and documented limitations.
+
 ## [1.3.0] – 2026-05-14
 
 ### Added

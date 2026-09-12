@@ -1,3 +1,4 @@
+import * as related0 from '../entities/EntitiesModel.js';
 /**
  * @fileoverview Effects Model
  * 
@@ -29,9 +30,13 @@ import {
  * Effect types in StarMade
  */
 export enum EffectType {
+    /** Effect type value for other, serialized as 0. */
     OTHER = 0,
+    /** Effect type value for structure, serialized as 1. */
     STRUCTURE = 1,
+    /** Effect type value for sector, serialized as 2. */
     SECTOR = 2,
+    /** Effect type value for system, serialized as 3. */
     SYSTEM = 3
 }
 
@@ -39,12 +44,19 @@ export enum EffectType {
  * Effect categories for functional classification
  */
 export enum EffectCategory {
+    /** Effect category value for movement, serialized as 'MOVEMENT'. */
     MOVEMENT = 'MOVEMENT',
+    /** Effect category value for defensive, serialized as 'DEFENSIVE'. */
     DEFENSIVE = 'DEFENSIVE', 
+    /** Effect category value for offensive, serialized as 'OFFENSIVE'. */
     OFFENSIVE = 'OFFENSIVE',
+    /** Effect category value for power, serialized as 'POWER'. */
     POWER = 'POWER',
+    /** Effect category value for utility, serialized as 'UTILITY'. */
     UTILITY = 'UTILITY',
+    /** Effect category value for stealth, serialized as 'STEALTH'. */
     STEALTH = 'STEALTH',
+    /** Effect category value for unknown, serialized as 'UNKNOWN'. */
     UNKNOWN = 'UNKNOWN'
 }
 
@@ -83,8 +95,10 @@ export const ALL_EFFECT_UIDS = [
  * based on actual StarMade database structure.
  */
 export class EffectsModel extends BaseModel {
+    /** SQL table name used to generate queries for this model. */
     public static tableName = 'EFFECTS';
     
+    /** SQL column, key, index and validation definitions for this table. */
     public static schema: TableSchema = {
         tableName: 'EFFECTS',
         comment: 'Entity effects and status conditions',
@@ -158,7 +172,7 @@ export class EffectsModel extends BaseModel {
             entity: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../entities/EntitiesModel.js').EntitiesModel;
+                    return related0.EntitiesModel;
                 },
                 {
                     from: 'EFFECTS.ENTITY_ID',
@@ -172,22 +186,58 @@ export class EffectsModel extends BaseModel {
     // TYPED ACCESSORS
     // =============================================================================
 
+    /**
+     * Read the EFFECTS.ID column from this model. Numeric strings are converted to integers.
+     * @returns The stored ID value, normalized to an integer when necessary.
+     */
     public getId(): number { 
         const id = this.get('ID');
         return typeof id === 'string' ? parseInt(id, 10) : id;
     }
+    /**
+     * Store the EFFECTS.ID column in this model and return this for chaining.
+     * @param id New value for the ID column.
+     * @returns This model for chaining.
+     */
     public setId(id: number): this { return this.set('ID', id); }
 
+    /**
+     * Read the EFFECTS.ENTITY_ID column from this model. Numeric strings are converted to integers.
+     * @returns The stored ENTITY_ID value, normalized to an integer when necessary.
+     */
     public getEntityId(): number { 
         const entityId = this.get('ENTITY_ID');
         return typeof entityId === 'string' ? parseInt(entityId, 10) : entityId;
     }
+    /**
+     * Store the EFFECTS.ENTITY_ID column in this model and return this for chaining.
+     * @param entityId New value for the ENTITY_ID column.
+     * @returns This model for chaining.
+     */
     public setEntityId(entityId: number): this { return this.set('ENTITY_ID', entityId); }
 
+    /**
+     * Read the EFFECTS.TYPE column from this model.
+     * @returns The stored TYPE value.
+     */
     public getType(): EffectType { return this.get('TYPE'); }
+    /**
+     * Store the EFFECTS.TYPE column in this model and return this for chaining.
+     * @param type New value for the TYPE column.
+     * @returns This model for chaining.
+     */
     public setType(type: EffectType): this { return this.set('TYPE', type); }
 
+    /**
+     * Read the EFFECTS.EFFECT_UID column from this model.
+     * @returns The stored EFFECT_UID value.
+     */
     public getEffectUid(): string | undefined { return this.get('EFFECT_UID'); }
+    /**
+     * Store the EFFECTS.EFFECT_UID column in this model and return this for chaining.
+     * @param effectUid New value for the EFFECT_UID column.
+     * @returns This model for chaining.
+     */
     public setEffectUid(effectUid: string | undefined): this { return this.set('EFFECT_UID', effectUid); }
 
     // =============================================================================

@@ -651,7 +651,9 @@ describe('IdGenTableController Comprehensive Tests', function() {
                 promises.push(controller.generateId(sequenceId));
             }
 
-            await Promise.all(promises);
+            const allocated = await Promise.all(promises);
+            expect(new Set(allocated.map(result => result.id)).size).to.equal(100);
+            expect(allocated.map(result => result.id).sort((a, b) => a - b)).to.deep.equal(Array.from({ length: 100 }, (_, i) => i));
             const endTime = Date.now();
             const duration = endTime - startTime;
 

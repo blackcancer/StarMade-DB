@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from 'node:crypto';
 /**
  * QueryExecutor Module
  * 
@@ -191,21 +192,34 @@ interface QueryTrackingEntry {
  * - Event emission for metrics
  */
 export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent | QueryEvent> {
+    /** Stable module identifier used when registering and looking up the module. */
     public readonly name = 'query-executor';
+    /** Version of this module implementation. */
     public readonly version = '1.0.0';
+    /** Whether initialization completed and the module is available for use. */
     public get isInitialized(): boolean { return this._initialized; }
 
+    /** Whether initialization completed successfully. */
     private _initialized = false;
+    /** Owning manager used to resolve configuration and module dependencies. */
     private manager?: HSQLManager;
+    /** Module logger for operation context and diagnostic errors. */
     private logger: ModuleLogger | null = null;
+    /** Emitter that dispatches this module’s lifecycle and operation events. */
     private eventEmitter: ModuleEventEmitterImpl<ModuleEvent | QueryEvent>;
+    /** Connection pool module used to borrow and release JDBC sessions. */
     private connectionManager: ConnectionManager | null = null;
+    /** Cache module used to store and invalidate shared results. */
     private cacheManager: CacheManager | null = null;
+    /** Performance module that receives query and operation measurements. */
     private performanceMonitor: PerformanceMonitor | null = null;
+    /** Validator used to check SQL before execution. */
     private queryValidator: QueryValidator | null = null;
+    /** Module responsible for validating and binding parameterized statements. */
     private parameterizedQuery: ParameterizedQuery | null = null;
 
     // Configuration
+    /** Effective configuration applied to this instance. */
     private config: QueryExecutorConfig = {
         defaultTimeoutMs: 30000,
         maxConcurrentQueries: 10,
@@ -219,9 +233,15 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
     };
 
     // Internal state
+    /** Invalidation epoch preventing in-flight reads from repopulating an obsolete cache. */
+    private cacheGeneration = 0;
+    /** Cached query results indexed by exact SQL and result options. */
     private queryCache = new Map<string, QueryCacheEntry>();
+    /** Tracked query execution records. */
     private queryTracking = new Map<string, QueryTrackingEntry>();
+    /** In-flight executions indexed by a unique invocation identifier. */
     private activeQueries = new Set<string>();
+    /** Aggregated query execution statistics. */
     private queryStats: QueryExecutionStats = {
         totalExecuted: 0,
         totalExecutionTime: 0,
@@ -232,6 +252,7 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
         frequentQueries: []
     };
 
+    /** Timer that periodically removes expired tracking and cache entries. */
     private cleanupInterval: NodeJS.Timeout | null = null;
 
     // =============================================================================
@@ -392,7 +413,9 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
         }
 
         const executionConfig = { ...this.config, ...config };
-        const queryHash = this.generateQueryHash(sql);
+        const queryHash = this.generateQueryHash(JSON.stringify([sql, executionConfig.maxResultSize]));
+        const executionId = randomUUID();
+        const cacheGeneration = this.cacheGeneration;
         const startTime = Date.now();
 
         this.logger?.debug('Executing query', { 
@@ -403,7 +426,7 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
 
         try {
             // Validate query if QueryValidator is available
-            if (this.queryValidator && executionConfig.enableMetrics !== false) {
+            if (this.queryValidator) {
                 try {
                     const validationResult = await this.queryValidator.validateQuery(sql);
                     
@@ -434,16 +457,11 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
                         });
                     }
                 } catch (validationError) {
-                    // If validation fails critically, log and continue with execution
-                    // unless it's a validation error we should respect
-                    if (validationError instanceof ValidationError) {
-                        throw validationError;
-                    }
-                    
-                    this.logger?.warn('Query validation failed, proceeding with execution', {
+                    this.logger?.warn('Query validation failed; execution rejected', {
                         sql: sql.substring(0, 100),
                         validationError: validationError instanceof Error ? validationError.message : String(validationError)
                     });
+                    throw validationError;
                 }
             }
             
@@ -456,13 +474,13 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
             }
 
             // Add to active queries
-            this.activeQueries.add(queryHash);
+            this.activeQueries.add(executionId);
 
             // Check cache first (if enabled)
             if (executionConfig.enableCaching && this.canCacheQuery(sql)) {
                 const cachedResult = this.getCachedResult(sql, queryHash);
                 if (cachedResult) {
-                    this.activeQueries.delete(queryHash);
+                    this.activeQueries.delete(executionId);
                     this.updateQueryStats(sql, queryHash, Date.now() - startTime, true);
                     
                     return {
@@ -472,18 +490,18 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
                             fromCache: true,
                             cacheKey: queryHash,
                             queryHash: queryHash,
-                            affectedRows: cachedResult.result.rows?.length || 0
+                            affectedRows: cachedResult.result.rows.length
                         }
                     };
                 }
             }
 
             // Execute query
-            const result = await this.executeQueryInternal(sql, executionConfig);
+            const result = await this.executeWithCacheInvalidation(sql, () => this.executeQueryInternal(sql, executionConfig));
             const executionTime = Date.now() - startTime;
 
             // Cache result if applicable
-            if (executionConfig.enableCaching && this.canCacheQuery(sql) && this.shouldCacheResult(result)) {
+            if (cacheGeneration === this.cacheGeneration && executionConfig.enableCaching && this.canCacheQuery(sql) && this.shouldCacheResult(result)) {
                 this.cacheResult(sql, queryHash, result, executionConfig.cacheTtl || executionConfig.defaultCacheTtl);
             }
 
@@ -528,7 +546,7 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
             };
 
         } catch (error) {
-            this.activeQueries.delete(queryHash);
+            this.activeQueries.delete(executionId);
             const executionTime = Date.now() - startTime;
             
             this.logger?.error('Query execution failed', { 
@@ -550,13 +568,14 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
                 success: false
             });
 
+            if (error instanceof HSQLDBError) throw error;
             throw createErrorFromJDBC(sql, error, undefined, {
                 queryHash,
                 executionTime,
                 operation: 'executeQuery'
             });
         } finally {
-            this.activeQueries.delete(queryHash);
+            this.activeQueries.delete(executionId);
         }
     }
 
@@ -597,28 +616,18 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
             throw new ModuleNotInitializedError('QueryExecutor', 'executeStreamingQuery');
         }
 
-        const connection = await this.getConnection(config?.connectionMode);
-        
-        try {
-            // This is a simplified streaming implementation
-            // In a real implementation, we'd use JDBC streaming features
-            const result = await this.executeQuery(sql, { ...config, enableCaching: false });
-            
-            // Yield results in batches
-            const rows = result.rows || [];
-            for (let i = 0; i < rows.length; i += batchSize) {
-                const batch = rows.slice(i, i + batchSize);
-                yield {
-                    ...result,
-                    rows: batch,
-                    metadata: {
-                        ...result.metadata,
-                        fromCache: false
-                    }
-                };
-            }
-        } finally {
-            await this.releaseConnection(connection);
+        if (!Number.isSafeInteger(batchSize) || batchSize <= 0) {
+            throw new ConfigurationError('Streaming batch size must be a positive safe integer', ['batchSize']);
+        }
+        // executeQuery owns the lease. Borrowing here would deadlock a one-connection pool.
+        const result = await this.executeQuery(sql, { ...config, enableCaching: false });
+        const rows = result.rows;
+        for (let i = 0; i < rows.length; i += batchSize) {
+            yield {
+                ...result,
+                rows: rows.slice(i, i + batchSize),
+                metadata: { ...result.metadata, fromCache: false }
+            };
         }
     }
 
@@ -635,11 +644,7 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
         }
 
         if (!this.parameterizedQuery) {
-            // Fallback to regular execution with warning
-            this.logger?.warn('ParameterizedQuery module not available, falling back to regular execution', {
-                sql: sql.substring(0, 100)
-            });
-            return this.executeQuery(sql, config);
+            throw new ConfigurationError('ParameterizedQuery module required for parameterized queries');
         }
 
         const startTime = Date.now();
@@ -653,9 +658,9 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
 
         try {
             // Execute using ParameterizedQuery module
-            const result = await this.parameterizedQuery.execute(sql, parameters, {
+            const result = await this.executeWithCacheInvalidation(sql, () => this.parameterizedQuery!.execute(sql, parameters, {
                 timeoutMs: config?.timeoutMs
-            });
+            }));
 
             const executionTime = Date.now() - startTime;
 
@@ -742,9 +747,9 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
 
         try {
             // Execute using ParameterizedQuery module
-            const result = await this.parameterizedQuery.executeNamed(sql, parameters, {
+            const result = await this.executeWithCacheInvalidation(sql, () => this.parameterizedQuery!.executeNamed(sql, parameters, {
                 timeoutMs: config?.timeoutMs
-            });
+            }));
 
             const executionTime = Date.now() - startTime;
 
@@ -820,13 +825,10 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
         const connection = await this.getConnection(config.connectionMode);
         
         try {
-            // Set query timeout if specified
-            if (config.timeoutMs && config.timeoutMs !== this.config.defaultTimeoutMs) {
-                // Note: JDBC timeout setting would go here in a real implementation
-            }
-
-            // Execute the query
-            const result = await connection.execute(sql);
+            const result = await connection.execute(sql, [], {
+                timeoutMs: config.timeoutMs ?? config.defaultTimeoutMs,
+                maxRows: config.maxResultSize
+            });
 
             // Check result size limits
             if (result.rows && result.rows.length > config.maxResultSize) {
@@ -873,6 +875,19 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
     // =============================================================================
     // CACHING METHODS
     // =============================================================================
+
+    /**
+     * Invalidate reads before and after potentially mutating SQL, including failed writes.
+     * @param sql Statement used to conservatively identify read-only operations.
+     * @param execute Operation that owns execution and connection release.
+     * @returns The operation result with its original error preserved on failure.
+     */
+    private async executeWithCacheInvalidation<T>(sql: string, execute: () => Promise<T>): Promise<T> {
+        const mutates = !/^\s*(SELECT|VALUES|TABLE|SHOW|EXPLAIN)\b/i.test(sql);
+        if (mutates) this.clearCache();
+        try { return await execute(); }
+        finally { if (mutates) this.clearCache(); }
+    }
 
     /**
      * Check if query can be cached
@@ -1004,21 +1019,7 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
      * Generate query hash for caching/tracking
      */
     private generateQueryHash(sql: string): string {
-        // Normalize SQL for consistent hashing
-        const normalized = sql
-            .trim()
-            .replace(/\s+/g, ' ')
-            .toLowerCase();
-
-        // Simple hash function
-        let hash = 0;
-        for (let i = 0; i < normalized.length; i++) {
-            const char = normalized.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // Convert to 32-bit integer
-        }
-
-        return Math.abs(hash).toString(36);
+        return createHash('sha256').update(sql).digest('hex');
     }
 
     /**
@@ -1225,6 +1226,7 @@ export class QueryExecutor implements BaseModule, ModuleEventEmitter<ModuleEvent
      * Clear query cache
      */
     public clearCache(): void {
+        this.cacheGeneration++;
         const size = this.queryCache.size;
         this.queryCache.clear();
         

@@ -734,19 +734,25 @@ describe('TransactionManager v2.0 Comprehensive Tests', function() {
             try {
                 // Execute operations in parallel with v2.0
                 const results = await Promise.all(
-                    txs.map((tx, i) =>
-                        tx.execute(
-                            'INSERT INTO TEST_TRANSACTIONS (id, value) VALUES (?, ?)',
-                            [2000 + i, `concurrent_v2_${i}`]
-                        )
-                    )
+                    txs.map(async (tx, i) => {
+                        try {
+                            return await tx.execute(
+                                'INSERT INTO TEST_TRANSACTIONS (id, value) VALUES (?, ?)',
+                                [2000 + i, `concurrent_v2_${i}`]
+                            );
+                        } finally {
+                            // HSQLDB LOCKS serializes writes to this table. Release
+                            // each writer's lock before waiting for the next writer.
+                            await tx.rollback('Concurrent writer completed');
+                        }
+                    })
                 );
 
                 expect(results).to.have.length(maxConcurrent);
             } finally {
                 // v2.0 enhanced cleanup
                 await Promise.all(
-                    txs.map(tx => tx.rollback('Test cleanup v2.0'))
+                    txs.filter(tx => tx.isHealthy()).map(tx => tx.rollback('Test cleanup v2.0'))
                 );
             }
         });

@@ -149,19 +149,31 @@ export interface TransactionContextState {
  * Manages savepoints, query execution, and transaction state.
  */
 export class TransactionContext {
+    /** Identifier of the transaction represented by this context. */
     private readonly transactionId: string;
+    /** Exclusive JDBC session borrowed for this transaction. */
     private readonly connection: any; // JDBC Connection from JDBCConnectionFactory
+    /** Manager notified when this transaction completes or fails. */
     private readonly transactionManager: TransactionManager;
+    /** Effective transaction options, including isolation and timeout. */
     private readonly options: TransactionOptions;
+    /** Module logger for operation context and diagnostic errors. */
     private readonly logger: ModuleLogger;
+    /** Creation timestamp in milliseconds used to calculate uptime. */
     private readonly startTime: Date;
 
+    /** Savepoint metadata indexed by savepoint name. */
     private savepoints: Map<string, SavepointInfo> = new Map();
+    /** Sequence used to generate unique savepoint names. */
     private savepointCounter = 0;
+    /** Number of queries recorded by this instance. */
     private queryCount = 0;
+    /** Cumulative duration in milliseconds of this transactionâ€™s queries. */
     private totalQueryTime = 0;
+    /** Whether this transaction context can still execute operations. */
     private valid = true;
 
+    /** Creates a transaction context bound to its connection, options and manager callbacks. */
     constructor(
         transactionId: string,
         connection: any,
@@ -310,8 +322,8 @@ export class TransactionContext {
         let successCount = 0;
 
         try {
-            // AMÉLIORATION: Processing par chunks pour de meilleures performances sur de gros batches
-            const chunkSize = 50; // Traiter par chunks de 50 pour éviter les timeouts
+            // AMÃ‰LIORATION: Processing par chunks pour de meilleures performances sur de gros batches
+            const chunkSize = 50; // Traiter par chunks de 50 pour Ã©viter les timeouts
 
             for (let chunkStart = 0; chunkStart < batch.parameterSets.length; chunkStart += chunkSize) {
                 const chunkEnd = Math.min(chunkStart + chunkSize, batch.parameterSets.length);
@@ -388,6 +400,10 @@ export class TransactionContext {
     public async createSavepoint(name?: string): Promise<string> {
         this.ensureValid();
 
+        if (name !== undefined && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+            throw new HSQLDBError('Savepoint name must be a SQL identifier', 'INVALID_SAVEPOINT_NAME');
+        }
+
         // CRITICAL FIX: Always increment the counter before using it
         this.savepointCounter++;
         const savepointName = name || `sp_${this.savepointCounter}`;
@@ -432,7 +448,7 @@ export class TransactionContext {
             return savepointName;
 
         } catch (error) {
-            // NOUVEAU: En cas d'erreur, décrémenter le compteur pour maintenir la cohérence
+            // NOUVEAU: En cas d'erreur, dÃ©crÃ©menter le compteur pour maintenir la cohÃ©rence
             this.savepointCounter--;
 
             this.logger.error('Savepoint creation failed', {
@@ -826,9 +842,12 @@ export class TransactionContext {
     }
 
     /**
-     * Invalidate the context
+     * Closes this context and its savepoints before its JDBC session is returned to the pool.
+     * Called by the owning TransactionManager during completion or emergency cleanup.
+     * This state change performs no logging or I/O so it cannot prevent session release.
+     * @internal
      */
-    private invalidate(): void {
+    public invalidate(): void {
         this.valid = false;
 
         // Invalidate all savepoints
@@ -836,9 +855,5 @@ export class TransactionContext {
             savepoint.isValid = false;
         }
 
-        this.logger.debug('TransactionContext invalidated', {
-            operation: 'invalidate-context',
-            transactionId: this.transactionId
-        });
     }
 }

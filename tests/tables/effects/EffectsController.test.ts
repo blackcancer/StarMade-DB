@@ -1607,12 +1607,12 @@ describe('EffectsController Comprehensive Tests', function () {
                 });
                 expect(zeroOffset).to.be.an('array');
 
-                const negativeOffset = await controller.findEffects({
-                    limit: 5,
-                    offset: -1 // Invalid offset
-                });
-                expect(negativeOffset).to.be.an('array');
-                // Should handle gracefully (either ignore or convert to 0)
+                try {
+                    await controller.findEffects({ limit: 5, offset: -1 });
+                    assert.fail('Negative offsets must be rejected');
+                } catch (error) {
+                    expect(error).to.be.instanceOf(ValidationError);
+                }
             });
         });
 
@@ -2158,7 +2158,7 @@ describe('EffectsController Comprehensive Tests', function () {
 
             describe('Configuration and Options Testing', function () {
                 it('should handle various creation options', async function () {
-                    const testEntityId = 8000001;
+                    const testEntityId = TEST_ENTITIES.ENTITY_WITH_MULTIPLE_EFFECTS;
 
                     try {
                         // Test with all options enabled

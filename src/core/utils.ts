@@ -127,7 +127,7 @@ export function formatDuration(ms: number): string {
  * @param {boolean} [options.readOnly] - If true, the connection will be read-only.
  * @param {boolean} [options.ifExists] - If true, the connection will only succeed if the database already exists.
  * @param {boolean} [options.shutdown] - If true, the database will shut down when the last connection is closed.
- * @param {boolean} [options.disableLockFile] - If true, HSQLDB lock file (.lck) will be disabled - CRITICAL for test stability.
+ * @param {boolean} [options.disableLockFile] - If true, HSQLDB lock file (.lck) will be disabled. Only use when concurrent access is otherwise prevented.
  * @returns {string} The fully formed JDBC URL for the StarMade database.
  */
 export function generateDatabaseUrl(starmadeDir: string, worldName: string, options?: {
@@ -205,6 +205,7 @@ export function isValidWorldDirectory(worldPath: string): boolean {
  */
 export const resourceCleaner = {
     /**
+     * Registered resources awaiting destruction.
      * @private
      * @type {Set<{ destroy(): Promise<void> }>
      */
@@ -255,21 +256,22 @@ export async function retry<T>(
     maxAttempts: number = 3,
     delay: number = 1000
 ): Promise<T> {
-    let lastError: Error;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (!Number.isSafeInteger(maxAttempts) || maxAttempts < 1) {
+        throw new RangeError('maxAttempts must be a positive safe integer');
+    }
+    if (!Number.isFinite(delay) || delay < 0) {
+        throw new RangeError('delay must be a non-negative finite number');
+    }
+    for (let attempt = 1; ; attempt++) {
         try {
             return await fn();
         } catch (error) {
-            lastError = error instanceof Error ? error : new Error(String(error));
             if (attempt === maxAttempts) {
-                throw lastError;
+                throw error instanceof Error ? error : new Error(String(error));
             }
             await new Promise(resolve => setTimeout(resolve, delay * attempt));
         }
     }
-
-    throw lastError!;
 }
 
 /**

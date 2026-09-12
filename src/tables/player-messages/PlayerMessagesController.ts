@@ -104,7 +104,9 @@ export interface PlayerMessageStatistics {
  * Controller for PLAYER_MESSAGES table with messaging lifecycle management
  */
 export class PlayerMessagesController extends BaseController<PlayerMessagesModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<PlayerMessagesModel> = PlayerMessagesModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'PlayerMessagesController';
 
     /**
@@ -157,6 +159,7 @@ export class PlayerMessagesController extends BaseController<PlayerMessagesModel
      * @throws {ErrorFactory} If the query fails
      */
     public async findAll(options: PlayerMessageSearchOptions = {}): Promise<PlayerMessagesModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -276,6 +279,7 @@ export class PlayerMessagesController extends BaseController<PlayerMessagesModel
      * @throws {ErrorFactory} If the query fails
      */
     public async findConversation(playerA: string, playerB: string, options: QueryOptions = {}): Promise<PlayerMessagesModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -413,15 +417,9 @@ export class PlayerMessagesController extends BaseController<PlayerMessagesModel
 
         const sql = 'UPDATE PLAYER_MESSAGES SET READ = TRUE WHERE LOWER(RECEIVER) = ? AND READ = FALSE';
         try {
-            await this.executeQuery(sql, [receiver.toLowerCase()]);
+            const marked = await this.executeUpdate(sql, [receiver.toLowerCase()]);
             if (this.cacheManager) await this.clearCachesForTable('PLAYER_MESSAGES');
 
-            // Count affected rows (approximate via follow-up query)
-            const countResult = await this.executeQuery(
-                'SELECT COUNT(*) AS cnt FROM PLAYER_MESSAGES WHERE LOWER(RECEIVER) = ? AND READ = TRUE',
-                [receiver.toLowerCase()]
-            );
-            const marked = Number(countResult[0]?.cnt ?? 0);
             this.logger.info('Marked all messages as read', { operation: 'mark-all-as-read', receiver, marked });
             return marked;
         } catch (error) {
@@ -536,11 +534,11 @@ export class PlayerMessagesController extends BaseController<PlayerMessagesModel
             const [
                 totalResult, unreadResult, attachResult, senderResult, receiverResult
             ] = await Promise.all([
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM PLAYER_MESSAGES', []),
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM PLAYER_MESSAGES WHERE READ = FALSE', []),
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM PLAYER_MESSAGES WHERE ATT_ID IS NOT NULL', []),
-                this.executeQuery('SELECT SENDER, COUNT(*) AS cnt FROM PLAYER_MESSAGES GROUP BY SENDER ORDER BY cnt DESC LIMIT 10', []),
-                this.executeQuery('SELECT RECEIVER, COUNT(*) AS cnt FROM PLAYER_MESSAGES GROUP BY RECEIVER ORDER BY cnt DESC LIMIT 10', [])
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM PLAYER_MESSAGES', []),
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM PLAYER_MESSAGES WHERE READ = FALSE', []),
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM PLAYER_MESSAGES WHERE ATT_ID IS NOT NULL', []),
+                this.executeQuery('SELECT SENDER, COUNT(*) AS "cnt" FROM PLAYER_MESSAGES GROUP BY SENDER ORDER BY "cnt" DESC LIMIT 10', []),
+                this.executeQuery('SELECT RECEIVER, COUNT(*) AS "cnt" FROM PLAYER_MESSAGES GROUP BY RECEIVER ORDER BY "cnt" DESC LIMIT 10', [])
             ]);
 
             const total = Number(totalResult[0]?.cnt ?? 0);
@@ -572,7 +570,7 @@ export class PlayerMessagesController extends BaseController<PlayerMessagesModel
     public async countUnread(receiver: string): Promise<number> {
         this.ensureInitialized();
 
-        const sql = 'SELECT COUNT(*) AS cnt FROM PLAYER_MESSAGES WHERE LOWER(RECEIVER) = ? AND READ = FALSE';
+        const sql = 'SELECT COUNT(*) AS "cnt" FROM PLAYER_MESSAGES WHERE LOWER(RECEIVER) = ? AND READ = FALSE';
         try {
             const result = await this.executeQuery(sql, [receiver.toLowerCase()]);
             return Number(result[0]?.cnt ?? 0);

@@ -766,16 +766,18 @@ describe('BaseController Tests', function() {
         });
 
         it('should handle composite primary keys in findById', async function() {
-            // For composite keys, we need a different model, but we'll test the logic path
-            const compositeId = { KEY1: 1, KEY2: 2 };
-
-            try {
-                // This will fail validation but tests the composite key handling path
-                await controller.findById(compositeId);
-            } catch (err: any) {
-                // Expected since our test model doesn't have composite keys
-                expect(err.message).to.include('Composite primary key requires object');
+            class CompositeModel extends TestUserModel {
+                public static schema = { ...TestUserModel.schema, primaryKey: ['ID', 'DEPARTMENT_ID'] };
             }
+            (controller as any).ModelClass = CompositeModel;
+            (mockParameterizedQuery.execute as any).resolves({success:true, rows:[], columns:[]});
+            expect(await controller.findById({ID:1, DEPARTMENT_ID:2})).to.equal(null);
+            expect((mockParameterizedQuery.execute as any).firstCall.args).to.deep.equal([
+                'SELECT * FROM TEST_USERS WHERE ID = ? AND DEPARTMENT_ID = ?', [1,2]
+            ]);
+            let error:unknown;
+            try { await controller.findById(1); } catch (caught) { error = caught; }
+            expect(String(error)).to.include('Composite primary key requires object');
         });
     });
 

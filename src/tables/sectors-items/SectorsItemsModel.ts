@@ -1,3 +1,5 @@
+import * as decoder from 'starmade-decoder';
+import * as related0 from '../sectors/SectorsModel.js';
 /**
  * @fileoverview Sectors Items Model
  * 
@@ -49,8 +51,10 @@ export const MAX_ITEM_STACKS = Math.floor(MAX_ITEMS_SIZE / ITEM_RECORD_SIZE); //
  * Each record contains a fixed-size sequence of item stacks with position and metadata.
  */
 export class SectorsItemsModel extends BaseModel {
+    /** SQL table name used to generate queries for this model. */
     public static tableName = 'SECTORS_ITEMS';
     
+    /** SQL column, key, index and validation definitions for this table. */
     public static schema: TableSchema = {
         tableName: 'SECTORS_ITEMS',
         comment: 'Serialized data for items floating freely in space sectors',
@@ -102,7 +106,7 @@ export class SectorsItemsModel extends BaseModel {
             sector: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../sectors/SectorsModel.js').SectorsModel;
+                    return related0.SectorsModel;
                 },
                 {
                     from: 'SECTORS_ITEMS.ID',
@@ -116,10 +120,28 @@ export class SectorsItemsModel extends BaseModel {
     // TYPED ACCESSORS
     // =============================================================================
 
+    /**
+     * Read the SECTORS_ITEMS.ID column from this model. Numeric strings are converted to integers.
+     * @returns The stored ID value, normalized to an integer when necessary.
+     */
     public getId(): number | undefined { const v = this.get('ID'); if (v === undefined) return undefined; if (v === null) return null as any; return typeof v === 'string' ? parseInt(v, 10) : v; }
+    /**
+     * Store the SECTORS_ITEMS.ID column in this model and return this for chaining.
+     * @param id New value for the ID column.
+     * @returns This model for chaining.
+     */
     public setId(id: number | undefined): this { return this.set('ID', id); }
 
+    /**
+     * Read the SECTORS_ITEMS.ITEMS column from this model.
+     * @returns The stored ITEMS value.
+     */
     public getItems(): Buffer { return this.get('ITEMS'); }
+    /**
+     * Store the SECTORS_ITEMS.ITEMS column in this model and return this for chaining.
+     * @param items New value for the ITEMS column.
+     * @returns This model for chaining.
+     */
     public setItems(items: Buffer): this { return this.set('ITEMS', items); }
 
     // =============================================================================
@@ -201,7 +223,7 @@ export class SectorsItemsModel extends BaseModel {
     public getStorageEfficiency(): number {
         const used = this.getItemsSize();
         const total = MAX_ITEMS_SIZE;
-        return total > 0 ? Math.round((used / total) * 100) : 0;
+        return Math.round((used / total) * 100);
     }
 
     /**
@@ -357,7 +379,7 @@ export class SectorsItemsModel extends BaseModel {
      */
     public decodeItems(): import('starmade-decoder').SectorItemsObject {
         const raw = this.getItems();
-        const { SectorItemsObject } = require('starmade-decoder');
+        const { SectorItemsObject } = decoder;
         return SectorItemsObject.fromBytes(raw ?? null);
     }
 
@@ -373,9 +395,9 @@ export class SectorsItemsModel extends BaseModel {
         items: import('starmade-decoder').SectorItemsObject | import('starmade-decoder').FreeItem[]
     ): this {
         const anyItems = items as any;
-        const raw = typeof anyItems.toBytes === 'function'
-            ? anyItems.toBytes()
-            : require('starmade-decoder').encodeSectorItems(items);
+        const raw = 'toBytes' in items
+            ? items.toBytes()
+            : decoder.encodeSectorItems(items);
 
         return this.setItems(raw);
     }

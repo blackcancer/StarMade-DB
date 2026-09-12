@@ -1,3 +1,4 @@
+import * as related0 from '../sectors/SectorsModel.js';
 /**
  * @fileoverview Visibility Model
  * 
@@ -29,9 +30,13 @@ import {
  * Known observer types for visibility tracking
  */
 export enum KnownObserver {
+    /** Known observer value for system, serialized as 0. */
     SYSTEM = 0,                     // System observer
+    /** Known observer value for trading guild, serialized as -10000000. */
     TRADING_GUILD = -10000000,      // Trading Guild NPC faction
+    /** Known observer value for outcasts, serialized as -9999999. */
     OUTCASTS = -9999999,            // Outcasts NPC faction
+    /** Known observer value for scavengers, serialized as -9999998. */
     SCAVENGERS = -9999998           // Scavengers NPC faction
 }
 
@@ -47,8 +52,10 @@ export enum KnownObserver {
  * creating a persistent record of spatial knowledge and reconnaissance activities.
  */
 export class VisibilityModel extends BaseModel {
+    /** SQL table name used to generate queries for this model. */
     public static tableName = 'VISIBILITY';
     
+    /** SQL column, key, index and validation definitions for this table. */
     public static schema: TableSchema = {
         tableName: 'VISIBILITY',
         comment: 'Strategic intelligence table implementing fog of war system',
@@ -111,7 +118,7 @@ export class VisibilityModel extends BaseModel {
             sector: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../sectors/SectorsModel.js').SectorsModel;
+                    return related0.SectorsModel;
                 },
                 {
                     from: ['VISIBILITY.X', 'VISIBILITY.Y', 'VISIBILITY.Z'],
@@ -125,19 +132,64 @@ export class VisibilityModel extends BaseModel {
     // TYPED ACCESSORS
     // =============================================================================
 
+    /**
+     * Read the VISIBILITY.ID column from this model. Numeric strings are converted to integers.
+     * @returns The stored ID value, normalized to an integer when necessary.
+     */
     public getId(): number { const v = this.get('ID'); if (v === undefined || v === null) return undefined as any; return typeof v === 'string' ? parseInt(v, 10) : v; }
+    /**
+     * Store the VISIBILITY.ID column in this model and return this for chaining.
+     * @param id New value for the ID column.
+     * @returns This model for chaining.
+     */
     public setId(id: number): this { return this.set('ID', id); }
 
+    /**
+     * Read the VISIBILITY.X column from this model.
+     * @returns The stored X value.
+     */
     public getX(): number { return this.get('X'); }
+    /**
+     * Store the VISIBILITY.X column in this model and return this for chaining.
+     * @param x New value for the X column.
+     * @returns This model for chaining.
+     */
     public setX(x: number): this { return this.set('X', x); }
 
+    /**
+     * Read the VISIBILITY.Y column from this model.
+     * @returns The stored Y value.
+     */
     public getY(): number { return this.get('Y'); }
+    /**
+     * Store the VISIBILITY.Y column in this model and return this for chaining.
+     * @param y New value for the Y column.
+     * @returns This model for chaining.
+     */
     public setY(y: number): this { return this.set('Y', y); }
 
+    /**
+     * Read the VISIBILITY.Z column from this model.
+     * @returns The stored Z value.
+     */
     public getZ(): number { return this.get('Z'); }
+    /**
+     * Store the VISIBILITY.Z column in this model and return this for chaining.
+     * @param z New value for the Z column.
+     * @returns This model for chaining.
+     */
     public setZ(z: number): this { return this.set('Z', z); }
 
+    /**
+     * Read the VISIBILITY.TIMESTAMP column from this model.
+     * @returns The stored TIMESTAMP value.
+     */
     public getTimestamp(): number | undefined { return this.get('TIMESTAMP'); }
+    /**
+     * Store the VISIBILITY.TIMESTAMP column in this model and return this for chaining.
+     * @param timestamp New value for the TIMESTAMP column.
+     * @returns This model for chaining.
+     */
     public setTimestamp(timestamp: number | undefined): this { return this.set('TIMESTAMP', timestamp); }
 
     // =============================================================================

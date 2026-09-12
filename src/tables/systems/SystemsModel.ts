@@ -1,3 +1,7 @@
+import * as decoder from 'starmade-decoder';
+import * as related0 from '../sectors/SectorsModel.js';
+import * as related1 from '../entities/EntitiesModel.js';
+import * as related2 from '../npc-stats/NpcStatsModel.js';
 /**
  * @fileoverview Systems Model
  * 
@@ -49,10 +53,15 @@ export const RESOURCE_COUNT = 19;
  * System types as defined in TABLE_SYSTEMS.md
  */
 export enum SystemType {
+    /** System type value for sun, serialized as 0. */
     SUN = 0,         // Regular star system - Standard stellar configuration (Common)
+    /** System type value for giant, serialized as 1. */
     GIANT = 1,       // Giant star system - Massive stellar body (Uncommon)
+    /** System type value for black hole, serialized as 2. */
     BLACK_HOLE = 2,  // Black hole system - Gravitational anomaly (Rare)
+    /** System type value for double star, serialized as 3. */
     DOUBLE_STAR = 3, // Binary star system - Dual star configuration (Uncommon)
+    /** System type value for void, serialized as 4. */
     VOID = 4         // Void system - Empty space, no star (Most common)
 }
 
@@ -60,9 +69,13 @@ export enum SystemType {
  * Known NPC faction IDs as documented
  */
 export enum KnownSystemFactions {
+    /** Known system factions value for neutral, serialized as 0. */
     NEUTRAL = 0,           // No faction (neutral)
+    /** Known system factions value for trading guild, serialized as -10000000. */
     TRADING_GUILD = -10000000,  // NPC Trading Guild
+    /** Known system factions value for outcasts, serialized as -9999999. */
     OUTCASTS = -9999999,   // NPC Outcasts (hostile)
+    /** Known system factions value for scavengers, serialized as -9999998. */
     SCAVENGERS = -9999998  // NPC Scavengers
 }
 
@@ -78,8 +91,10 @@ export enum KnownSystemFactions {
  * and the fundamental organization of space.
  */
 export class SystemsModel extends BaseModel {
+    /** SQL table name used to generate queries for this model. */
     public static tableName = 'SYSTEMS';
     
+    /** SQL column, key, index and validation definitions for this table. */
     public static schema: TableSchema = {
         tableName: 'SYSTEMS',
         comment: 'Star systems within the galaxy grid',
@@ -222,7 +237,7 @@ export class SystemsModel extends BaseModel {
                 Model.HasManyRelation,
                 () => {
                     // Lazy import to avoid circular dependencies
-                    return require('../sectors/SectorsModel.js').SectorsModel;
+                    return related0.SectorsModel;
                 },
                 {
                     from: 'SYSTEMS.ID',
@@ -235,7 +250,7 @@ export class SystemsModel extends BaseModel {
                 Model.BelongsToOneRelation,
                 () => {
                     // Lazy import to avoid circular dependencies
-                    return require('../entities/EntitiesModel.js').EntitiesModel;
+                    return related1.EntitiesModel;
                 },
                 {
                     from: 'SYSTEMS.OWNER_UID',
@@ -253,7 +268,7 @@ export class SystemsModel extends BaseModel {
             ownerHomeSector: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../sectors/SectorsModel.js').SectorsModel;
+                    return related0.SectorsModel;
                 },
                 {
                     from: ['SYSTEMS.OWNER_X', 'SYSTEMS.OWNER_Y', 'SYSTEMS.OWNER_Z'],
@@ -277,7 +292,7 @@ export class SystemsModel extends BaseModel {
                 Model.HasManyRelation,
                 () => {
                     // Lazy import to avoid circular dependencies
-                    return require('../NPC-stats/NPCStatsModel.js').NPCStatsModel;
+                    return related2.NPCStatsModel;
                 },
                 {
                     from: ['SYSTEMS.X', 'SYSTEMS.Y', 'SYSTEMS.Z'],
@@ -291,46 +306,172 @@ export class SystemsModel extends BaseModel {
     // TYPED ACCESSORS
     // =============================================================================
 
+    /**
+     * Read the SYSTEMS.ID column from this model. Numeric strings are converted to integers.
+     * @returns The stored ID value, normalized to an integer when necessary.
+     */
     public getId(): number { const v = this.get('ID'); if (v === undefined || v === null) return undefined as any; return typeof v === 'string' ? parseInt(v, 10) : v; }
+    /**
+     * Store the SYSTEMS.ID column in this model and return this for chaining.
+     * @param id New value for the ID column.
+     * @returns This model for chaining.
+     */
     public setId(id: number): this { return this.set('ID', id); }
 
+    /**
+     * Read the SYSTEMS.X column from this model.
+     * @returns The stored X value.
+     */
     public getX(): number { return this.get('X'); }
+    /**
+     * Store the SYSTEMS.X column in this model and return this for chaining.
+     * @param x New value for the X column.
+     * @returns This model for chaining.
+     */
     public setX(x: number): this { return this.set('X', x); }
 
+    /**
+     * Read the SYSTEMS.Y column from this model.
+     * @returns The stored Y value.
+     */
     public getY(): number { return this.get('Y'); }
+    /**
+     * Store the SYSTEMS.Y column in this model and return this for chaining.
+     * @param y New value for the Y column.
+     * @returns This model for chaining.
+     */
     public setY(y: number): this { return this.set('Y', y); }
 
+    /**
+     * Read the SYSTEMS.Z column from this model.
+     * @returns The stored Z value.
+     */
     public getZ(): number { return this.get('Z'); }
+    /**
+     * Store the SYSTEMS.Z column in this model and return this for chaining.
+     * @param z New value for the Z column.
+     * @returns This model for chaining.
+     */
     public setZ(z: number): this { return this.set('Z', z); }
 
+    /**
+     * Read the SYSTEMS.TYPE column from this model.
+     * @returns The stored TYPE value.
+     */
     public getType(): SystemType { return this.get('TYPE'); }
+    /**
+     * Store the SYSTEMS.TYPE column in this model and return this for chaining.
+     * @param type New value for the TYPE column.
+     * @returns This model for chaining.
+     */
     public setType(type: SystemType): this { return this.set('TYPE', type); }
 
+    /**
+     * Read the SYSTEMS.STARTTIME column from this model.
+     * @returns The stored STARTTIME value.
+     */
     public getStarttime(): number | undefined { return this.get('STARTTIME'); }
+    /**
+     * Store the SYSTEMS.STARTTIME column in this model and return this for chaining.
+     * @param starttime New value for the STARTTIME column.
+     * @returns This model for chaining.
+     */
     public setStarttime(starttime: number | undefined): this { return this.set('STARTTIME', starttime); }
 
+    /**
+     * Read the SYSTEMS.NAME column from this model.
+     * @returns The stored NAME value.
+     */
     public getName(): string | undefined { return this.get('NAME'); }
+    /**
+     * Store the SYSTEMS.NAME column in this model and return this for chaining.
+     * @param name New value for the NAME column.
+     * @returns This model for chaining.
+     */
     public setName(name: string | undefined): this { return this.set('NAME', name); }
 
+    /**
+     * Read the SYSTEMS.INFOS column from this model.
+     * @returns The stored INFOS value.
+     */
     public getInfos(): Buffer { return this.get('INFOS'); }
+    /**
+     * Store the SYSTEMS.INFOS column in this model and return this for chaining.
+     * @param infos New value for the INFOS column.
+     * @returns This model for chaining.
+     */
     public setInfos(infos: Buffer): this { return this.set('INFOS', infos); }
 
+    /**
+     * Read the SYSTEMS.OWNER_UID column from this model.
+     * @returns The stored OWNER_UID value.
+     */
     public getOwnerUid(): string | undefined { return this.get('OWNER_UID'); }
+    /**
+     * Store the SYSTEMS.OWNER_UID column in this model and return this for chaining.
+     * @param ownerUid New value for the OWNER_UID column.
+     * @returns This model for chaining.
+     */
     public setOwnerUid(ownerUid: string | undefined): this { return this.set('OWNER_UID', ownerUid); }
 
+    /**
+     * Read the SYSTEMS.OWNER_FACTION column from this model.
+     * @returns The stored OWNER_FACTION value.
+     */
     public getOwnerFaction(): number { return this.get('OWNER_FACTION'); }
+    /**
+     * Store the SYSTEMS.OWNER_FACTION column in this model and return this for chaining.
+     * @param ownerFaction New value for the OWNER_FACTION column.
+     * @returns This model for chaining.
+     */
     public setOwnerFaction(ownerFaction: number): this { return this.set('OWNER_FACTION', ownerFaction); }
 
+    /**
+     * Read the SYSTEMS.OWNER_X column from this model.
+     * @returns The stored OWNER_X value.
+     */
     public getOwnerX(): number { return this.get('OWNER_X'); }
+    /**
+     * Store the SYSTEMS.OWNER_X column in this model and return this for chaining.
+     * @param ownerX New value for the OWNER_X column.
+     * @returns This model for chaining.
+     */
     public setOwnerX(ownerX: number): this { return this.set('OWNER_X', ownerX); }
 
+    /**
+     * Read the SYSTEMS.OWNER_Y column from this model.
+     * @returns The stored OWNER_Y value.
+     */
     public getOwnerY(): number { return this.get('OWNER_Y'); }
+    /**
+     * Store the SYSTEMS.OWNER_Y column in this model and return this for chaining.
+     * @param ownerY New value for the OWNER_Y column.
+     * @returns This model for chaining.
+     */
     public setOwnerY(ownerY: number): this { return this.set('OWNER_Y', ownerY); }
 
+    /**
+     * Read the SYSTEMS.OWNER_Z column from this model.
+     * @returns The stored OWNER_Z value.
+     */
     public getOwnerZ(): number { return this.get('OWNER_Z'); }
+    /**
+     * Store the SYSTEMS.OWNER_Z column in this model and return this for chaining.
+     * @param ownerZ New value for the OWNER_Z column.
+     * @returns This model for chaining.
+     */
     public setOwnerZ(ownerZ: number): this { return this.set('OWNER_Z', ownerZ); }
 
+    /**
+     * Read the SYSTEMS.RESOURCES column from this model.
+     * @returns The stored RESOURCES value.
+     */
     public getResources(): Buffer { return this.get('RESOURCES'); }
+    /**
+     * Store the SYSTEMS.RESOURCES column in this model and return this for chaining.
+     * @param resources New value for the RESOURCES column.
+     * @returns This model for chaining.
+     */
     public setResources(resources: Buffer): this { return this.set('RESOURCES', resources); }
 
     // =============================================================================
@@ -633,7 +774,7 @@ export class SystemsModel extends BaseModel {
     public decodeStarSystem(): import('starmade-decoder').StarSystem | null {
         const infos = this.getInfos();
         const resources = this.getResources();
-        const { StarSystem } = require('starmade-decoder');
+        const { StarSystem } = decoder;
         return StarSystem.fromBytes(infos ?? null, resources ?? null);
     }
 
@@ -650,7 +791,7 @@ export class SystemsModel extends BaseModel {
     public decodeResources(): import('starmade-decoder').SystemResource[] {
         const raw = this.getResources();
         if (!raw) return [];
-        const { decodeSystemResources } = require('starmade-decoder');
+        const { decodeSystemResources } = decoder;
         return decodeSystemResources(raw);
     }
 
@@ -672,7 +813,7 @@ export class SystemsModel extends BaseModel {
      * Encodes and stores SYSTEMS.INFOS from typed sector entries.
      */
     public encodeInfos(infos: import('starmade-decoder').SectorInfo[]): this {
-        const { encodeSystemInfos } = require('starmade-decoder');
+        const { encodeSystemInfos } = decoder;
         return this.setInfos(encodeSystemInfos(infos));
     }
 
@@ -680,7 +821,7 @@ export class SystemsModel extends BaseModel {
      * Encodes and stores SYSTEMS.RESOURCES from typed resource density entries.
      */
     public encodeResources(resources: import('starmade-decoder').SystemResource[]): this {
-        const { encodeSystemResources } = require('starmade-decoder');
+        const { encodeSystemResources } = decoder;
         return this.setResources(encodeSystemResources(resources));
     }
 }

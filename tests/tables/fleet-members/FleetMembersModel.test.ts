@@ -1325,7 +1325,7 @@ describe('FleetMembersModel Complete Tests', function () {
             const logisticsAssessment = logisticsMember.getTacticalAssessment();
 
             // REPAIRING est dans OPERATIONS, pas SUPPORT selon la logique getMissionCategory()
-            expect(repairAssessment.role).to.equal('UNKNOWN'); // Car REPAIRING n'est pas reconnu comme SUPPORT dans le context tactique
+            expect(repairAssessment.role).to.equal('SUPPORT'); // Repair is operational and provides tactical support
             expect(logisticsAssessment.role).to.equal('LOGISTICS');
         });
 
@@ -1620,7 +1620,7 @@ describe('FleetMembersModel Complete Tests', function () {
             
             expect(repairingMember.getMissionCategory()).to.equal(MissionCategory.OPERATIONS);
             expect(repairingMember.isPerformingOperations()).to.be.true;
-            expect(repairingMember.isProvidingSupport()).to.be.false; // REPAIRING is primarily OPERATIONS
+            expect(repairingMember.isProvidingSupport()).to.be.true; // Repair can be operational and provide support
         });
 
         it('should identify individual mission status correctly', function () {

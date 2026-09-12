@@ -46,9 +46,9 @@ export interface FleetMemberSearchOptions extends QueryOptions {
     missionState?: MemberMissionState;
     /** Filter by mission category */
     missionCategory?: MissionCategory;
-    /** Filter by docking status */
+    /** Classify DOCKED_TO using fleet membership and the target entity type (station = 1). */
     dockingStatus?: DockingStatus;
-    /** Include only flagship entries */
+    /** Select the entity referenced by its fleet's FLAGSHIP_ID. */
     flagshipOnly?: boolean;
     /** Search term for mission string */
     searchTerm?: string;
@@ -114,7 +114,9 @@ export interface FleetMemberStatistics {
  * Controller for FLEET_MEMBERS table with fleet composition management capabilities
  */
 export class FleetMembersController extends BaseController<FleetMembersModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<FleetMembersModel> = FleetMembersModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'FleetMembersController';
 
     /**
@@ -135,7 +137,7 @@ export class FleetMembersController extends BaseController<FleetMembersModel> {
     // =============================================================================
 
     /**
-     * Check if a fleet member record exists by composite primary key
+     * Check if a fleet member record exists by fleet and entity identifiers
      * @param {number} fleetId - The fleet ID
      * @param {number} entityId - The entity (member ship) ID
      * @returns {Promise<boolean>} True if the membership exists
@@ -153,7 +155,7 @@ export class FleetMembersController extends BaseController<FleetMembersModel> {
                 operation: 'membership-exists', fleetId, entityId,
                 error: error instanceof Error ? error.message : String(error)
             });
-            return false;
+            throw ErrorFactory.createQueryError(sql, error, [fleetId, entityId]);
         }
     }
 
@@ -168,6 +170,7 @@ export class FleetMembersController extends BaseController<FleetMembersModel> {
      * @throws {ErrorFactory} If the query fails
      */
     public async findAll(options: FleetMemberSearchOptions = {}): Promise<FleetMembersModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -198,8 +201,29 @@ export class FleetMembersController extends BaseController<FleetMembersModel> {
         if (fleetId !== undefined) { conditions.push('FLEET_ID = ?'); params.push(fleetId); }
         if (entityId !== undefined) { conditions.push('ENTITY_ID = ?'); params.push(entityId); }
         if (missionState !== undefined) { conditions.push('MISSION_STRING = ?'); params.push(missionState); }
-        if (dockingStatus !== undefined) { conditions.push('DOCKING_STATUS = ?'); params.push(dockingStatus); }
-        if (flagshipOnly) { conditions.push('IS_FLAGSHIP = TRUE'); }
+        const dockedToMember = 'EXISTS (SELECT 1 FROM FLEET_MEMBERS AS TARGET_MEMBER WHERE TARGET_MEMBER.ENTITY_ID = FLEET_MEMBERS.DOCKED_TO AND TARGET_MEMBER.FLEET_ID = FLEET_MEMBERS.FLEET_ID)';
+        const dockedToStation = 'EXISTS (SELECT 1 FROM ENTITIES AS TARGET_ENTITY WHERE TARGET_ENTITY.ID = FLEET_MEMBERS.DOCKED_TO AND TARGET_ENTITY.TYPE = 1)';
+        if (dockingStatus !== undefined) {
+            switch (dockingStatus) {
+                case DockingStatus.FREE_FLOATING:
+                    conditions.push('DOCKED_TO = -1');
+                    break;
+                case DockingStatus.DOCKED_TO_FLEET_MEMBER:
+                    conditions.push('DOCKED_TO != -1', dockedToMember);
+                    break;
+                case DockingStatus.DOCKED_TO_STATION:
+                    conditions.push('DOCKED_TO != -1', dockedToStation);
+                    break;
+                case DockingStatus.UNKNOWN:
+                    conditions.push('DOCKED_TO != -1', `NOT ${dockedToMember}`, `NOT ${dockedToStation}`);
+                    break;
+                default:
+                    throw new ValidationError('dockingStatus', dockingStatus, 'Unknown docking status');
+            }
+        }
+        if (flagshipOnly) {
+            conditions.push('EXISTS (SELECT 1 FROM FLEETS AS MEMBER_FLEET WHERE MEMBER_FLEET.ID = FLEET_MEMBERS.FLEET_ID AND MEMBER_FLEET.FLAGSHIP_ID = FLEET_MEMBERS.ENTITY_ID)');
+        }
         if (searchTerm !== undefined) {
             conditions.push('LOWER(MISSION_STRING) LIKE ?');
             params.push(`%${searchTerm.toLowerCase()}%`);
@@ -252,14 +276,15 @@ export class FleetMembersController extends BaseController<FleetMembersModel> {
     }
 
     /**
-     * Find a member record by composite primary key
+     * Find a member record by fleet and entity identifiers
      * @param {number} fleetId - The fleet ID
      * @param {number} entityId - The entity ID
      * @returns {Promise<FleetMembersModel | null>} The fleet member record or null
      * @throws {ErrorFactory} If the query fails
      */
     public async findOne(fleetId: number, entityId: number): Promise<FleetMembersModel | null> {
-        return this.findById({ FLEET_ID: fleetId, ENTITY_ID: entityId });
+        const members = await this.findAll({ fleetId, entityId, limit: 1, skipCache: true });
+        return members[0] ?? null;
     }
 
     // =============================================================================
@@ -303,7 +328,7 @@ export class FleetMembersController extends BaseController<FleetMembersModel> {
     }
 
     /**
-     * Update a fleet member record by composite primary key
+     * Update a fleet member record by fleet and entity identifiers
      * @param {{ fleetId: number; entityId: number }} id - Composite key
      * @param {Partial<Record<string, any>>} data - Updated data
      * @param {FleetMemberUpdateOptions} [options={}] - Update options
@@ -316,13 +341,16 @@ export class FleetMembersController extends BaseController<FleetMembersModel> {
         data: Partial<Record<string, any>>,
         options: FleetMemberUpdateOptions = {}
     ): Promise<FleetMembersModel> {
-        const compositeId = { FLEET_ID: id.fleetId, ENTITY_ID: id.entityId };
+        const member = await this.findOne(id.fleetId, id.entityId);
+        if (!member) {
+            throw new ValidationError('fleetId/entityId', id, 'Fleet membership does not exist');
+        }
         this.logger.info('Updating fleet member record', { operation: 'update', id });
-        return super.update(compositeId, data, options);
+        return super.update(member.getId(), data, options);
     }
 
     /**
-     * Delete a fleet member record by composite primary key
+     * Delete a fleet member record by fleet and entity identifiers
      * @param {{ fleetId: number; entityId: number }} id - Composite key
      * @param {DeleteOptions} [options={}] - Deletion options
      * @returns {Promise<boolean>} True if deleted, false if not found
@@ -332,17 +360,10 @@ export class FleetMembersController extends BaseController<FleetMembersModel> {
         id: { fleetId: number; entityId: number },
         options: DeleteOptions = {}
     ): Promise<boolean> {
-        const compositeId = { FLEET_ID: id.fleetId, ENTITY_ID: id.entityId };
+        const member = await this.findOne(id.fleetId, id.entityId);
+        if (!member) return false;
         this.logger.info('Deleting fleet member record', { operation: 'delete', id });
-        try {
-            return await super.delete(compositeId, options);
-        } catch (error) {
-            this.logger.error('Failed to delete fleet member', {
-                operation: 'delete', id,
-                error: error instanceof Error ? error.message : String(error)
-            });
-            return false;
-        }
+        return super.delete(member.getId(), options);
     }
 
     /**
@@ -357,8 +378,7 @@ export class FleetMembersController extends BaseController<FleetMembersModel> {
         const members = await this.findByFleet(fleetId);
         let count = 0;
         for (const member of members) {
-            await this.delete({ fleetId, entityId: member.get('ENTITY_ID') as number });
-            count++;
+            if (await this.delete({ fleetId, entityId: member.get('ENTITY_ID') as number })) count++;
         }
 
         this.logger.info('All fleet members removed', { operation: 'remove-all-from-fleet', fleetId, count });
@@ -445,11 +465,11 @@ export class FleetMembersController extends BaseController<FleetMembersModel> {
 
         try {
             const [totalResult, fleetResult, entityResult, missionResult, largestResult] = await Promise.all([
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM FLEET_MEMBERS', []),
-                this.executeQuery('SELECT COUNT(DISTINCT FLEET_ID) AS cnt FROM FLEET_MEMBERS', []),
-                this.executeQuery('SELECT COUNT(DISTINCT ENTITY_ID) AS cnt FROM FLEET_MEMBERS', []),
-                this.executeQuery('SELECT MISSION_STRING, COUNT(*) AS cnt FROM FLEET_MEMBERS GROUP BY MISSION_STRING', []),
-                this.executeQuery('SELECT FLEET_ID, COUNT(*) AS cnt FROM FLEET_MEMBERS GROUP BY FLEET_ID ORDER BY cnt DESC LIMIT 1', [])
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM FLEET_MEMBERS', []),
+                this.executeQuery('SELECT COUNT(DISTINCT FLEET_ID) AS "cnt" FROM FLEET_MEMBERS', []),
+                this.executeQuery('SELECT COUNT(DISTINCT ENTITY_ID) AS "cnt" FROM FLEET_MEMBERS', []),
+                this.executeQuery('SELECT MISSION_STRING, COUNT(*) AS "cnt" FROM FLEET_MEMBERS GROUP BY MISSION_STRING', []),
+                this.executeQuery('SELECT FLEET_ID, COUNT(*) AS "cnt" FROM FLEET_MEMBERS GROUP BY FLEET_ID ORDER BY "cnt" DESC LIMIT 1', [])
             ]);
 
             const total = Number(totalResult[0]?.cnt ?? 0);
@@ -491,7 +511,7 @@ export class FleetMembersController extends BaseController<FleetMembersModel> {
     public async countByFleet(fleetId: number): Promise<number> {
         this.ensureInitialized();
 
-        const sql = 'SELECT COUNT(*) AS cnt FROM FLEET_MEMBERS WHERE FLEET_ID = ?';
+        const sql = 'SELECT COUNT(*) AS "cnt" FROM FLEET_MEMBERS WHERE FLEET_ID = ?';
         try {
             const result = await this.executeQuery(sql, [fleetId]);
             return Number(result[0]?.cnt ?? 0);

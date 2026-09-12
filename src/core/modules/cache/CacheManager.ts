@@ -166,59 +166,70 @@ export class CacheManager implements BaseModule, ModuleEventEmitter<ModuleEvent>
      */
     public get isInitialized(): boolean { return this._initialized; }
 
-    /** 
+    /**
+     * Whether initialization completed successfully. 
      * @private 
      * @type {boolean}
      */
     private _initialized = false;
-    /** 
+    /**
+     * Owning manager used to resolve configuration and module dependencies. 
      * @private 
      * @type {HSQLManager | undefined}
      */
     private manager?: HSQLManager;
-    /** 
+    /**
+     * Effective configuration applied to this instance. 
      * @private 
      * @type {CacheConfig | undefined}
      */
     private config?: CacheConfig;
-    /** 
+    /**
+     * Whether destruction has started; prevents operations after resource cleanup. 
      * @private 
      * @type {boolean}
      */
     private destroyed = false;
-    /** 
+    /**
+     * Creation timestamp in milliseconds used to calculate uptime. 
      * @private 
      * @readonly
      * @type {number}
      */
     private readonly startTime = Date.now();
-    /** 
+    /**
+     * Module logger for operation context and diagnostic errors. 
      * @private 
      * @type {ModuleLogger}
      */
     private logger: ModuleLogger;
-    /** 
+    /**
+     * Emitter that dispatches this module’s lifecycle and operation events. 
      * @private 
      * @type {ModuleEventEmitterImpl<ModuleEvent>}
      */
     private eventEmitter: ModuleEventEmitterImpl<ModuleEvent>;
 
-    /** 
+    /**
+     * Cached entries indexed by cache key. 
      * @private 
      * @type {Map<string, CacheEntry>}
      */
     private cache: Map<string, CacheEntry> = new Map();
-    /** 
+    /**
+     * Most recent access sequence for each key, used for LRU eviction. 
      * @private 
      * @type {Map<string, number>}
      */
     private accessOrder: Map<string, number> = new Map();
-    /** 
+    /**
+     * Monotonic sequence assigned when recording a cache access. 
      * @private 
      * @type {number}
      */
     private accessCounter = 0;
-    /** 
+    /**
+     * Accumulated operation counters and timestamps exposed through statistics. 
      * @private 
      * @type {object}
      */
@@ -235,12 +246,14 @@ export class CacheManager implements BaseModule, ModuleEventEmitter<ModuleEvent>
         expirationCount: 0,
         lastCleanup: new Date()
     };
-    /** 
+    /**
+     * Periodic timer for removing expired or idle entries. 
      * @private 
      * @type {NodeJS.Timeout | undefined}
      */
     private cleanupTimer?: NodeJS.Timeout;
-    /** 
+    /**
+     * Estimated total size of the current cache contents in bytes. 
      * @private 
      * @type {number}
      */

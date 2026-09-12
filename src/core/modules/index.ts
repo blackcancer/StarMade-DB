@@ -1,3 +1,4 @@
+import { importModule } from './importModule.js';
 /**
  * Modules Index
  * 
@@ -203,37 +204,38 @@ export type {
 } from './transactions/TransactionContext.js';
 
 // Module registry for dynamic loading
+/** Maps configurable module names to their dynamic import factories. */
 export const MODULE_REGISTRY = {
     // Connection modules
-    'connection-manager': () => import('./connection/ConnectionManager.js'),
-    'jdbc-connection-factory': () => import('./connection/JDBCConnectionFactory.js'),
-    'reconnection-manager': () => import('./connection/ReconnectionManager.js'),
+    'connection-manager': () => importModule<typeof import('./connection/ConnectionManager.js')>('./connection/ConnectionManager.js'),
+    'jdbc-connection-factory': () => importModule<typeof import('./connection/JDBCConnectionFactory.js')>('./connection/JDBCConnectionFactory.js'),
+    'reconnection-manager': () => importModule<typeof import('./connection/ReconnectionManager.js')>('./connection/ReconnectionManager.js'),
     
     // Performance modules
-    'performance-monitor': () => import('./performance/PerformanceMonitor.js'),
-    'metrics-collector': () => import('./performance/MetricsCollector.js'),
+    'performance-monitor': () => importModule<typeof import('./performance/PerformanceMonitor.js')>('./performance/PerformanceMonitor.js'),
+    'metrics-collector': () => importModule<typeof import('./performance/MetricsCollector.js')>('./performance/MetricsCollector.js'),
     
     // Cache modules
-    'cache-manager': () => import('./cache/CacheManager.js'),
-    'cache-optimizer': () => import('./cache/CacheOptimizer.js'),
-    'cache-stats-collector': () => import('./cache/CacheStatsCollector.js'),
+    'cache-manager': () => importModule<typeof import('./cache/CacheManager.js')>('./cache/CacheManager.js'),
+    'cache-optimizer': () => importModule<typeof import('./cache/CacheOptimizer.js')>('./cache/CacheOptimizer.js'),
+    'cache-stats-collector': () => importModule<typeof import('./cache/CacheStatsCollector.js')>('./cache/CacheStatsCollector.js'),
     
     // Schema modules
-    'schema-analyzer': () => import('./schema/SchemaAnalyzer.js'),
-    'relationship-analyzer': () => import('./schema/RelationshipAnalyzer.js'),
-    'database-reporter': () => import('./schema/DatabaseReporter.js'),
+    'schema-analyzer': () => importModule<typeof import('./schema/SchemaAnalyzer.js')>('./schema/SchemaAnalyzer.js'),
+    'relationship-analyzer': () => importModule<typeof import('./schema/RelationshipAnalyzer.js')>('./schema/RelationshipAnalyzer.js'),
+    'database-reporter': () => importModule<typeof import('./schema/DatabaseReporter.js')>('./schema/DatabaseReporter.js'),
     
     // Query modules
-    'query-executor': () => import('./query/QueryExecutor.js'),
-    'query-validator': () => import('./query/QueryValidator.js'),
-    'parameterized-query': () => import('./query/ParameterizedQuery.js'),
+    'query-executor': () => importModule<typeof import('./query/QueryExecutor.js')>('./query/QueryExecutor.js'),
+    'query-validator': () => importModule<typeof import('./query/QueryValidator.js')>('./query/QueryValidator.js'),
+    'parameterized-query': () => importModule<typeof import('./query/ParameterizedQuery.js')>('./query/ParameterizedQuery.js'),
     
     // Transaction modules
-    'transaction-manager': () => import('./transactions/TransactionManager.js'),
-    'transaction-context': () => import('./transactions/TransactionContext.js'),
+    'transaction-manager': () => importModule<typeof import('./transactions/TransactionManager.js')>('./transactions/TransactionManager.js'),
+    'transaction-context': () => importModule<typeof import('./transactions/TransactionContext.js')>('./transactions/TransactionContext.js'),
     
     // Logging modules
-    'logger': () => import('./logging/Logger.js')
+    'logger': () => importModule<typeof import('./logging/Logger.js')>('./logging/Logger.js')
 } as const;
 
 /**
@@ -248,7 +250,7 @@ export function getAvailableModules(): string[] {
  */
 export async function loadModule(name: keyof typeof MODULE_REGISTRY) {
     const moduleLoader = MODULE_REGISTRY[name];
-    if (!moduleLoader) {
+    if (!Object.hasOwn(MODULE_REGISTRY, name)) {
         throw new Error(`Module '${name}' not found in registry`);
     }
     return await moduleLoader();

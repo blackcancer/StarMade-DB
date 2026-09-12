@@ -1,3 +1,5 @@
+import * as related0 from '../fleets/FleetsModel.js';
+import * as related1 from '../entities/EntitiesModel.js';
 /**
  * @fileoverview Fleet Members Model
  * 
@@ -31,31 +33,51 @@ import {
  */
 export enum MemberMissionState {
     // Basic States
+    /** Member mission state value for idle, serialized as 'IDLE'. */
     IDLE = 'IDLE',
+    /** Member mission state value for idle sentry, serialized as 'IDLE - SENTRY'. */
     IDLE_SENTRY = 'IDLE - SENTRY',
+    /** Member mission state value for sentry formation, serialized as 'SENTRY - FORMATION'. */
     SENTRY_FORMATION = 'SENTRY - FORMATION',
+    /** Member mission state value for callback to carrier, serialized as 'CALLBACK TO CARRIER'. */
     CALLBACK_TO_CARRIER = 'CALLBACK TO CARRIER',
     
     // Operational States
+    /** Member mission state value for mining, serialized as 'MINING'. */
     MINING = 'MINING',
+    /** Member mission state value for patrolling, serialized as 'PATROLLING'. */
     PATROLLING = 'PATROLLING',
+    /** Member mission state value for trading, serialized as 'TRADING'. */
     TRADING = 'TRADING',
+    /** Member mission state value for moving, serialized as 'MOVING'. */
     MOVING = 'MOVING',
+    /** Member mission state value for repairing, serialized as 'REPAIRING'. */
     REPAIRING = 'REPAIRING',
     
     // Combat States
+    /** Member mission state value for standoff, serialized as 'STANDOFF'. */
     STANDOFF = 'STANDOFF',
+    /** Member mission state value for attacking, serialized as 'ATTACKING'. */
     ATTACKING = 'ATTACKING',
+    /** Member mission state value for sentry, serialized as 'SENTRY'. */
     SENTRY = 'SENTRY',
+    /** Member mission state value for defending, serialized as 'DEFENDING'. */
     DEFENDING = 'DEFENDING',
+    /** Member mission state value for escorting, serialized as 'ESCORTING'. */
     ESCORTING = 'ESCORTING',
     
     // Special States
+    /** Member mission state value for cloaking, serialized as 'CLOAKING'. */
     CLOAKING = 'CLOAKING',
+    /** Member mission state value for uncloaking, serialized as 'UNCLOAKING'. */
     UNCLOAKING = 'UNCLOAKING',
+    /** Member mission state value for jamming, serialized as 'JAMMING'. */
     JAMMING = 'JAMMING',
+    /** Member mission state value for stop jamming, serialized as 'STOP JAMMING'. */
     STOP_JAMMING = 'STOP JAMMING',
+    /** Member mission state value for ftl interdicting, serialized as 'FTL INTERDICTING'. */
     FTL_INTERDICTING = 'FTL INTERDICTING',
+    /** Member mission state value for stop ftl interdiction, serialized as 'STOP FTL INTERDICTION'. */
     STOP_FTL_INTERDICTION = 'STOP FTL INTERDICTION'
 }
 
@@ -63,11 +85,17 @@ export enum MemberMissionState {
  * Mission categories for classification
  */
 export enum MissionCategory {
+    /** Mission category value for idle, serialized as 'IDLE'. */
     IDLE = 'IDLE',
+    /** Mission category value for movement, serialized as 'MOVEMENT'. */
     MOVEMENT = 'MOVEMENT',
+    /** Mission category value for combat, serialized as 'COMBAT'. */
     COMBAT = 'COMBAT',
+    /** Mission category value for operations, serialized as 'OPERATIONS'. */
     OPERATIONS = 'OPERATIONS',
+    /** Mission category value for support, serialized as 'SUPPORT'. */
     SUPPORT = 'SUPPORT',
+    /** Mission category value for special, serialized as 'SPECIAL'. */
     SPECIAL = 'SPECIAL'
 }
 
@@ -75,9 +103,13 @@ export enum MissionCategory {
  * Member priority levels based on fleet position
  */
 export enum MemberPriority {
+    /** Member priority value for flagship, serialized as 'FLAGSHIP'. */
     FLAGSHIP = 'FLAGSHIP',
+    /** Member priority value for high, serialized as 'HIGH'. */
     HIGH = 'HIGH',
+    /** Member priority value for medium, serialized as 'MEDIUM'. */
     MEDIUM = 'MEDIUM',
+    /** Member priority value for low, serialized as 'LOW'. */
     LOW = 'LOW'
 }
 
@@ -85,9 +117,13 @@ export enum MemberPriority {
  * Docking status types
  */
 export enum DockingStatus {
+    /** Docking status value for free floating, serialized as 'FREE_FLOATING'. */
     FREE_FLOATING = 'FREE_FLOATING',
+    /** Docking status value for docked to fleet member, serialized as 'DOCKED_TO_FLEET_MEMBER'. */
     DOCKED_TO_FLEET_MEMBER = 'DOCKED_TO_FLEET_MEMBER',
+    /** Docking status value for docked to station, serialized as 'DOCKED_TO_STATION'. */
     DOCKED_TO_STATION = 'DOCKED_TO_STATION',
+    /** Docking status value for unknown, serialized as 'UNKNOWN'. */
     UNKNOWN = 'UNKNOWN'
 }
 
@@ -151,8 +187,10 @@ export const MISSION_CATEGORIES = {
  * comprehensive member analytics, and docking chain analysis.
  */
 export class FleetMembersModel extends BaseModel {
+    /** SQL table name used to generate queries for this model. */
     public static tableName = 'FLEET_MEMBERS';
     
+    /** SQL column, key, index and validation definitions for this table. */
     public static schema: TableSchema = {
         tableName: 'FLEET_MEMBERS',
         comment: 'Fleet composition and member relationships',
@@ -242,7 +280,7 @@ export class FleetMembersModel extends BaseModel {
             fleet: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../fleets/FleetsModel.js').FleetsModel;
+                    return related0.FleetsModel;
                 },
                 {
                     from: 'FLEET_MEMBERS.FLEET_ID',
@@ -254,7 +292,7 @@ export class FleetMembersModel extends BaseModel {
             entity: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../entities/EntitiesModel.js').EntitiesModel;
+                    return related1.EntitiesModel;
                 },
                 {
                     from: 'FLEET_MEMBERS.ENTITY_ID',
@@ -266,7 +304,7 @@ export class FleetMembersModel extends BaseModel {
             dockedToEntity: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../entities/EntitiesModel.js').EntitiesModel;
+                    return related1.EntitiesModel;
                 },
                 {
                     from: 'FLEET_MEMBERS.DOCKED_TO',
@@ -284,25 +322,88 @@ export class FleetMembersModel extends BaseModel {
     // TYPED ACCESSORS
     // =============================================================================
 
+    /**
+     * Read the FLEET_MEMBERS.ID column from this model. Numeric strings are converted to integers.
+     * @returns The stored ID value, normalized to an integer when necessary.
+     */
     public getId(): number { const v = this.get('ID'); if (v === undefined || v === null) return undefined as any; return typeof v === 'string' ? parseInt(v, 10) : v; }
+    /**
+     * Store the FLEET_MEMBERS.ID column in this model and return this for chaining.
+     * @param id New value for the ID column.
+     * @returns This model for chaining.
+     */
     public setId(id: number): this { return this.set('ID', id); }
 
+    /**
+     * Read the FLEET_MEMBERS.FLEET_ID column from this model.
+     * @returns The stored FLEET_ID value.
+     */
     public getFleetId(): number { return this.get('FLEET_ID'); }
+    /**
+     * Store the FLEET_MEMBERS.FLEET_ID column in this model and return this for chaining.
+     * @param fleetId New value for the FLEET_ID column.
+     * @returns This model for chaining.
+     */
     public setFleetId(fleetId: number): this { return this.set('FLEET_ID', fleetId); }
 
+    /**
+     * Read the FLEET_MEMBERS.ENTITY_ID column from this model.
+     * @returns The stored ENTITY_ID value.
+     */
     public getEntityId(): number { return this.get('ENTITY_ID'); }
+    /**
+     * Store the FLEET_MEMBERS.ENTITY_ID column in this model and return this for chaining.
+     * @param entityId New value for the ENTITY_ID column.
+     * @returns This model for chaining.
+     */
     public setEntityId(entityId: number): this { return this.set('ENTITY_ID', entityId); }
 
+    /**
+     * Read the FLEET_MEMBERS.MISSION_STRING column from this model.
+     * @returns The stored MISSION_STRING value.
+     */
     public getMissionString(): string | undefined { return this.get('MISSION_STRING'); }
+    /**
+     * Store the FLEET_MEMBERS.MISSION_STRING column in this model and return this for chaining.
+     * @param missionString New value for the MISSION_STRING column.
+     * @returns This model for chaining.
+     */
     public setMissionString(missionString: string | undefined): this { return this.set('MISSION_STRING', missionString); }
 
+    /**
+     * Read the FLEET_MEMBERS.LIST_INDEX column from this model.
+     * @returns The stored LIST_INDEX value.
+     */
     public getListIndex(): number { return this.get('LIST_INDEX'); }
+    /**
+     * Store the FLEET_MEMBERS.LIST_INDEX column in this model and return this for chaining.
+     * @param listIndex New value for the LIST_INDEX column.
+     * @returns This model for chaining.
+     */
     public setListIndex(listIndex: number): this { return this.set('LIST_INDEX', listIndex); }
 
+    /**
+     * Read the FLEET_MEMBERS.DOCKED_TO column from this model.
+     * @returns The stored DOCKED_TO value.
+     */
     public getDockedTo(): number { return this.get('DOCKED_TO'); }
+    /**
+     * Store the FLEET_MEMBERS.DOCKED_TO column in this model and return this for chaining.
+     * @param dockedTo New value for the DOCKED_TO column.
+     * @returns This model for chaining.
+     */
     public setDockedTo(dockedTo: number): this { return this.set('DOCKED_TO', dockedTo); }
 
+    /**
+     * Read the FLEET_MEMBERS.FACTION column from this model.
+     * @returns The stored FACTION value.
+     */
     public getFaction(): number { return this.get('FACTION'); }
+    /**
+     * Store the FLEET_MEMBERS.FACTION column in this model and return this for chaining.
+     * @param faction New value for the FACTION column.
+     * @returns This model for chaining.
+     */
     public setFaction(faction: number): this { return this.set('FACTION', faction); }
 
     // =============================================================================
@@ -586,8 +687,7 @@ export class FleetMembersModel extends BaseModel {
      * Check if member is providing support
      */
     public isProvidingSupport(): boolean {
-        const category = this.getMissionCategory();
-        return category === MissionCategory.SUPPORT;
+        return MISSION_CATEGORIES[MissionCategory.SUPPORT].includes(this.getMissionState() as MemberMissionState.REPAIRING);
     }
 
     // =============================================================================
@@ -626,7 +726,9 @@ export class FleetMembersModel extends BaseModel {
             // Enhanced with relationship data
             const dockedToEntity = this.getDockedToEntity();
             if (dockedToEntity && this.hasDockedToEntityLoaded()) {
-                // Could analyze entity type to determine if it's a station or fleet member
+                if (typeof dockedToEntity.getType === 'function' && dockedToEntity.getType() === related1.EntityType.SPACE_STATION) {
+                    return DockingStatus.DOCKED_TO_STATION;
+                }
                 return DockingStatus.DOCKED_TO_FLEET_MEMBER;
             }
             return DockingStatus.DOCKED_TO_FLEET_MEMBER;
@@ -642,7 +744,6 @@ export class FleetMembersModel extends BaseModel {
         if (!this.isDocked()) return 'Free-floating';
         
         const dockedTo = this.getDockedTo();
-        if (dockedTo === -1) return 'Not docked';
         
         const dockedToEntityName = this.getDockedToEntityName();
         if (dockedToEntityName) {
@@ -867,14 +968,12 @@ export class FleetMembersModel extends BaseModel {
         
         // Determine readiness level
         let readinessLevel: 'HIGH' | 'MEDIUM' | 'LOW' | 'UNAVAILABLE';
-        if (issues.length === 0 && capabilities.length > 0) {
+        if (issues.length === 0) {
             readinessLevel = 'HIGH';
         } else if (issues.length === 1 || capabilities.length > 0) {
             readinessLevel = 'MEDIUM';
-        } else if (issues.length > 1) {
-            readinessLevel = 'LOW';
         } else {
-            readinessLevel = 'UNAVAILABLE';
+            readinessLevel = 'LOW';
         }
 
         // Enhanced intelligence from loaded relations
@@ -892,7 +991,7 @@ export class FleetMembersModel extends BaseModel {
         }
         
         return {
-            isOperational: readinessLevel !== 'UNAVAILABLE',
+            isOperational: true,
             readinessLevel,
             issues,
             capabilities,
@@ -973,10 +1072,8 @@ export class FleetMembersModel extends BaseModel {
 
         // Effectiveness assessment
         let effectiveness: any = 'POOR';
-        if (this.hasRecognizedMission() && this.canActIndependently() && !this.isDocked()) {
+        if (this.hasRecognizedMission() && this.canActIndependently()) {
             effectiveness = 'EXCELLENT';
-        } else if (this.hasRecognizedMission() && this.canActIndependently()) {
-            effectiveness = 'GOOD';
         } else if (this.hasRecognizedMission()) {
             effectiveness = 'FAIR';
         } else if (this.isDocked()) {
@@ -1001,9 +1098,6 @@ export class FleetMembersModel extends BaseModel {
         // Generate recommendations
         if (this.isDocked() && this.canEngageInCombat()) {
             recommendations.push('Undock for combat readiness');
-        }
-        if (!this.hasIndividualMission() && this.canActIndependently()) {
-            recommendations.push('Assign individual mission for better tactical flexibility');
         }
         if (this.isFlagship() && this.isDocked()) {
             recommendations.push('Critical: Flagship should be undocked for command effectiveness');

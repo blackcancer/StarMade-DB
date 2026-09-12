@@ -1,3 +1,8 @@
+import * as related0 from '../sectors/SectorsModel.js';
+import * as related1 from '../ftl/FtlModel.js';
+import * as related2 from '../fleet-members/FleetMembersModel.js';
+import * as related3 from '../fleets/FleetsModel.js';
+import * as related4 from '../effects/EffectsModel.js';
 /**
  * @fileoverview Entities Model
  * 
@@ -31,23 +36,41 @@ import {
  * Based on TABLE_ENTITIES.md - TYPE column (TINYINT(8))
  */
 export enum EntityType {
+    /** Entity type value for ship, serialized as 0. */
     SHIP = 0,
+    /** Entity type value for space station, serialized as 1. */
     SPACE_STATION = 1,
+    /** Entity type value for planet, serialized as 2. */
     PLANET = 2,
+    /** Entity type value for asteroid, serialized as 3. */
     ASTEROID = 3,
+    /** Entity type value for float rock, serialized as 4. */
     FLOAT_ROCK = 4,
+    /** Entity type value for ship core, serialized as 5. */
     SHIP_CORE = 5,
+    /** Entity type value for asteroid managed, serialized as 6. */
     ASTEROID_MANAGED = 6,
+    /** Entity type value for space creature, serialized as 7. */
     SPACE_CREATURE = 7,
+    /** Entity type value for planet ico, serialized as 8. */
     PLANET_ICO = 8,
+    /** Entity type value for astronaut, serialized as 10. */
     ASTRONAUT = 10,
+    /** Entity type value for npc, serialized as 11. */
     NPC = 11,
+    /** Entity type value for shop, serialized as 12. */
     SHOP = 12,
+    /** Entity type value for planet segment, serialized as 13. */
     PLANET_SEGMENT = 13,
+    /** Entity type value for planet core, serialized as 14. */
     PLANET_CORE = 14,
+    /** Entity type value for black hole, serialized as 15. */
     BLACK_HOLE = 15,
+    /** Entity type value for sun, serialized as 16. */
     SUN = 16,
+    /** Entity type value for vehicle, serialized as 17. */
     VEHICLE = 17,
+    /** Entity type value for death star, serialized as 18. */
     DEATH_STAR = 18
 }
 
@@ -56,9 +79,13 @@ export enum EntityType {
  * Based on TABLE_ENTITIES.md documentation
  */
 export enum KnownFactions {
+    /** Known factions value for no faction, serialized as 0. */
     NO_FACTION = 0,
+    /** Known factions value for trading guild, serialized as -10000000. */
     TRADING_GUILD = -10000000,
+    /** Known factions value for outcasts, serialized as -9999999. */
     OUTCASTS = -9999999,
+    /** Known factions value for scavengers, serialized as -9999998. */
     SCAVENGERS = -9999998
 }
 
@@ -73,8 +100,10 @@ export enum KnownFactions {
  * comprehensive entity analytics, docking chain management, and spatial intelligence.
  */
 export class EntitiesModel extends BaseModel {
+    /** SQL table name used to generate queries for this model. */
     public static tableName = 'ENTITIES';
     
+    /** SQL column, key, index and validation definitions for this table. */
     public static schema: TableSchema = {
         tableName: 'ENTITIES',
         comment: 'All game entities including ships, stations, planets, and asteroids',
@@ -302,7 +331,7 @@ export class EntitiesModel extends BaseModel {
             sector: relation(
                 Model.BelongsToOneRelation,
                 () => {
-                    return require('../sectors/SectorsModel.js').SectorsModel;
+                    return related0.SectorsModel;
                 },
                 {
                     from: ['ENTITIES.X', 'ENTITIES.Y', 'ENTITIES.Z'],
@@ -318,7 +347,7 @@ export class EntitiesModel extends BaseModel {
             ftlConnectionFrom: relation(
                 Model.HasOneRelation,
                 () => {
-                    return require('../ftl/FtlModel.js').FtlModel;
+                    return related1.FtlModel;
                 },
                 {
                     from: 'ENTITIES.UID',
@@ -330,7 +359,7 @@ export class EntitiesModel extends BaseModel {
             ftlConnectionTo: relation(
                 Model.HasOneRelation,
                 () => {
-                    return require('../ftl/FtlModel.js').FtlModel;
+                    return related1.FtlModel;
                 },
                 {
                     from: 'ENTITIES.UID',
@@ -346,7 +375,7 @@ export class EntitiesModel extends BaseModel {
             fleetMembership: relation(
                 Model.HasOneRelation,
                 () => {
-                    return require('../fleet-members/FleetMembersModel.js').FleetMembersModel;
+                    return related2.FleetMembersModel;
                 },
                 {
                     from: 'ENTITIES.ID',
@@ -358,7 +387,7 @@ export class EntitiesModel extends BaseModel {
             dockedFleetMember: relation(
                 Model.HasOneRelation,
                 () => {
-                    return require('../fleet-members/FleetMembersModel.js').FleetMembersModel;
+                    return related2.FleetMembersModel;
                 },
                 {
                     from: 'ENTITIES.ID',
@@ -374,7 +403,7 @@ export class EntitiesModel extends BaseModel {
             fleetAsFlagship: relation(
                 Model.HasOneRelation,
                 () => {
-                    return require('../fleets/FleetsModel.js').FleetsModel;
+                    return related3.FleetsModel;
                 },
                 {
                     from: 'ENTITIES.ID',
@@ -392,7 +421,7 @@ export class EntitiesModel extends BaseModel {
                 Model.HasManyRelation,
                 () => {
                     // Lazy import to avoid circular dependencies
-                    return require('../effects/EffectsModel.js').EffectsModel;
+                    return related4.EffectsModel;
                 },
                 {
                     from: 'ENTITIES.ID',
@@ -406,87 +435,258 @@ export class EntitiesModel extends BaseModel {
     // TYPED ACCESSORS
     // =============================================================================
 
+    /**
+     * Read the ENTITIES.ID column from this model. Numeric strings are converted to integers.
+     * @returns The stored ID value, normalized to an integer when necessary.
+     */
     public getId(): number { const v = this.get('ID'); if (v === undefined || v === null) return undefined as any; return typeof v === 'string' ? parseInt(v, 10) : v; }
+    /**
+     * Store the ENTITIES.ID column in this model and return this for chaining.
+     * @param id New value for the ID column.
+     * @returns This model for chaining.
+     */
     public setId(id: number): this { return this.set('ID', id); }
 
+    /**
+     * Read the ENTITIES.UID column from this model.
+     * @returns The stored UID value.
+     */
     public getUid(): string { return this.get('UID'); }
+    /**
+     * Store the ENTITIES.UID column in this model and return this for chaining.
+     * @param uid New value for the UID column.
+     * @returns This model for chaining.
+     */
     public setUid(uid: string): this { return this.set('UID', uid); }
 
+    /**
+     * Read the ENTITIES.X column from this model.
+     * @returns The stored X value.
+     */
     public getX(): number { return this.get('X'); }
+    /**
+     * Store the ENTITIES.X column in this model and return this for chaining.
+     * @param x New value for the X column.
+     * @returns This model for chaining.
+     */
     public setX(x: number): this { return this.set('X', x); }
 
+    /**
+     * Read the ENTITIES.Y column from this model.
+     * @returns The stored Y value.
+     */
     public getY(): number { return this.get('Y'); }
+    /**
+     * Store the ENTITIES.Y column in this model and return this for chaining.
+     * @param y New value for the Y column.
+     * @returns This model for chaining.
+     */
     public setY(y: number): this { return this.set('Y', y); }
 
+    /**
+     * Read the ENTITIES.Z column from this model.
+     * @returns The stored Z value.
+     */
     public getZ(): number { return this.get('Z'); }
+    /**
+     * Store the ENTITIES.Z column in this model and return this for chaining.
+     * @param z New value for the Z column.
+     * @returns This model for chaining.
+     */
     public setZ(z: number): this { return this.set('Z', z); }
 
+    /**
+     * Read the ENTITIES.TYPE column from this model.
+     * @returns The stored TYPE value.
+     */
     public getType(): EntityType { return this.get('TYPE'); }
+    /**
+     * Store the ENTITIES.TYPE column in this model and return this for chaining.
+     * @param type New value for the TYPE column.
+     * @returns This model for chaining.
+     */
     public setType(type: EntityType): this { return this.set('TYPE', type); }
 
+    /**
+     * Read the ENTITIES.NAME column from this model.
+     * @returns The stored NAME value.
+     */
     public getName(): string | undefined { 
         const name = this.get('NAME');
         // Trim whitespace from CHAR fields that may be padded
         return name ? name.trim() : name;
     }
+    /**
+     * Store the ENTITIES.NAME column in this model and return this for chaining.
+     * @param name New value for the NAME column.
+     * @returns This model for chaining.
+     */
     public setName(name: string | undefined): this { return this.set('NAME', name); }
 
+    /**
+     * Read the ENTITIES.FACTION column from this model.
+     * @returns The stored FACTION value.
+     */
     public getFaction(): number { return this.get('FACTION') || 0; }
+    /**
+     * Store the ENTITIES.FACTION column in this model and return this for chaining.
+     * @param faction New value for the FACTION column.
+     * @returns This model for chaining.
+     */
     public setFaction(faction: number): this { return this.set('FACTION', faction); }
 
+    /**
+     * Read the ENTITIES.CREATOR column from this model.
+     * @returns The stored CREATOR value.
+     */
     public getCreator(): string | undefined { 
         const creator = this.get('CREATOR');
         // Trim whitespace from CHAR fields that may be padded
         return creator ? creator.trim() : creator;
     }
+    /**
+     * Store the ENTITIES.CREATOR column in this model and return this for chaining.
+     * @param creator New value for the CREATOR column.
+     * @returns This model for chaining.
+     */
     public setCreator(creator: string | undefined): this { return this.set('CREATOR', creator); }
 
+    /**
+     * Read the ENTITIES.LAST_MOD column from this model.
+     * @returns The stored LAST_MOD value.
+     */
     public getLastMod(): string | undefined { 
         const lastMod = this.get('LAST_MOD');
         // Trim whitespace from CHAR fields that may be padded
         return lastMod ? lastMod.trim() : lastMod;
     }
+    /**
+     * Store the ENTITIES.LAST_MOD column in this model and return this for chaining.
+     * @param lastMod New value for the LAST_MOD column.
+     * @returns This model for chaining.
+     */
     public setLastMod(lastMod: string | undefined): this { return this.set('LAST_MOD', lastMod); }
 
+    /**
+     * Read the ENTITIES.SEED column from this model.
+     * @returns The stored SEED value.
+     */
     public getSeed(): number | undefined { return this.get('SEED'); }
+    /**
+     * Store the ENTITIES.SEED column in this model and return this for chaining.
+     * @param seed New value for the SEED column.
+     * @returns This model for chaining.
+     */
     public setSeed(seed: number | undefined): this { return this.set('SEED', seed); }
 
+    /**
+     * Read the ENTITIES.TOUCHED column from this model.
+     * @returns The stored TOUCHED value.
+     */
     public getTouched(): boolean | undefined { return this.get('TOUCHED'); }
+    /**
+     * Store the ENTITIES.TOUCHED column in this model and return this for chaining.
+     * @param touched New value for the TOUCHED column.
+     * @returns This model for chaining.
+     */
     public setTouched(touched: boolean | undefined): this { return this.set('TOUCHED', touched); }
 
+    /**
+     * Read the ENTITIES.LOCAL_POS column from this model.
+     * @returns The stored LOCAL_POS value.
+     */
     public getLocalPos(): string | undefined { return this.get('LOCAL_POS'); }
+    /**
+     * Store the ENTITIES.LOCAL_POS column in this model and return this for chaining.
+     * @param localPos New value for the LOCAL_POS column.
+     * @returns This model for chaining.
+     */
     public setLocalPos(localPos: string | undefined): this { return this.set('LOCAL_POS', localPos); }
 
+    /**
+     * Read the ENTITIES.DIM column from this model.
+     * @returns The stored DIM value.
+     */
     public getDim(): string | undefined { return this.get('DIM'); }
+    /**
+     * Store the ENTITIES.DIM column in this model and return this for chaining.
+     * @param dim New value for the DIM column.
+     * @returns This model for chaining.
+     */
     public setDim(dim: string | undefined): this { return this.set('DIM', dim); }
 
+    /**
+     * Read the ENTITIES.GEN_ID column from this model.
+     * @returns The stored GEN_ID value.
+     */
     public getGenId(): number | undefined { return this.get('GEN_ID'); }
+    /**
+     * Store the ENTITIES.GEN_ID column in this model and return this for chaining.
+     * @param genId New value for the GEN_ID column.
+     * @returns This model for chaining.
+     */
     public setGenId(genId: number | undefined): this { return this.set('GEN_ID', genId); }
 
+    /**
+     * Read the ENTITIES.DOCKED_TO column from this model. Numeric strings are converted to integers.
+     * @returns The stored DOCKED_TO value, normalized to an integer when necessary.
+     */
     public getDockedTo(): number { 
         const value = this.get('DOCKED_TO');
         // Handle both numeric and string versions of -1
         if (value === -1 || value === '-1' || value == -1) {
             return -1;
         }
-        return typeof value === 'string' ? parseInt(value, 10) : (value || -1);
+        return typeof value === 'string' ? parseInt(value, 10) : (value ?? -1);
     }
+    /**
+     * Store the ENTITIES.DOCKED_TO column in this model and return this for chaining.
+     * @param dockedTo New value for the DOCKED_TO column.
+     * @returns This model for chaining.
+     */
     public setDockedTo(dockedTo: number): this { return this.set('DOCKED_TO', dockedTo); }
 
+    /**
+     * Read the ENTITIES.DOCKED_ROOT column from this model. Numeric strings are converted to integers.
+     * @returns The stored DOCKED_ROOT value, normalized to an integer when necessary.
+     */
     public getDockedRoot(): number { 
         const value = this.get('DOCKED_ROOT');
         // Handle both numeric and string versions of -1
         if (value === -1 || value === '-1' || value == -1) {
             return -1;
         }
-        return typeof value === 'string' ? parseInt(value, 10) : (value || -1);
+        return typeof value === 'string' ? parseInt(value, 10) : (value ?? -1);
     }
+    /**
+     * Store the ENTITIES.DOCKED_ROOT column in this model and return this for chaining.
+     * @param dockedRoot New value for the DOCKED_ROOT column.
+     * @returns This model for chaining.
+     */
     public setDockedRoot(dockedRoot: number): this { return this.set('DOCKED_ROOT', dockedRoot); }
 
+    /**
+     * Read the ENTITIES.SPAWNED_ONLY_IN_DB column from this model.
+     * @returns The stored SPAWNED_ONLY_IN_DB value.
+     */
     public getSpawnedOnlyInDb(): boolean { return this.get('SPAWNED_ONLY_IN_DB') || false; }
+    /**
+     * Store the ENTITIES.SPAWNED_ONLY_IN_DB column in this model and return this for chaining.
+     * @param spawnedOnlyInDb New value for the SPAWNED_ONLY_IN_DB column.
+     * @returns This model for chaining.
+     */
     public setSpawnedOnlyInDb(spawnedOnlyInDb: boolean): this { return this.set('SPAWNED_ONLY_IN_DB', spawnedOnlyInDb); }
 
+    /**
+     * Read the ENTITIES.TRACKED column from this model.
+     * @returns The stored TRACKED value.
+     */
     public getTracked(): boolean { return this.get('TRACKED') || false; }
+    /**
+     * Store the ENTITIES.TRACKED column in this model and return this for chaining.
+     * @param tracked New value for the TRACKED column.
+     * @returns This model for chaining.
+     */
     public setTracked(tracked: boolean): this { return this.set('TRACKED', tracked); }
 
     // =============================================================================
@@ -827,53 +1027,35 @@ export class EntitiesModel extends BaseModel {
     }
 
     /**
-     * Parse local position array
+     * Parse LOCAL_POS from JDBC ARRAY text, JSON text, or a native numeric array.
+     * @returns Finite coordinate values, or null for malformed data.
      */
     public parseLocalPos(): number[] | null {
-        const localPos = this.getLocalPos();
-        if (!localPos) return null;
-
-        try {
-            // Handle ARRAY[...] format from HSQLDB
-            const match = localPos.match(/ARRAY\[(.*?)\]/);
-            if (match) {
-                const content = match[1].trim();
-                if (content === '') return [];
-                const values = content.split(',').map(s => parseFloat(s.trim()));
-                // Check if any value is NaN
-                if (values.some(v => isNaN(v))) return null;
-                return values;
-            }
-            
-            // Handle JSON array format
-            return JSON.parse(localPos);
-        } catch (error) {
-            return null;
-        }
+        return this.parseNumericArray(this.getLocalPos());
     }
 
     /**
-     * Parse dimensions array
+     * Parse DIM from JDBC ARRAY text, JSON text, or a native numeric array.
+     * @returns Finite dimension values, or null for malformed data.
      */
     public parseDim(): number[] | null {
-        const dim = this.getDim();
-        if (!dim) return null;
+        return this.parseNumericArray(this.getDim());
+    }
 
+    /**
+     * Normalize a SQL numeric array without accepting partial numbers or objects.
+     * @param raw Column value received from JDBC or supplied by the caller.
+     * @returns A numeric array, or null when any element is nonnumeric or nonfinite.
+     */
+    private parseNumericArray(raw: unknown): number[] | null {
         try {
-            // Handle ARRAY[...] format from HSQLDB
-            const match = dim.match(/ARRAY\[(.*?)\]/);
-            if (match) {
-                const content = match[1].trim();
-                if (content === '') return [];
-                const values = content.split(',').map(s => parseFloat(s.trim()));
-                // Check if any value is NaN
-                if (values.some(v => isNaN(v))) return null;
-                return values;
-            }
-            
-            // Handle JSON array format
-            return JSON.parse(dim);
-        } catch (error) {
+            const values = typeof raw === 'string'
+                ? JSON.parse(raw.trim().replace(/^ARRAY\s*/i, ''))
+                : raw;
+            return Array.isArray(values) && values.every(value => typeof value === 'number' && Number.isFinite(value))
+                ? values
+                : null;
+        } catch {
             return null;
         }
     }

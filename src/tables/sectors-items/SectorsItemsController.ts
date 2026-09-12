@@ -228,7 +228,9 @@ export interface CleanupResult {
  * Controller for SECTORS_ITEMS table with advanced storage management capabilities
  */
 export class SectorsItemsController extends BaseController<SectorsItemsModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<SectorsItemsModel> = SectorsItemsModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'SectorsItemsController';
 
     /**
@@ -401,6 +403,7 @@ export class SectorsItemsController extends BaseController<SectorsItemsModel> {
      * Find sectors items with advanced search capabilities
      */
     public async findSectorsItems(options: SectorsItemsSearchOptions = {}): Promise<SectorsItemsModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -421,13 +424,13 @@ export class SectorsItemsController extends BaseController<SectorsItemsModel> {
         const conditions: string[] = [];
         const params: any[] = [];
 
-        // Note: HSQLDB a des probl�mes avec LENGTH/OCTET_LENGTH sur les BLOB
-        // Nous allons r�cup�rer les donn�es et faire le filtrage c�t� application
+        // Note: HSQLDB a des problèmes avec LENGTH/OCTET_LENGTH sur les BLOB
+        // Nous allons récupérer les données et faire le filtrage côté application
         if (minSizeBytes !== undefined || maxSizeBytes !== undefined || atCapacityOnly) {
-            // Ces filtres n�cessitent une logique post-requ�te
-            // Ne pas ajouter de conditions SQL pour �viter les erreurs HSQLDB
+            // Ces filtres nécessitent une logique post-requête
+            // Ne pas ajouter de conditions SQL pour éviter les erreurs HSQLDB
         } else {
-            // Les autres filtres peuvent �tre appliqu�s en SQL
+            // Les autres filtres peuvent être appliqués en SQL
             if (sectorId !== undefined) {
                 conditions.push('ID = ?');
                 params.push(sectorId);
@@ -839,6 +842,10 @@ export class SectorsItemsController extends BaseController<SectorsItemsModel> {
             optimizeMemory = true
         } = options;
 
+        if (!Number.isSafeInteger(batchSize) || batchSize <= 0) {
+            throw new ValidationError('batchSize', batchSize, 'Batch size must be a positive safe integer');
+        }
+
         const result: BulkOperationResult = {
             success: 0,
             failed: 0,
@@ -847,7 +854,7 @@ export class SectorsItemsController extends BaseController<SectorsItemsModel> {
         };
 
         // Process in batches
-        for (let i = 0; i < itemsData.length; i += batchSize) {
+        batches: for (let i = 0; i < itemsData.length; i += batchSize) {
             const batch = itemsData.slice(i, i + batchSize);
             
             for (let j = 0; j < batch.length; j++) {
@@ -885,7 +892,7 @@ export class SectorsItemsController extends BaseController<SectorsItemsModel> {
                     });
                     
                     if (!continueOnSizeError && error instanceof ValidationError && error.message.includes('exceed')) {
-                        break;
+                        break batches;
                     }
                 }
                 
@@ -918,6 +925,10 @@ export class SectorsItemsController extends BaseController<SectorsItemsModel> {
             logOperations = false,
             batchSize = 100
         } = options;
+
+        if (!Number.isSafeInteger(batchSize) || batchSize <= 0) {
+            throw new ValidationError('batchSize', batchSize, 'Batch size must be a positive safe integer');
+        }
 
         const result: CleanupResult = {
             recordsProcessed: 0,
@@ -984,7 +995,7 @@ export class SectorsItemsController extends BaseController<SectorsItemsModel> {
                         
                     } catch (error) {
                         result.errors.push({
-                            recordId: record.getId() || -1,
+                            recordId: record.getId() ?? -1,
                             error: error instanceof Error ? error.message : String(error)
                         });
                     }
@@ -1018,7 +1029,7 @@ export class SectorsItemsController extends BaseController<SectorsItemsModel> {
     public async getTotalSectorsItemsCount(): Promise<number> {
         this.ensureInitialized();
 
-        const sql = 'SELECT COUNT(*) as total_count FROM SECTORS_ITEMS';
+        const sql = 'SELECT COUNT(*) as "total_count" FROM SECTORS_ITEMS';
 
         try {
             const result = await this.executeQuery(sql, []);

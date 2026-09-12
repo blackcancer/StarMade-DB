@@ -202,7 +202,9 @@ export interface TerritoryMap {
  * Controller for SYSTEMS table with advanced system management capabilities
  */
 export class SystemsController extends BaseController<SystemsModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<SystemsModel> = SystemsModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'SystemsController';
 
     /**
@@ -261,7 +263,7 @@ export class SystemsController extends BaseController<SystemsModel> {
         }
 
         // Initialize defaults if requested
-        if (options.initializeDefaults) {
+        if (initializeDefaults) {
             data = this.applyCreateDefaults(data);
         }
 
@@ -420,6 +422,7 @@ export class SystemsController extends BaseController<SystemsModel> {
      * Find systems with advanced search capabilities
      */
     public async findSystems(options: SystemSearchOptions = {}): Promise<SystemsModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -935,40 +938,40 @@ export class SystemsController extends BaseController<SystemsModel> {
 
         try {
             // Get total count first
-            const totalCountSql = 'SELECT COUNT(*) as total_count FROM SYSTEMS';
+            const totalCountSql = 'SELECT COUNT(*) as "total_count" FROM SYSTEMS';
             const totalResult = await this.executeQuery(totalCountSql, []);
             const totalSystems = parseInt(totalResult[0]?.total_count || '0', 10);
 
             // Get coordinate extents
             const extentsSql = `
                 SELECT 
-                    MIN(X) as min_x, MAX(X) as max_x,
-                    MIN(Y) as min_y, MAX(Y) as max_y,
-                    MIN(Z) as min_z, MAX(Z) as max_z
+                    MIN(X) as "min_x", MAX(X) as "max_x",
+                    MIN(Y) as "min_y", MAX(Y) as "max_y",
+                    MIN(Z) as "min_z", MAX(Z) as "max_z"
                 FROM SYSTEMS
             `;
             const extentsResult = await this.executeQuery(extentsSql, []);
             const extents = extentsResult[0] || {};
 
             // Get owned systems count
-            const ownedSql = `SELECT COUNT(*) as owned_count FROM SYSTEMS WHERE OWNER_UID IS NOT NULL AND OWNER_UID != ''`;
+            const ownedSql = `SELECT COUNT(*) as "owned_count" FROM SYSTEMS WHERE OWNER_UID IS NOT NULL AND OWNER_UID != ''`;
             const ownedResult = await this.executeQuery(ownedSql, []);
             const ownedSystems = parseInt(ownedResult[0]?.owned_count || '0', 10);
 
             // Get player-owned systems count
-            const playerOwnedSql = `SELECT COUNT(*) as player_count FROM SYSTEMS WHERE OWNER_UID IS NOT NULL AND OWNER_UID != '' AND OWNER_UID NOT LIKE 'NPC-%'`;
+            const playerOwnedSql = `SELECT COUNT(*) as "player_count" FROM SYSTEMS WHERE OWNER_UID IS NOT NULL AND OWNER_UID != '' AND OWNER_UID NOT LIKE 'NPC-%'`;
             const playerOwnedResult = await this.executeQuery(playerOwnedSql, []);
             const playerOwnedSystems = parseInt(playerOwnedResult[0]?.player_count || '0', 10);
 
             // Get NPC-owned systems count
-            const npcOwnedSql = `SELECT COUNT(*) as npc_count FROM SYSTEMS WHERE OWNER_UID IS NOT NULL AND OWNER_UID LIKE 'NPC-%'`;
+            const npcOwnedSql = `SELECT COUNT(*) as "npc_count" FROM SYSTEMS WHERE OWNER_UID IS NOT NULL AND OWNER_UID LIKE 'NPC-%'`;
             const npcOwnedResult = await this.executeQuery(npcOwnedSql, []);
             const npcOwnedSystems = parseInt(npcOwnedResult[0]?.npc_count || '0', 10);
 
             const neutralSystems = totalSystems - ownedSystems;
 
             // Get systems by type
-            const typeStatsSql = 'SELECT TYPE, COUNT(*) as type_count FROM SYSTEMS GROUP BY TYPE';
+            const typeStatsSql = 'SELECT TYPE, COUNT(*) as "type_count" FROM SYSTEMS GROUP BY TYPE';
             const typeStatsResult = await this.executeQuery(typeStatsSql, []);
             const systemsByType: Record<SystemType, number> = {
                 [SystemType.SUN]: 0,
@@ -987,7 +990,7 @@ export class SystemsController extends BaseController<SystemsModel> {
             });
 
             // Get systems by faction
-            const factionStatsSql = 'SELECT OWNER_FACTION, COUNT(*) as faction_count FROM SYSTEMS GROUP BY OWNER_FACTION';
+            const factionStatsSql = 'SELECT OWNER_FACTION, COUNT(*) as "faction_count" FROM SYSTEMS GROUP BY OWNER_FACTION';
             const factionStatsResult = await this.executeQuery(factionStatsSql, []);
             const systemsByFaction: Record<number, number> = {};
 
@@ -999,15 +1002,15 @@ export class SystemsController extends BaseController<SystemsModel> {
 
             // Find most active faction
             let mostActiveFaction: { id: number; systemCount: number; factionName: string } | undefined;
-            if (Object.keys(systemsByFaction).length > 0) {
-                const [factionId, count] = Object.entries(systemsByFaction)
-                    .filter(([id]) => parseInt(id, 10) !== KnownSystemFactions.NEUTRAL)
-                    .sort(([, a], [, b]) => (typeof b === 'string' ? parseInt(b, 10) : b) - (typeof a === 'string' ? parseInt(a, 10) : a))[0];
+            const activeFactions = Object.entries(systemsByFaction)
+                .filter(([id]) => parseInt(id, 10) !== KnownSystemFactions.NEUTRAL);
+            if (activeFactions.length > 0) {
+                const [factionId, count] = activeFactions.sort(([, a], [, b]) => b - a)[0];
                 
-                if (factionId && count) {
+                if (count > 0) {
                     mostActiveFaction = {
                         id: parseInt(factionId, 10),
-                        systemCount: typeof count === 'string' ? parseInt(count, 10) : count,
+                        systemCount: count,
                         factionName: this.getFactionNameById(parseInt(factionId, 10))
                     };
                 }
@@ -1068,6 +1071,10 @@ export class SystemsController extends BaseController<SystemsModel> {
             updateTimestamps = true
         } = options;
 
+        if (!Number.isSafeInteger(batchSize) || batchSize <= 0) {
+            throw new ValidationError('batchSize', batchSize, 'Batch size must be a positive safe integer');
+        }
+
         const result: BulkOperationResult = {
             success: 0,
             failed: 0,
@@ -1076,7 +1083,7 @@ export class SystemsController extends BaseController<SystemsModel> {
         };
 
         // Process in batches
-        for (let i = 0; i < systemsData.length; i += batchSize) {
+        batches: for (let i = 0; i < systemsData.length; i += batchSize) {
             const batch = systemsData.slice(i, i + batchSize);
             
             for (let j = 0; j < batch.length; j++) {
@@ -1112,7 +1119,7 @@ export class SystemsController extends BaseController<SystemsModel> {
                     });
                     
                     if (!continueOnError) {
-                        break;
+                        break batches;
                     }
                 }
             }
@@ -1202,7 +1209,7 @@ export class SystemsController extends BaseController<SystemsModel> {
     public async getTotalSystemCount(): Promise<number> {
         this.ensureInitialized();
 
-        const sql = 'SELECT COUNT(*) as total_count FROM SYSTEMS';
+        const sql = 'SELECT COUNT(*) as "total_count" FROM SYSTEMS';
 
         try {
             const result = await this.executeQuery(sql, []);
@@ -1222,7 +1229,7 @@ export class SystemsController extends BaseController<SystemsModel> {
     public async getSystemCountByType(systemType: SystemType): Promise<number> {
         this.ensureInitialized();
 
-        const sql = 'SELECT COUNT(*) as type_count FROM SYSTEMS WHERE TYPE = ?';
+        const sql = 'SELECT COUNT(*) as "type_count" FROM SYSTEMS WHERE TYPE = ?';
         const params = [systemType];
 
         try {
@@ -1250,10 +1257,10 @@ export class SystemsController extends BaseController<SystemsModel> {
      * Validate coordinate uniqueness
      */
     private async validateCoordinateUniqueness(x: number, y: number, z: number, excludeId?: number): Promise<void> {
-        const sql = excludeId 
+        const sql = excludeId !== undefined 
             ? 'SELECT 1 FROM SYSTEMS WHERE X = ? AND Y = ? AND Z = ? AND ID != ?'
             : 'SELECT 1 FROM SYSTEMS WHERE X = ? AND Y = ? AND Z = ?';
-        const params = excludeId ? [x, y, z, excludeId] : [x, y, z];
+        const params = excludeId !== undefined ? [x, y, z, excludeId] : [x, y, z];
 
         try {
             const result = await this.executeQuery(sql, params);
@@ -1274,11 +1281,18 @@ export class SystemsController extends BaseController<SystemsModel> {
     }
 
     /**
-     * Generate unique coordinates
+     * Search successive coordinate shells for an unused location.
+     * @param maxDistance Maximum shell radius; must be a positive safe integer.
+     * @returns The first available coordinate tuple.
+     * @throws {ValidationError} If the search bound is invalid.
+     * @throws {Error} If every position within the bound is occupied.
      */
-    private async generateUniqueCoordinates(): Promise<{ x: number; y: number; z: number }> {
+    private async generateUniqueCoordinates(maxDistance = 100): Promise<{ x: number; y: number; z: number }> {
+        if (!Number.isSafeInteger(maxDistance) || maxDistance <= 0) {
+            throw new ValidationError('maxDistance', maxDistance, 'Search radius must be a positive safe integer');
+        }
         // Simple strategy: try coordinates around origin
-        for (let distance = 1; distance <= 100; distance++) {
+        for (let distance = 1; distance <= maxDistance; distance++) {
             for (let x = -distance; x <= distance; x++) {
                 for (let y = -distance; y <= distance; y++) {
                     for (let z = -distance; z <= distance; z++) {

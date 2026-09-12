@@ -235,7 +235,9 @@ export interface CategoryAnalysis {
  * Controller for EFFECTS table with comprehensive effect management capabilities
  */
 export class EffectsController extends BaseController<EffectsModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<EffectsModel> = EffectsModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'EffectsController';
 
     /**
@@ -404,6 +406,7 @@ export class EffectsController extends BaseController<EffectsModel> {
      * Find effects with advanced search capabilities
      */
     public async findEffects(options: EffectSearchOptions = {}): Promise<EffectsModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -489,9 +492,7 @@ export class EffectsController extends BaseController<EffectsModel> {
 
         // Add ordering - fix column name validation
         if (queryOptions.orderBy) {
-            const validColumns = ['ID', 'ENTITY_ID', 'TYPE', 'EFFECT_UID'];
-            const orderColumn = validColumns.includes(queryOptions.orderBy) ? queryOptions.orderBy : 'ID';
-            sql += ` ORDER BY ${orderColumn} ${queryOptions.orderDirection || 'ASC'}`;
+            sql += ` ORDER BY ${queryOptions.orderBy} ${queryOptions.orderDirection || 'ASC'}`;
         } else {
             sql += ' ORDER BY ENTITY_ID ASC, TYPE ASC, ID ASC';
         }
@@ -759,17 +760,12 @@ export class EffectsController extends BaseController<EffectsModel> {
         const sql = `DELETE FROM EFFECTS WHERE ${conditions.join(' AND ')}`;
 
         try {
-            const result = await this.executeQuery(sql, params);
+            const affectedRows = await this.executeUpdate(sql, params);
             
             // Clear caches
             if (this.cacheManager && this.config.enableCaching) {
                 await this.clearCachesForTable('EFFECTS');
             }
-
-            // For HSQLDB, result might be different - let's get the affected count
-            // Since HSQLDB doesn't return affected rows count in our current setup,
-            // we'll assume 1 if result is truthy, 0 otherwise
-            const affectedRows = result ? 1 : 0;
 
             this.logger.info('Effects removed from entity', {
                 operation: 'remove-effects-from-entity',
@@ -820,6 +816,10 @@ export class EffectsController extends BaseController<EffectsModel> {
             validateEntities = false
         } = options;
 
+        if (!Number.isSafeInteger(batchSize) || batchSize <= 0) {
+            throw new ValidationError('batchSize', batchSize, 'Batch size must be a positive safe integer');
+        }
+
         const result: BulkOperationResult = {
             success: 0,
             failed: 0,
@@ -828,7 +828,7 @@ export class EffectsController extends BaseController<EffectsModel> {
         };
 
         // Process in batches
-        for (let i = 0; i < effectsData.length; i += batchSize) {
+        batches: for (let i = 0; i < effectsData.length; i += batchSize) {
             const batch = effectsData.slice(i, i + batchSize);
             
             for (let j = 0; j < batch.length; j++) {
@@ -861,7 +861,7 @@ export class EffectsController extends BaseController<EffectsModel> {
                     });
                     
                     if (!continueOnError) {
-                        break;
+                        break batches;
                     }
                 }
             }
@@ -1177,7 +1177,7 @@ export class EffectsController extends BaseController<EffectsModel> {
                 totalEffects: effects.length,
                 uniqueUIDs: Array.from(uniqueUIDs),
                 entitiesAffected: entitiesAffected.size,
-                averagePerEntity: entitiesAffected.size > 0 ? effects.length / entitiesAffected.size : 0,
+                averagePerEntity: effects.length / entitiesAffected.size,
                 scopeDistribution,
                 mostCommonUID
             });
@@ -1264,12 +1264,13 @@ export class EffectsController extends BaseController<EffectsModel> {
                 throw new ValidationError('entityId', entityId, `Entity with ID ${entityId} does not exist`);
             }
         } catch (error) {
-            // If ENTITIES table doesn't exist or there's an error, we'll log it but not fail
+            // Validation must fail when existence cannot be established.
             this.logger.warn('Could not validate entity existence', {
                 operation: 'validate-entity-exists',
                 entityId,
                 error: error instanceof Error ? error.message : String(error)
             });
+            throw error;
         }
     }
 

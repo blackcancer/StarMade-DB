@@ -13,7 +13,7 @@
 | **OWNER**          | `BIGINT(64)`             | `NOT NULL`                   | Deploying player ID                                                |
 | **FACTION**        | `INTEGER(32)`            | `NOT NULL DEFAULT 0`         | Owner's faction                                                    |
 | **HP**             | `SMALLINT(16)`           | `NOT NULL`                   | Mine durability                                                    |
-| **COMPOSITION**    | `ARRAY`                  | `NOT NULL`                   | Component materials                                                |
+| **COMPOSITION**    | `SMALLINT ARRAY[6]`      | `NOT NULL`                   | Component materials                                                |
 | **SECTOR_X**       | `INTEGER(32)`            | `NOT NULL`                   | Deployment sector X                                                |
 | **SECTOR_Y**       | `INTEGER(32)`            | `NOT NULL`                   | Deployment sector Y                                                |
 | **SECTOR_Z**       | `INTEGER(32)`            | `NOT NULL`                   | Deployment sector Z                                                |
@@ -37,7 +37,7 @@ Array containing the mine's component configuration, determining its capabilitie
 
 | Property          | Details                              |
 |-------------------|--------------------------------------|
-| **Type**          | `ARRAY` - Multi-dimensional array    |
+| **Type**          | `SMALLINT ARRAY[6]` - six signed 16-bit values    |
 | **Size**          | Fixed 6-element array                |
 | **Purpose**       | Mine specification and capabilities  |
 | **Format**        | Block ID array defining mine config  |
@@ -61,3 +61,7 @@ Array containing the mine's component configuration, determining its capabilitie
 | `1.0`   | 2025-01-09 | InitSysRev   | Initial creation of the MINES table schema      |
 
 [INDEX](./INDEX.md)
+
+## StarMade-DB mapping
+
+`ID` is assigned by the game and is not an SQL identity column. It must be supplied when creating a mine. `parseComposition()` accepts JDBC `ARRAY[...]` text, JSON array text, and native arrays. It returns `null` unless there are exactly six signed SMALLINT values. This validates storage shape; the semantic role of each composition slot still depends on the game implementation.

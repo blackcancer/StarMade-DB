@@ -114,7 +114,9 @@ export interface VisibilityStatistics {
  * Controller for VISIBILITY table with fog-of-war and exploration management
  */
 export class VisibilityController extends BaseController<VisibilityModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<VisibilityModel> = VisibilityModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'VisibilityController';
 
     /**
@@ -167,6 +169,7 @@ export class VisibilityController extends BaseController<VisibilityModel> {
      * @throws {ErrorFactory} If the query fails
      */
     public async findAll(options: VisibilitySearchOptions = {}): Promise<VisibilityModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -403,13 +406,11 @@ export class VisibilityController extends BaseController<VisibilityModel> {
 
         const sql = 'DELETE FROM VISIBILITY WHERE ID = ?';
         try {
-            await this.executeQuery(sql, [observerId]);
+            const affected = await this.executeUpdate(sql, [observerId]);
             if (this.cacheManager) await this.clearCachesForTable('VISIBILITY');
 
-            const count = await this.countByObserver(observerId);
             this.logger.info('Observer visibility cleared', { operation: 'clear-observer', observerId });
-            // Since we deleted, the remaining count should be 0; use before-state knowledge
-            return 0; // All deleted
+            return affected;
         } catch (error) {
             this.logger.error('Failed to clear observer visibility', { operation: 'clear-observer', observerId });
             throw ErrorFactory.createQueryError(sql, error, [observerId]);
@@ -494,12 +495,12 @@ export class VisibilityController extends BaseController<VisibilityModel> {
                 totalResult, observerResult, sectorResult,
                 npcResult, topExplorerResult, topSectorResult
             ] = await Promise.all([
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM VISIBILITY', []),
-                this.executeQuery('SELECT COUNT(DISTINCT ID) AS cnt FROM VISIBILITY', []),
-                this.executeQuery('SELECT COUNT(DISTINCT X || \',\' || Y || \',\' || Z) AS cnt FROM VISIBILITY', []),
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM VISIBILITY WHERE ID < 0', []),
-                this.executeQuery('SELECT ID, COUNT(*) AS cnt FROM VISIBILITY GROUP BY ID ORDER BY cnt DESC LIMIT 10', []),
-                this.executeQuery('SELECT X, Y, Z, COUNT(*) AS cnt FROM VISIBILITY GROUP BY X, Y, Z ORDER BY cnt DESC LIMIT 10', [])
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM VISIBILITY', []),
+                this.executeQuery('SELECT COUNT(DISTINCT ID) AS "cnt" FROM VISIBILITY', []),
+                this.executeQuery('SELECT COUNT(DISTINCT X || \',\' || Y || \',\' || Z) AS "cnt" FROM VISIBILITY', []),
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM VISIBILITY WHERE ID < 0', []),
+                this.executeQuery('SELECT ID, COUNT(*) AS "cnt" FROM VISIBILITY GROUP BY ID ORDER BY "cnt" DESC LIMIT 10', []),
+                this.executeQuery('SELECT X, Y, Z, COUNT(*) AS "cnt" FROM VISIBILITY GROUP BY X, Y, Z ORDER BY "cnt" DESC LIMIT 10', [])
             ]);
 
             const total = Number(totalResult[0]?.cnt ?? 0);
@@ -544,7 +545,7 @@ export class VisibilityController extends BaseController<VisibilityModel> {
     public async countByObserver(observerId: number): Promise<number> {
         this.ensureInitialized();
 
-        const sql = 'SELECT COUNT(*) AS cnt FROM VISIBILITY WHERE ID = ?';
+        const sql = 'SELECT COUNT(*) AS "cnt" FROM VISIBILITY WHERE ID = ?';
         try {
             const result = await this.executeQuery(sql, [observerId]);
             return Number(result[0]?.cnt ?? 0);
@@ -565,7 +566,7 @@ export class VisibilityController extends BaseController<VisibilityModel> {
     public async countBySector(x: number, y: number, z: number): Promise<number> {
         this.ensureInitialized();
 
-        const sql = 'SELECT COUNT(*) AS cnt FROM VISIBILITY WHERE X = ? AND Y = ? AND Z = ?';
+        const sql = 'SELECT COUNT(*) AS "cnt" FROM VISIBILITY WHERE X = ? AND Y = ? AND Z = ?';
         try {
             const result = await this.executeQuery(sql, [x, y, z]);
             return Number(result[0]?.cnt ?? 0);

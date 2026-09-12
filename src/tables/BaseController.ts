@@ -31,11 +31,17 @@ import type { BaseModel, ValidationResult, TableSchema, ForeignKeyDefinition } f
  */
 export interface ModelConstructor<T extends BaseModel> {
     new (data?: any): T;
+    /** Return the SQL table name declared by this model. */
     getTableName(): string;
+    /** Return the column, key, index and validation definitions for this model. */
     getSchema(): TableSchema;
+    /** Return the SQL columns that form this model’s primary key. */
     getPrimaryKeyColumns(): string[];
+    /** Return the foreign-key definitions declared by this model. */
     getForeignKeys(): ForeignKeyDefinition[];
+    /** Construct a model from a database row and normalize its column values. */
     fromRow(row: Record<string, any>): T;
+    /** Construct typed models from an array of database rows. */
     fromRows(rows: Record<string, any>[]): T[];
 }
 
@@ -43,11 +49,11 @@ export interface ModelConstructor<T extends BaseModel> {
  * Query options for database operations
  */
 export interface QueryOptions {
-    /** Maximum number of results */
+    /** Maximum number of results; a non-negative safe integer, with zero meaning unlimited. */
     limit?: number;
-    /** Offset for pagination */
+    /** Number of rows to skip; must be a non-negative safe integer. */
     offset?: number;
-    /** Sort order */
+    /** Schema column name to sort by; SQL expressions are rejected. */
     orderBy?: string;
     /** Sort direction */
     orderDirection?: 'ASC' | 'DESC';
@@ -241,9 +247,12 @@ export abstract class BaseController<TModel extends BaseModel> {
     // =============================================================================
 
     /**
-     * Find a record by primary key
+     * Find a record by primary key.
+     * @param id - Primary key value, or an object for composite keys.
+     * @param options - Set skipCache to read current database state without caching it.
+     * @returns The matching model, or null when absent.
      */
-    public async findById(id: any): Promise<TModel | null> {
+    public async findById(id: any, options: {skipCache?: boolean} = {}): Promise<TModel | null> {
         this.ensureInitialized();
 
         const schema = this.ModelClass.getSchema();
@@ -254,7 +263,7 @@ export abstract class BaseController<TModel extends BaseModel> {
         const cacheKey = `${tableName}:by-id:${JSON.stringify(id)}`;
 
         // Try cache first
-        if (this.cacheManager && this.config.enableCaching) {
+        if (!options.skipCache && this.cacheManager && this.config.enableCaching) {
             const cached = await this.cacheManager.get<Record<string, any>>(cacheKey);
             if (cached) {
                 this.logger.debug('Record retrieved from cache', {
@@ -290,7 +299,7 @@ export abstract class BaseController<TModel extends BaseModel> {
             const record = result.length > 0 ? this.ModelClass.fromRow(result[0]) : null;
 
             // Cache result
-            if (record && this.cacheManager && this.config.enableCaching) {
+            if (record && !options.skipCache && this.cacheManager && this.config.enableCaching) {
                 await this.cacheManager.set(cacheKey, record.getData(), {
                     ttl: this.config.cacheTtlMs
                 });
@@ -316,6 +325,28 @@ export abstract class BaseController<TModel extends BaseModel> {
     }
 
     /**
+     * Validate ordering identifiers and pagination before building SQL or accessing caches.
+     * @param options Query options whose column names must belong to this model schema.
+     * @throws {ValidationError} If ordering or pagination is invalid.
+     */
+    protected validateQueryOptions(options: QueryOptions): void {
+        const schema = this.ModelClass.getSchema();
+        const {orderBy, orderDirection = 'ASC', limit = this.config.maxResults, offset = 0} = options;
+        if (orderBy !== undefined && !schema.columns.some(column => column.name === orderBy)) {
+            throw new ValidationError('orderBy', orderBy, 'Sort column must belong to the model schema');
+        }
+        if (orderDirection !== 'ASC' && orderDirection !== 'DESC') {
+            throw new ValidationError('orderDirection', orderDirection, 'Sort direction must be ASC or DESC');
+        }
+        for (const [name, value] of [['limit', limit], ['offset', offset]] as const) {
+            if (!Number.isSafeInteger(value) || value < 0) {
+                throw new ValidationError(name, value, 'Pagination values must be non-negative safe integers');
+            }
+        }
+
+    }
+
+    /**
      * Find multiple records
      */
     public async findMany(options: QueryOptions = {}): Promise<TModel[]> {
@@ -333,6 +364,8 @@ export abstract class BaseController<TModel extends BaseModel> {
             cacheTtl = this.config.cacheTtlMs,
             skipCache = false
         } = options;
+
+        this.validateQueryOptions(options);
 
         // Build cache key
         const cacheKey = `${tableName}:find-many:${JSON.stringify(options)}`;
@@ -455,7 +488,14 @@ export abstract class BaseController<TModel extends BaseModel> {
         const sql = `INSERT INTO ${tableName} (${columns.join(',')}) VALUES (${placeholders})`;
 
         try {
-            const result = await this.executeQuery(sql, values);
+            const identityColumn = schema.columns.find(col => col.autoIncrement && schema.primaryKey.includes(col.name));
+            const needsIdentity = returnRecord && identityColumn !== undefined && modelData[identityColumn.name] == null;
+            let generatedIdentity: string | number | undefined;
+            if (needsIdentity) {
+                generatedIdentity = await this.executeInsert(sql, values);
+            } else {
+                await this.executeQuery(sql, values);
+            }
 
             // Clear caches
             if (this.cacheManager && this.config.enableCaching) {
@@ -463,104 +503,15 @@ export abstract class BaseController<TModel extends BaseModel> {
             }
 
             if (returnRecord) {
-                // For auto-increment columns, try to get the generated ID
-                const pkColumns = schema.primaryKey;
-                const autoIncrementColumn = schema.columns.find(col => col.autoIncrement);
-                
-                this.logger.debug('Auto-increment detection', {
-                    operation: 'create',
-                    tableName,
-                    pkColumns,
-                    autoIncrementColumn: autoIncrementColumn ? {
-                        name: autoIncrementColumn.name,
-                        autoIncrement: autoIncrementColumn.autoIncrement
-                    } : null,
-                    isPkAutoIncrement: autoIncrementColumn && pkColumns.includes(autoIncrementColumn.name)
-                });
-                
-                if (autoIncrementColumn && pkColumns.includes(autoIncrementColumn.name)) {
-                    // Try to get the last inserted ID for auto-increment primary keys
-                    try {
-                        // HSQLDB uses CALL IDENTITY() function to get the last generated ID
-                        const identityResult = await this.executeQuery("SELECT IDENTITY() FROM (VALUES(0)) t(x)", []);
-                        
-                        this.logger.debug('Identity query result', {
-                            operation: 'create-identity-debug',
-                            tableName,
-                            identityResult,
-                            autoIncrementColumn: autoIncrementColumn.name
-                        });
-                        
-                        if (identityResult.length > 0) {
-                            // HSQLDB may return IDENTITY() under different key names
-                            const identityRow = identityResult[0];
-                            const rawId = identityRow['IDENTITY()'] ?? identityRow['@p0'] ?? identityRow['C1'] ?? Object.values(identityRow)[0];
-                            if (rawId !== null && rawId !== undefined) {
-                                const generatedId = Number(rawId);
-                                
-                                // Update model with generated ID
-                                model.set(autoIncrementColumn.name, generatedId);
-                                model.markAsSaved();
-
-                                this.logger.info('Record created successfully with auto-generated ID', {
-                                    operation: 'create',
-                                    tableName,
-                                    generatedId,
-                                    autoIncrementColumn: autoIncrementColumn.name
-                                });
-
-                                return model;
-                            }
-                        }
-                    } catch (identityError) {
-                        this.logger.warn('Failed to retrieve auto-generated ID with CALL IDENTITY(), trying SELECT IDENTITY()', {
-                            operation: 'create',
-                            tableName,
-                            error: identityError instanceof Error ? identityError.message : String(identityError)
-                        });
-                        
-                        // Fallback to SELECT IDENTITY()
-                        try {
-                            const fallbackResult = await this.executeQuery("SELECT IDENTITY() AS generated_id FROM (VALUES(0)) t(x)", []);
-                            
-                            this.logger.debug('Fallback identity query result', {
-                                operation: 'create-identity-fallback',
-                                tableName,
-                                fallbackResult,
-                                autoIncrementColumn: autoIncrementColumn.name
-                            });
-                            
-                            if (fallbackResult.length > 0) {
-                                const fallbackRow = fallbackResult[0];
-                                const fallbackRaw = fallbackRow.generated_id ?? fallbackRow['@p0'] ?? fallbackRow['C1'] ?? Object.values(fallbackRow)[0];
-                                const generatedId = fallbackRaw !== null && fallbackRaw !== undefined ? Number(fallbackRaw) : null;
-                                
-                                // Update model with generated ID
-                                model.set(autoIncrementColumn.name, generatedId);
-                                model.markAsSaved();
-
-                                this.logger.info('Record created successfully with auto-generated ID (fallback)', {
-                                    operation: 'create',
-                                    tableName,
-                                    generatedId,
-                                    autoIncrementColumn: autoIncrementColumn.name
-                                });
-
-                                return model;
-                            }
-                        } catch (fallbackError) {
-                            this.logger.warn('Both IDENTITY() methods failed', {
-                                operation: 'create',
-                                tableName,
-                                error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
-                            });
-                        }
-                    }
+                if (needsIdentity) {
+                    model.set(identityColumn.name, generatedIdentity);
+                    model.markAsSaved();
+                    return model;
                 }
 
                 // Fallback: Try to find the record by primary key if it was provided
                 const pkValue = model.getPrimaryKeyValue();
-                if (pkValue) {
+                if (pkValue !== null && pkValue !== undefined) {
                     const created = await this.findById(pkValue);
                     if (created) {
                         this.logger.info('Record created successfully', {
@@ -614,6 +565,12 @@ export abstract class BaseController<TModel extends BaseModel> {
             skipExistenceCheck = false,
             returnRecord = true
         } = options;
+
+        for (const field of Object.keys(data)) {
+            if (!this.ModelClass.getSchema().columns.some(column => column.name === field)) {
+                throw new ValidationError('data', field, 'Update column must belong to the model schema');
+            }
+        }
 
         // Check if record exists
         let existingRecord: TModel | null = null;
@@ -777,32 +734,24 @@ export abstract class BaseController<TModel extends BaseModel> {
     protected async validateSingleForeignKey(model: TModel, fk: ForeignKeyDefinition): Promise<void> {
         const modelData = model.getData();
 
-        // Check if foreign key fields have values
+        // SQL MATCH SIMPLE permits a composite reference when any component is null.
         const fkValues = fk.columns.map(col => modelData[col]);
-        const hasValues = fkValues.some(val => val !== null && val !== undefined);
+        const hasValues = fkValues.every(val => val !== null && val !== undefined);
 
         if (!hasValues) {
-            this.logger.debug('Skipping FK validation - no values', {
+            this.logger.debug('Skipping FK validation - incomplete reference', {
                 operation: 'validate-foreign-key-no-values',
                 tableName: this.ModelClass.getTableName(),
                 fkName: fk.name,
                 columns: fk.columns,
                 values: fkValues
             });
-            return; // No values to validate
+            return; // An incomplete nullable reference does not require a matching row.
         }
 
         // Check for sentinel values that indicate "no reference"
         // These are special values that mean "not linked" rather than actual foreign key values
-        const hasSentinelValues = fkValues.some(val => {
-            // -1 is a universal StarMade sentinel meaning "no reference" / "no parent"
-            if (val == -1) return true;
-            // For ENTITIES table docking references, -1 means "not docked"
-            if (fk.referencedTable === 'ENTITIES') {
-                return val == -1;
-            }
-            return false;
-        });
+        const hasSentinelValues = fkValues.some(val => val == -1);
 
         if (hasSentinelValues) {
             this.logger.debug('Skipping FK validation for sentinel values', {
@@ -877,10 +826,48 @@ export abstract class BaseController<TModel extends BaseModel> {
                 return objects;
             }
 
-            return Array.isArray(result) ? result : [];
+            if (Array.isArray(result)) return result;
+            if (!result?.success) {
+                throw new QueryExecutionError(sql, 'Database query did not complete successfully', params);
+            }
+            return [];
         } else {
             throw new Error('ParameterizedQuery module not available');
         }
+    }
+
+    /**
+     * Insert a record and retrieve its generated identity before releasing the JDBC connection.
+     * @param sql Parameterized INSERT statement.
+     * @param params Bound column values.
+     * @returns Exact generated integer identity, preserving BIGINT strings.
+     * @throws {QueryExecutionError} When execution or identity retrieval fails.
+     */
+    private async executeInsert(sql: string, params: any[]): Promise<string | number> {
+        if (!this.parameterizedQuery) throw new Error('ParameterizedQuery module not available');
+        const result = await this.parameterizedQuery.execute(sql, params, { returnGeneratedIdentity: true });
+        const identity = result.generatedIdentity;
+        if (!result.success || !(typeof identity === 'string' && /^-?\d+$/.test(identity) ||
+            typeof identity === 'number' && Number.isSafeInteger(identity))) {
+            throw new QueryExecutionError(sql, 'INSERT did not return a valid generated identity', params);
+        }
+        return identity;
+    }
+
+    /**
+     * Execute a mutation and return the affected-row count reported by JDBC.
+     * @param sql SQL statement with positional placeholders.
+     * @param params Values bound to the statement by ParameterizedQuery.
+     * @returns Number of rows affected, including zero when no row matched.
+     * @throws {QueryExecutionError} If execution fails or returns an invalid count.
+     */
+    protected async executeUpdate(sql: string, params: any[]): Promise<number> {
+        if (!this.parameterizedQuery) throw new Error('ParameterizedQuery module not available');
+        const result = await this.parameterizedQuery.execute(sql, params);
+        if (!result.success || !Number.isSafeInteger(result.affectedRows) || result.affectedRows < 0) {
+            throw new QueryExecutionError(sql, 'Mutation did not return a valid affected-row count', params);
+        }
+        return result.affectedRows;
     }
 
     /**

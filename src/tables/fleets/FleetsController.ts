@@ -191,7 +191,9 @@ export interface FleetHierarchyNode {
  * Controller for FLEETS table with advanced fleet management capabilities
  */
 export class FleetsController extends BaseController<FleetsModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<FleetsModel> = FleetsModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'FleetsController';
 
     /**
@@ -268,6 +270,7 @@ export class FleetsController extends BaseController<FleetsModel> {
      * @throws {QueryExecutionError} If the query fails
      */
     public async findAll(options: FleetSearchOptions = {}): Promise<FleetsModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -779,13 +782,13 @@ export class FleetsController extends BaseController<FleetsModel> {
                 accessResult,
                 ownerResult
             ] = await Promise.all([
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM FLEETS', []),
-                this.executeQuery("SELECT COUNT(*) AS cnt FROM FLEETS WHERE PARENT_FLEET IS NULL OR PARENT_FLEET = -1", []),
-                this.executeQuery("SELECT COUNT(*) AS cnt FROM FLEETS WHERE OWNER LIKE 'GNPC#%' OR OWNER LIKE 'NPC#%'", []),
-                this.executeQuery('SELECT MISSION_STRING, COUNT(*) AS cnt FROM FLEETS GROUP BY MISSION_STRING', []),
-                this.executeQuery('SELECT COMBAT_SETTING, COUNT(*) AS cnt FROM FLEETS GROUP BY COMBAT_SETTING', []),
-                this.executeQuery('SELECT FACTION_ACCESS, COUNT(*) AS cnt FROM FLEETS GROUP BY FACTION_ACCESS', []),
-                this.executeQuery('SELECT OWNER, COUNT(*) AS cnt FROM FLEETS WHERE OWNER IS NOT NULL GROUP BY OWNER ORDER BY cnt DESC LIMIT 10', [])
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM FLEETS', []),
+                this.executeQuery("SELECT COUNT(*) AS \"cnt\" FROM FLEETS WHERE PARENT_FLEET IS NULL OR PARENT_FLEET = -1", []),
+                this.executeQuery("SELECT COUNT(*) AS \"cnt\" FROM FLEETS WHERE OWNER LIKE 'GNPC#%' OR OWNER LIKE 'NPC#%'", []),
+                this.executeQuery('SELECT MISSION_STRING, COUNT(*) AS "cnt" FROM FLEETS GROUP BY MISSION_STRING', []),
+                this.executeQuery('SELECT COMBAT_SETTING, COUNT(*) AS "cnt" FROM FLEETS GROUP BY COMBAT_SETTING', []),
+                this.executeQuery('SELECT FACTION_ACCESS, COUNT(*) AS "cnt" FROM FLEETS GROUP BY FACTION_ACCESS', []),
+                this.executeQuery('SELECT OWNER, COUNT(*) AS "cnt" FROM FLEETS WHERE OWNER IS NOT NULL GROUP BY OWNER ORDER BY "cnt" DESC LIMIT 10', [])
             ]);
 
             const total = Number(totalResult[0]?.cnt ?? 0);

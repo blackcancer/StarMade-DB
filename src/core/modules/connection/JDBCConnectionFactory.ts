@@ -12,12 +12,15 @@
 
 // Import from nodejs-jdbc using the validated pattern from JDBCTool.js
 import { JDBC, isJvmCreated, addOption, setupClasspath } from 'nodejs-jdbc';
-import { shutdownJVM } from 'nodejs-jdbc/dist/jinst.js';
 
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
+import * as fs from 'fs';
+import * as path from 'path';
 import { 
+    HSQLDBError,
+    QueryTimeoutError,
     ConnectionError,
     ConnectionTimeoutError,
     DatabaseFileError,
@@ -33,17 +36,17 @@ import { createModuleLogger, type ModuleLogger } from '../logging/Logger.js';
 import type { BaseModule, HSQLManager } from '../../HSQLManager.js';
 
 // ES modules fix
+/** Absolute path of this ES module, resolved from import.meta.url. */
 const __filename = fileURLToPath(import.meta.url);
+/** Directory containing this ES module, used to locate the JDBC driver. */
 const __dirname = dirname(__filename);
 
 // =============================================================================
 // GLOBAL JVM AND POOL MANAGEMENT (inspired by successful JDBCTool.js)
 // =============================================================================
 
+/** Whether JVM options and the driver classpath have already been configured. */
 let jvmConfigured = false;
-let globalJDBCPool: any = null; // Global shared JDBC pool
-let poolConnectionCounter = 0;
-let poolInitializationPromise: Promise<any> | null = null; // NOUVEAU: Protection race condition
 
 /**
  * Global JVM configuration - based on successful JDBCTool.js pattern.
@@ -78,6 +81,7 @@ function configureJVMGlobal(): void {
  */
 function findHSQLJarPath(): string {
     const possiblePaths = [
+        ...(process.env.HSQLDB_JAR ? [process.env.HSQLDB_JAR] : []),
         './src/lib/hsqldb.jar',
         join(process.cwd(), 'src', 'lib', 'hsqldb.jar'),
         join(process.cwd(), 'lib', 'hsqldb.jar'),
@@ -96,224 +100,41 @@ function findHSQLJarPath(): string {
 }
 
 /**
- * Get or create the global shared JDBC pool with race condition protection.
+ * Create and initialize a JDBC pool owned by one factory.
  * @param {string} url - Database URL.
  * @param {JDBCPoolConfig} [poolConfig] - Optional pool configuration.
- * @returns {Promise<any>} The shared JDBC pool instance.
+ * @returns {Promise<any>} The initialized JDBC pool instance.
  */
-async function getGlobalJDBCPool(url: string, poolConfig?: JDBCPoolConfig): Promise<any> {
-    // Si le pool existe déjà, le retourner immédiatement
-    if (globalJDBCPool) {
-        return globalJDBCPool;
+async function createJDBCPool(url: string, poolConfig?: JDBCPoolConfig): Promise<any> {
+    const pool = new JDBC({
+        minpoolsize: 1,
+        maxpoolsize: 10,
+        ...poolConfig,
+        url: enhanceHSQLDBUrl(url),
+        drivername: 'org.hsqldb.jdbc.JDBCDriver',
+        user: 'SA',
+        password: ''
+    });
+    try {
+        await pool.initialize();
+        return pool;
+    } catch (error) {
+        await pool.purge();
+        throw error;
     }
-    
-    // Si une initialisation est en cours, attendre qu'elle se termine
-    if (poolInitializationPromise) {
-        await poolInitializationPromise;
-        return globalJDBCPool;
-    }
-    
-    // Commencer l'initialisation avec protection race condition
-    poolInitializationPromise = (async () => {
-        try {
-            const optimizedUrl = enhanceHSQLDBUrl(url);
-            
-            // NOUVEAU: Fusion de la configuration par défaut avec la configuration fournie
-            const defaultConfig = {
-                minpoolsize: 2,
-                maxpoolsize: 10,
-                properties: {
-                    'hsqldb.write_delay': 'false',
-                    'hsqldb.log_data': 'false',
-                    'hsqldb.lock_file': 'false',
-                    'hsqldb.nio_data_file': 'false',
-                    'hsqldb.applog': '0',
-                    'hsqldb.sqllog': '0',
-                    'shutdown': 'true'
-                }
-            };
-
-            const finalPoolConfig = {
-                ...defaultConfig,
-                ...poolConfig,
-                properties: {
-                    ...defaultConfig.properties,
-                    ...(poolConfig?.properties || {}),
-                }
-            };
-
-            const jdbcConfig = {
-                url: optimizedUrl,
-                drivername: 'org.hsqldb.jdbc.JDBCDriver',
-                user: 'SA',
-                password: '',
-                ...finalPoolConfig
-            };
-            
-            console.log(`[JDBCConnectionFactory] Creating pool with enhanced URL: ${optimizedUrl}`);
-            
-            globalJDBCPool = new JDBC(jdbcConfig);
-            await globalJDBCPool.initialize();
-            
-            console.log(`[JDBCConnectionFactory] Global pool initialized: min=${jdbcConfig.minpoolsize}, max=${jdbcConfig.maxpoolsize}`);
-            console.log(`[JDBCConnectionFactory] Lock file disabled, enhanced stability mode active`);
-            
-            return globalJDBCPool;
-        } catch (error) {
-            // En cas d'erreur, réinitialiser les variables pour permettre un nouveau try
-            globalJDBCPool = null;
-            poolInitializationPromise = null;
-            throw error;
-        }
-    })();
-    
-    await poolInitializationPromise;
-    poolInitializationPromise = null; // Cleanup après succès
-    
-    return globalJDBCPool;
 }
 
 /**
- * Enhance HSQLDB URL with lock file disabling and stability parameters.
+ * Validate an HSQLDB URL while preserving its explicit connection options.
  * @param {string} originalUrl - Original database URL.
- * @returns {string} Enhanced URL with stability parameters.
+ * @returns {string} The original validated URL.
  */
 function enhanceHSQLDBUrl(originalUrl: string): string {
-    // Analyser l'URL existante
-    let enhancedUrl = originalUrl;
-    
-    // Vérifier si l'URL contient déjà des paramètres
-    const hasParameters = originalUrl.includes(';');
-    const separator = hasParameters ? ';' : ';';
-    
-    // Liste des paramètres de stabilité HSQLDB
-    const stabilityParams = [
-        'hsqldb.lock_file=false',           // CRITIQUE: Désactive le fichier de verrouillage
-        'hsqldb.nio_data_file=false',       // Désactive NIO pour plus de stabilité
-        'hsqldb.write_delay=false',         // Désactive le délai d'écriture
-        'hsqldb.log_data=false',            // Désactive les logs de données
-        'hsqldb.applog=0',                  // Désactive les logs d'application
-        'hsqldb.sqllog=0',                  // Désactive les logs SQL
-        'ifexists=false',                   // Permet la création si la DB n'existe pas
-        'shutdown=true'                     // Fermeture propre
-    ];
-    
-    // Vérifier quels paramètres sont déjà présents
-    const missingParams: string[] = [];
-    
-    for (const param of stabilityParams) {
-        const paramName = param.split('=')[0];
-        if (!originalUrl.includes(paramName)) {
-            missingParams.push(param);
-        }
+    if (!/^jdbc:hsqldb:(file|mem|hsql|hsqls|http|https|res):\S+/i.test(originalUrl)) {
+        throw new ConfigurationError('Invalid HSQLDB JDBC URL', ['url']);
     }
-    
-    // Ajouter les paramètres manquants
-    if (missingParams.length > 0) {
-        enhancedUrl += separator + missingParams.join(';');
-    }
-    
-    return enhancedUrl;
-}
-
-/**
- * Close the global shared JDBC pool with improved cleanup.
- * @returns {Promise<void>} Promise that resolves when pool is closed.
- */
-async function closeGlobalJDBCPool(): Promise<void> {
-    if (!globalJDBCPool) {
-        return;
-    }
-    
-    // NOUVEAU: Attendre que toute initialisation en cours se termine
-    if (poolInitializationPromise) {
-        try {
-            await poolInitializationPromise;
-        } catch (error) {
-            console.log('[JDBCConnectionFactory] Pool initialization failed during close, continuing cleanup');
-        }
-    }
-    
-    const poolToClose = globalJDBCPool;
-    globalJDBCPool = null; // Marquer comme fermé immédiatement
-    poolInitializationPromise = null;
-    
-    return new Promise<void>((resolve) => {
-        let resolved = false;
-        
-        const forceResolve = () => {
-            if (!resolved) {
-                resolved = true;
-                resolve();
-            }
-        };
-        
-        try {
-            if (typeof poolToClose.close === 'function') {
-                // CORRECTION CRITIQUE: Timeout très court pour éviter les blocages de tests
-                const closeTimeout = setTimeout(() => {
-                    console.log('[JDBCConnectionFactory] Pool close timeout (800ms), forcing resolution');
-                    forceResolve();
-                }, 800); // RÉDUCTION DRASTIQUE: 800ms au lieu de 1500ms
-                
-                poolToClose.close(() => {
-                    clearTimeout(closeTimeout);
-                    console.log('[JDBCConnectionFactory] Global JDBC pool closed successfully');
-                    forceResolve();
-                });
-            } else {
-                console.log('[JDBCConnectionFactory] Pool does not have close method, considering it closed');
-                forceResolve();
-            }
-        } catch (error) {
-            console.log('[JDBCConnectionFactory] Error during pool close:', error);
-            forceResolve(); // Résoudre quand même pour éviter hanging
-        }
-    });
-}
-
-/**
- * Attempt to shutdown JVM using shutdownJVM if available.
- * @param {ModuleLogger} [logger] - Optional logger instance for structured logging.
- * @returns {Promise<boolean>} True if JVM was shutdown successfully.
- */
-async function shutdownJVMProperly(logger?: ModuleLogger): Promise<boolean> {
-    
-    try {
-        if (logger) {
-            logger.info('Attempting JVM shutdown via jinst', {
-                operation: 'jvm-shutdown-start',
-                method: 'shutdownJVM'
-            });
-        }
-
-        console.log('Attempting JVM shutdown via jinst...');
-
-        // CRITICAL: Comment out the actual JVM shutdown to prevent test failures
-        // This line was causing silent errors during test execution
-        // await shutdownJVM();
-        
-        if (logger) {
-            logger.info('JVM shutdown skipped to prevent test interference', {
-                operation: 'jvm-shutdown-skipped',
-                method: 'preservation',
-                reason: 'prevent-test-failures'
-            });
-        }
-        
-        // Return false to indicate shutdown was not performed
-        return false;
-        
-    } catch (error) {
-        if (logger) {
-            logger.warn('Failed to shutdown JVM via jinst', {
-                operation: 'jvm-shutdown-error',
-                method: 'jinst',
-                error: error instanceof Error ? error.message : String(error)
-            });
-        }
-        return false;
-    }
+    // Keep explicitly supplied HSQLDB options. Do not weaken locking or recovery.
+    return originalUrl;
 }
 
 // =============================================================================
@@ -383,6 +204,24 @@ export interface JDBCQueryResult {
  * @interface JDBCConnection
  * @description JDBC Connection wrapper interface.
  */
+export interface JDBCExecutionOptions {
+    /** Deadline in milliseconds; zero explicitly disables the timeout. */
+    timeoutMs?: number;
+    /** Maximum rows retrieved by JDBC; zero means unlimited. */
+    maxRows?: number;
+}
+
+/** Session options restored after a transaction. */
+export interface JDBCSessionState {
+    /** Whether statements commit automatically. */
+    autoCommit: boolean;
+    /** Whether the session rejects writes. */
+    readOnly: boolean;
+    /** Numeric java.sql.Connection isolation level. */
+    isolationLevel: number;
+}
+
+/** Connection handle used by query and transaction modules. */
 export interface JDBCConnection {
     /** Connection ID */
     id: string;
@@ -394,12 +233,14 @@ export interface JDBCConnection {
      * @param {Array} [parameters] - Query parameters array
      * @returns {Promise<JDBCQueryResult>} Query result promise
      */
-    execute(sql: string, parameters?: any[]): Promise<JDBCQueryResult>;
+    execute(sql: string, parameters?: any[], options?: JDBCExecutionOptions): Promise<JDBCQueryResult>;
     /** 
      * Close the connection
      * @returns {Promise<void>} Close operation promise
      */
     close(): Promise<void>;
+    /** Permanently close an unsafe session without returning it to the native pool. */
+    discard?(): Promise<void>;
     /** 
      * Test connection health
      * @returns {Promise<boolean>} Health test result promise
@@ -411,6 +252,8 @@ export interface JDBCConnection {
      * @returns {Promise<void>} Set operation promise
      */
     setAutoCommit(autoCommit: boolean): Promise<void>;
+    /** Read session options before borrowing the connection for a transaction. */
+    getSessionState?(): Promise<JDBCSessionState>;
     /**
      * Commit the current transaction
      * @returns {Promise<void>} Commit operation promise
@@ -450,12 +293,20 @@ export interface JDBCConnection {
  * @implements {JDBCConnection}
  */
 class HSQLDBConnection implements JDBCConnection {
+    /** Unique identifier assigned to this JDBC connection. */
     public readonly id: string;
+    /** Whether this connection is available for JDBC operations. */
     public isActive: boolean = false;
     
+    /** Native pool reservation holding the underlying JDBC connection. */
     private connobj: any;
+    /** Native pool that owns this connection and receives it on release. */
+    private sharedPool: any;
+    /** Native JDBC connection wrapper used to execute statements and manage session state. */
     private conn: any;
+    /** Effective configuration applied to this instance. */
     private config: JDBCConnectionConfig;
+    /** Module logger for operation context and diagnostic errors. */
     private logger: ModuleLogger;
     
     /**
@@ -464,14 +315,15 @@ class HSQLDBConnection implements JDBCConnection {
      * @param {JDBCConnectionConfig} config - Connection configuration object.
      * @param {ModuleLogger} logger - Logger instance.
      */
-    constructor(id: string, config: JDBCConnectionConfig, logger: ModuleLogger) {
+    constructor(id: string, config: JDBCConnectionConfig, logger: ModuleLogger, pool: any) {
         this.id = id;
         this.config = config;
         this.logger = logger;
+        this.sharedPool = pool;
     }
     
     /**
-     * Connect to database using shared global pool.
+     * Connect to database using factory-owned pool.
      * @async
      * @returns {Promise<void>} Connection operation promise.
      * @throws {ConnectionError} When connection fails.
@@ -486,15 +338,15 @@ class HSQLDBConnection implements JDBCConnection {
                 operation: 'connect-start'
             });
             
-            // Get or create the shared global pool
-            this.logger.debug('Getting or creating global JDBC pool', {
+            // Get or create the factory-owned pool
+            this.logger.debug('Getting or creating factory-owned JDBC pool', {
                 connectionId: this.id,
                 operation: 'pool-access'
             });
             
-            const sharedPool = await getGlobalJDBCPool(this.config.url, this.config.poolConfig);
+            const sharedPool = this.sharedPool;
             
-            this.logger.debug('Global JDBC pool ready, reserving connection', {
+            this.logger.debug('Factory-owned JDBC pool ready, reserving connection', {
                 connectionId: this.id,
                 operation: 'pool-reserve'
             });
@@ -507,7 +359,7 @@ class HSQLDBConnection implements JDBCConnection {
             // This ensures proper transaction support for HSQLDB
             try {
                 // Set autoCommit based on config (typically false for transactions)
-                await this.conn.setAutoCommit(this.config.autoCommit);
+                await this.conn.conn.setAutoCommitPromise(this.config.autoCommit);
                 this.logger.debug('AutoCommit mode configured', {
                     connectionId: this.id,
                     autoCommit: this.config.autoCommit,
@@ -516,7 +368,7 @@ class HSQLDBConnection implements JDBCConnection {
                 
                 // Set read-only mode if specified
                 if (this.config.readOnly !== undefined) {
-                    await this.conn.setReadOnly(this.config.readOnly);
+                    await this.conn.conn.setReadOnlyPromise(this.config.readOnly);
                     this.logger.debug('Read-only mode configured', {
                         connectionId: this.id,
                         readOnly: this.config.readOnly,
@@ -525,29 +377,10 @@ class HSQLDBConnection implements JDBCConnection {
                 }
                 
             } catch (configError) {
-                this.logger.warn('Failed to configure connection settings, continuing with defaults', {
-                    connectionId: this.id,
-                    operation: 'config-warning',
-                    error: configError instanceof Error ? configError.message : String(configError)
-                });
-                // AMÉLiORATION: Continue avec la connexion mais force autoCommit à false pour les transactions
-                if (this.config.autoCommit === false) {
-                    try {
-                        await this.conn.setAutoCommit(false);
-                        this.logger.info('Forced autoCommit to false for transaction support', {
-                            connectionId: this.id,
-                            operation: 'force-autocommit-false'
-                        });
-                    } catch (forceError) {
-                        this.logger.error('Could not force autoCommit to false - transactions may not work correctly', {
-                            connectionId: this.id,
-                            operation: 'force-autocommit-error',
-                            error: forceError instanceof Error ? forceError.message : String(forceError)
-                        });
-                    }
-                }
+                await this.discard();
+                throw configError;
             }
-            
+
             this.isActive = true;
             const connectTime = Date.now() - startTime;
             
@@ -555,7 +388,7 @@ class HSQLDBConnection implements JDBCConnection {
                 connectionId: this.id,
                 operation: 'connect-complete',
                 connectTime,
-                poolType: 'shared-global',
+                poolType: 'factory-owned',
                 autoCommit: this.config.autoCommit,
                 readOnly: this.config.readOnly
             });
@@ -586,300 +419,100 @@ class HSQLDBConnection implements JDBCConnection {
      * @throws {ConnectionError} When connection is not active.
      * @throws {QueryExecutionError} When query execution fails.
      */
-    public async execute(sql: string, parameters?: any[]): Promise<JDBCQueryResult> {
-        if (!this.isActive || !this.conn) {
-            throw new ConnectionError('Connection not active', { connectionId: this.id });
+    public async execute(sql: string, parameters: any[] = [], options: JDBCExecutionOptions = {}): Promise<JDBCQueryResult> {
+        if (!this.isActive || !this.conn) throw new ConnectionError('Connection not active', {connectionId: this.id});
+        const timeoutMs = options.timeoutMs ?? this.config.timeoutMs;
+        const maxRows = options.maxRows ?? 0;
+        if (!Number.isFinite(timeoutMs) || timeoutMs < 0 || !Number.isInteger(maxRows) || maxRows < 0) {
+            throw new ConfigurationError('Invalid query timeout or row limit', ['timeoutMs', 'maxRows']);
         }
-        
-        const startTime = Date.now();
-        
-        this.logger.debug('Executing SQL query', {
-            connectionId: this.id,
-            operation: 'query-start',
-            sql: sql.substring(0, 200),
-            hasParameters: !!(parameters && parameters.length > 0),
-            parameterCount: parameters?.length || 0
-        });
-        
+        const start = Date.now();
+        let statement: any;
+        let resultSet: any;
         try {
-            let result: JDBCQueryResult;
-            
-            // If we have parameters, use prepared statement for proper parameter binding
-            if (parameters && parameters.length > 0) {
-                // Use prepared statement for parameterized queries
-                const preparedStatement = await this.conn.prepareStatement(sql);
-                
-                // Bind parameters to the prepared statement
-                for (let i = 0; i < parameters.length; i++) {
-                    const param = parameters[i];
-                    const paramIndex = i + 1; // JDBC parameters are 1-based
-                    
-                    if (param === null || param === undefined) {
-                        // FIXED: Use setString with null for null/undefined values
-                        // setObject is not available in this nodejs-jdbc version
-                        try {
-                            await preparedStatement.setString(paramIndex, null);
-                        } catch (setStringError) {
-                            // Fallback: convert to string representation
-                            await preparedStatement.setString(paramIndex, 'NULL');
-                        }
-                    } else if (typeof param === 'string') {
-                        await preparedStatement.setString(paramIndex, param);
-                    } else if (typeof param === 'number') {
-                        if (Number.isInteger(param)) {
-                            // CRITICAL FIX: Force JavaScript integer to be recognized as Java int
-                            // Parse to string and back to ensure clean integer type
-                            const cleanInt = parseInt(param.toString(), 10);
-                            
-                            // Additional type forcing for nodejs-jdbc compatibility
-                            try {
-                                await preparedStatement.setInt(paramIndex, cleanInt);
-                            } catch (setIntError) {
-                                // Fallback: try setLong for larger integers
-                                try {
-                                    await preparedStatement.setLong(paramIndex, cleanInt);
-                                } catch (setLongError) {
-                                    // Final fallback: convert to string
-                                    await preparedStatement.setString(paramIndex, cleanInt.toString());
-                                }
-                            }
-                        } else {
-                            await preparedStatement.setDouble(paramIndex, param);
-                        }
-                    } else if (typeof param === 'boolean') {
-                        await preparedStatement.setBoolean(paramIndex, param);
-                    } else if (param instanceof Date) {
-                        // FIXED: Convert Date to string format for HSQLDB compatibility
-                        // setObject with Date is not available in this nodejs-jdbc version
-                        const dateString = param.toISOString().replace('T', ' ').substring(0, 19);
-                        await preparedStatement.setString(paramIndex, dateString);
-                    } else if (Buffer.isBuffer(param)) {
-                        // CRITICAL FIX: Prioritize string conversion for HSQLDB VARBINARY
-                        // HSQLDB has better compatibility with hex strings than with setBytes()
-                        try {
-                            // Try direct hex string approach first (most compatible with HSQLDB)
-                            const hexString = param.toString('hex').toUpperCase();
-                            await preparedStatement.setString(paramIndex, hexString);
-                        } catch (setStringError) {
-                            try {
-                                // Fallback: try setBytes for binary data
-                                await preparedStatement.setBytes(paramIndex, param);
-                            } catch (setBytesError) {
-                                // Final fallback: try with X'' wrapper
-                                const hexStringWrapped = `X'${param.toString('hex').toUpperCase()}'`;
-                                await preparedStatement.setString(paramIndex, hexStringWrapped);
-                            }
-                        }
-                    } else {
-                        // For complex objects, convert to string
-                        await preparedStatement.setString(paramIndex, String(param));
-                    }
-                }
-                
-                // Determine query type and execute appropriately
-                const sqlUpper = sql.trim().toUpperCase();
-                
-                if (sqlUpper.startsWith('SELECT') || sqlUpper.startsWith('WITH') || sqlUpper.startsWith('SHOW')) {
-                    // SELECT queries - use executeQuery()
-                    const rs = await preparedStatement.executeQuery();
-                    const executionTime = Date.now() - startTime;
-                    
-                    // Process ResultSet using the same approaches as before
-                    try {
-                        const rsArray = rs.toObjArray();
-                        
-                        // Extract column metadata
-                        const columns = rsArray.length > 0 ? 
-                            Object.keys(rsArray[0]).map(name => ({
-                                name,
-                                type: typeof rsArray[0][name] === 'number' ? 'NUMBER' : 'VARCHAR',
-                                nullable: true
-                            })) : [];
-                        
-                        // Convert to rows format
-                        const rows = rsArray.map((row: any) => Object.values(row));
-                        
-                        result = {
-                            columns,
-                            rows,
-                            executionTime
-                        };
-                        
-                    } catch (toObjArrayError) {
-                        // Fallback to next() + fetchResult()
-                        this.logger.debug('Fallback to next+fetchResult for prepared statement', {
-                            connectionId: this.id,
-                            operation: 'query-fallback-prepared'
-                        });
-                        
-                        const metaData = rs.getMetaData();
-                        const allColumnMeta = metaData.getAllColumnMeta();
-                        
-                        const columns = allColumnMeta.map((meta: any) => ({
-                            name: meta.name || meta.label,
-                            type: meta.type?.name || 'VARCHAR',
-                            nullable: true
-                        }));
-                        
-                        const rows: any[][] = [];
-                        while (rs.next()) {
-                            const row = rs.fetchResult(allColumnMeta);
-                            rows.push(Object.values(row));
-                        }
-                        
-                        result = {
-                            columns,
-                            rows,
-                            executionTime
-                        };
-                    }
-                    
-                } else {
-                    // UPDATE, INSERT, DELETE, CREATE, DROP, ALTER - use executeUpdate()
-                    const rowsAffected = await preparedStatement.executeUpdate();
-                    const executionTime = Date.now() - startTime;
-                    
-                    result = {
-                        columns: [],
-                        rows: [],
-                        rowsAffected,
-                        executionTime
-                    };
-                    
-                    this.logger.debug('Prepared modification query executed', {
-                        connectionId: this.id,
-                        operation: 'query-modification-prepared',
-                        rowsAffected,
-                        queryType: sqlUpper.split(' ')[0],
-                        parameterCount: parameters.length
-                    });
-                }
-                
-                // Close the prepared statement
-                try {
-                    await preparedStatement.close();
-                } catch (closeError) {
-                    this.logger.warn('Failed to close prepared statement', {
-                        connectionId: this.id,
-                        operation: 'prepared-statement-close-error',
-                        error: closeError instanceof Error ? closeError.message : String(closeError)
-                    });
-                }
-                
-            } else {
-                // No parameters - use regular statement (original implementation)
-                const statement = await this.conn.createStatement();
-                
-                // Determine query type and use appropriate execution method
-                const sqlUpper = sql.trim().toUpperCase();
-                
-                if (sqlUpper.startsWith('SELECT') || sqlUpper.startsWith('WITH') || sqlUpper.startsWith('SHOW')) {
-                    // SELECT queries - use executeQuery() and process ResultSet
-                    const rs = await statement.executeQuery(sql);
-                    const executionTime = Date.now() - startTime;
-                    
-                    // APPROACH 1: toObjArray() - Simple and efficient (validated by JDBCTool.js)
-                    try {
-                        const rsArray = rs.toObjArray();
-                        
-                        // Extract column metadata
-                        const columns = rsArray.length > 0 ? 
-                            Object.keys(rsArray[0]).map(name => ({
-                                name,
-                                type: typeof rsArray[0][name] === 'number' ? 'NUMBER' : 'VARCHAR',
-                                nullable: true
-                            })) : [];
-                        
-                        // Convert to rows format
-                        const rows = rsArray.map((row: any) => Object.values(row));
-                        
-                        result = {
-                            columns,
-                            rows,
-                            executionTime
-                        };
-                        
-                    } catch (toObjArrayError) {
-                        // APPROACH 2: next() + fetchResult() - Fallback (validated by JDBCTool.js)
-                        this.logger.debug('Fallback to next+fetchResult', {
-                            connectionId: this.id,
-                            operation: 'query-fallback'
-                        });
-                        
-                        const metaData = rs.getMetaData();
-                        const allColumnMeta = metaData.getAllColumnMeta();
-                        
-                        const columns = allColumnMeta.map((meta: any) => ({
-                            name: meta.name || meta.label,
-                            type: meta.type?.name || 'VARCHAR',
-                            nullable: true
-                        }));
-                        
-                        const rows: any[][] = [];
-                        while (rs.next()) {
-                            const row = rs.fetchResult(allColumnMeta);
-                            rows.push(Object.values(row));
-                        }
-                        
-                        result = {
-                            columns,
-                            rows,
-                            executionTime
-                        };
-                    }
-                    
-                } else {
-                    // UPDATE, INSERT, DELETE, CREATE, DROP, ALTER - use executeUpdate()
-                    const rowsAffected = await statement.executeUpdate(sql);
-                    const executionTime = Date.now() - startTime;
-                    
-                    result = {
-                        columns: [],
-                        rows: [],
-                        rowsAffected,
-                        executionTime
-                    };
-                    
-                    this.logger.debug('Modification query executed', {
-                        connectionId: this.id,
-                        operation: 'query-modification',
-                        rowsAffected,
-                        queryType: sqlUpper.split(' ')[0]
-                    });
-                }
+            const prepared = parameters.length > 0;
+            statement = prepared ? await this.conn.prepareStatement(sql) : await this.conn.createStatement();
+            for (let i = 0; i < parameters.length; i++) {
+                const value = parameters[i];
+                const index = i + 1;
+                if (value == null) await statement.setString(index, null);
+                else if (typeof value === 'boolean') await statement.setBoolean(index, value);
+                else if (typeof value === 'number') {
+                    if (!Number.isFinite(value)) throw new ConfigurationError('Non-finite query parameter', ['parameters']);
+                    if (Number.isInteger(value)) await statement.setLong(index, String(value));
+                    else await statement.setDouble(index, value);
+                } else if (value instanceof Date) {
+                    await statement.setString(index, value.toISOString().replace('T', ' ').replace('Z', ''));
+                } else if (Buffer.isBuffer(value)) await statement.setString(index, value.toString('hex').toUpperCase());
+                else await statement.setString(index, String(value));
             }
-            
-            this.logger.query(sql, result.executionTime, {
-                connectionId: this.id,
-                operation: 'query-complete',
-                rowCount: result.rows.length,
-                columnCount: result.columns.length,
-                rowsAffected: result.rowsAffected,
-                parameterCount: parameters?.length || 0,
-                usedPreparedStatement: !!(parameters && parameters.length > 0)
-            });
-            
-            return result;
-            
+            // PreparedStatement lacks the wrapper's timeout methods in nodejs-jdbc.
+            const native = statement.ps ?? statement.s;
+            if (native) {
+                native.setQueryTimeoutSync(Math.ceil(timeoutMs / 1000));
+                native.setMaxRowsSync(maxRows);
+            } else {
+                statement.setQueryTimeout?.(Math.ceil(timeoutMs / 1000));
+                statement.setMaxRows?.(maxRows);
+            }
+            const selects = /^\s*(SELECT|WITH|SHOW|VALUES|TABLE|EXPLAIN)\b/i.test(sql);
+            const run = () => selects
+                ? (prepared ? statement.executeQuery() : statement.executeQuery(sql))
+                : (prepared ? statement.executeUpdate() : statement.executeUpdate(sql));
+            const value = await this.executeWithDeadline(statement, run, sql, parameters, timeoutMs);
+            if (!selects) return {columns: [], rows: [], rowsAffected: value, executionTime: Date.now() - start};
+            resultSet = value;
+            const metadata = resultSet.getMetaData().getAllColumnMeta();
+            const columns = metadata.map((column: any) => ({
+                name: column.label || column.name,
+                type: column.type?.name || 'VARCHAR',
+                nullable: true
+            }));
+            const rows: any[][] = [];
+            while ((maxRows === 0 || rows.length < maxRows) && resultSet.next()) {
+                const row = resultSet.fetchResult(metadata);
+                rows.push(columns.map((column: any) => row[column.name]));
+            }
+            return {columns, rows, executionTime: Date.now() - start};
         } catch (error) {
-            const executionTime = Date.now() - startTime;
-            
-            this.logger.error('Query execution failed', {
-                connectionId: this.id,
-                operation: 'query-error',
-                sql: sql.substring(0, 200),
-                executionTime,
-                parameterCount: parameters?.length || 0,
-                error: error instanceof Error ? error.message : String(error)
-            });
-            
-            throw createErrorFromJDBC(sql, error, parameters, {
-                connectionId: this.id,
-                executionTime
-            });
+            if (error instanceof HSQLDBError) throw error;
+            throw createErrorFromJDBC(sql, error, parameters, {connectionId: this.id});
+        } finally {
+            try { resultSet?.resultSet?.closeSync(); }
+            finally {
+                if (statement?.close) await statement.close();
+                else if (statement?.ps) await statement.ps.closePromise();
+            }
         }
     }
-    
+
+    /** Cancel expired work and drain it before allowing the connection to be reused. */
+    private async executeWithDeadline(statement: any, run: () => Promise<any>, sql: string, parameters: any[], timeoutMs: number): Promise<any> {
+        if (timeoutMs === 0) return run();
+        let timer: NodeJS.Timeout | undefined;
+        const running = run();
+        const deadline = new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new QueryTimeoutError(sql, timeoutMs, parameters)), timeoutMs);
+        });
+        try {
+            return await Promise.race([running, deadline]);
+        } catch (error) {
+            if (error instanceof QueryTimeoutError) {
+                try {
+                    if (statement.cancel) await statement.cancel();
+                    else await (statement.ps ?? statement.s).cancelPromise();
+                } finally {
+                    // A Java call may still be completing after cancellation.
+                    // Never hand its connection to a different borrower meanwhile.
+                    await running.catch(() => {});
+                }
+            }
+            throw error;
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
     /**
      * Test connection health.
      * @async
@@ -898,6 +531,16 @@ class HSQLDBConnection implements JDBCConnection {
             });
             return false;
         }
+    }
+
+    /** Read the current JDBC session settings for later restoration. */
+    public async getSessionState(): Promise<JDBCSessionState> {
+        if (!this.isActive || !this.conn) throw new ConnectionError('Connection not active', {connectionId: this.id});
+        return {
+            autoCommit: await this.conn.conn.getAutoCommitPromise(),
+            readOnly: await this.conn.conn.isReadOnlyPromise(),
+            isolationLevel: await this.conn.conn.getTransactionIsolationPromise()
+        };
     }
 
     /**
@@ -919,7 +562,7 @@ class HSQLDBConnection implements JDBCConnection {
         });
 
         try {
-            await this.conn.setAutoCommit(autoCommit);
+            await this.conn.conn.setAutoCommitPromise(autoCommit);
             
             this.logger.debug('Auto-commit mode set successfully', {
                 connectionId: this.id,
@@ -997,7 +640,7 @@ class HSQLDBConnection implements JDBCConnection {
         try {
             // CRITICAL FIX: Check if autoCommit is disabled before attempting rollback
             // HSQLDB throws "Invalid argument" if trying to rollback with autoCommit=true
-            const autoCommit = await this.conn.getAutoCommit();
+            const autoCommit = await this.conn.conn.getAutoCommitPromise();
             
             if (autoCommit) {
                 this.logger.debug('Cannot rollback with autoCommit enabled, skipping rollback', {
@@ -1009,7 +652,7 @@ class HSQLDBConnection implements JDBCConnection {
                 return;
             }
             
-            await this.conn.rollback();
+            await this.conn.conn.rollbackPromise();
             
             this.logger.debug('Transaction rolled back successfully', {
                 connectionId: this.id,
@@ -1022,18 +665,8 @@ class HSQLDBConnection implements JDBCConnection {
                 error: error instanceof Error ? error.message : String(error)
             });
             
-            // NOUVEAU: Analyse plus détaillée de l'erreur pour HSQLDB
+            // NOUVEAU: Analyse plus dÃ©taillÃ©e de l'erreur pour HSQLDB
             const errorMessage = error instanceof Error ? error.message : String(error);
-            if (errorMessage.includes('Invalid argument') || errorMessage.includes('autocommit')) {
-                // Probablement un problème d'autoCommit, logguer et ne pas re-throw
-                this.logger.warn('Rollback failed due to autoCommit state, continuing cleanup', {
-                    connectionId: this.id,
-                    operation: 'rollback-autocommit-issue',
-                    originalError: errorMessage
-                });
-                return; // Ne pas échouer pour ce type d'erreur
-            }
-            
             throw new ConnectionError(
                 `Failed to rollback transaction: ${errorMessage}`,
                 { connectionId: this.id }
@@ -1060,7 +693,7 @@ class HSQLDBConnection implements JDBCConnection {
         });
 
         try {
-            await this.conn.setTransactionIsolation(level);
+            await this.conn.conn.setTransactionIsolationPromise(level);
             
             this.logger.debug('Transaction isolation level set successfully', {
                 connectionId: this.id,
@@ -1101,7 +734,7 @@ class HSQLDBConnection implements JDBCConnection {
         });
 
         try {
-            await this.conn.setReadOnly(readOnly);
+            await this.conn.conn.setReadOnlyPromise(readOnly);
             
             this.logger.debug('Read-only mode set successfully', {
                 connectionId: this.id,
@@ -1163,6 +796,24 @@ class HSQLDBConnection implements JDBCConnection {
     }
 
     /**
+     * Permanently remove an unsafe JDBC session from its native pool.
+     * Closing the physical connection rolls back any uncommitted work.
+     * @returns A promise resolved after the physical connection closes.
+     */
+    public async discard(): Promise<void> {
+        const reservation = this.connobj;
+        this.isActive = false;
+        this.connobj = null;
+        this.conn = null;
+        if (!reservation) return;
+        if (this.sharedPool) {
+            this.sharedPool.pool = this.sharedPool.pool.filter((entry: any) => entry !== reservation);
+            this.sharedPool.reserved = this.sharedPool.reserved.filter((entry: any) => entry !== reservation);
+        }
+        await reservation.conn.close();
+    }
+
+    /**
      * Close connection - ONLY release back to shared pool, do NOT close the pool.
      * @async
      * @returns {Promise<void>} Close operation promise.
@@ -1176,7 +827,7 @@ class HSQLDBConnection implements JDBCConnection {
         });
         
         try {
-            // NOUVEAU: Protection supplémentaire contre les doubles libérations
+            // NOUVEAU: Protection supplÃ©mentaire contre les doubles libÃ©rations
             if (!this.connobj) {
                 this.logger.debug('Connection already released', {
                     connectionId: this.id,
@@ -1187,8 +838,8 @@ class HSQLDBConnection implements JDBCConnection {
             
             // ONLY release the connection back to the shared pool
             // DO NOT close the shared pool itself
-            if (this.connobj && globalJDBCPool) {
-                await globalJDBCPool.release(this.connobj);
+            if (this.connobj && this.sharedPool) {
+                await this.sharedPool.release(this.connobj);
                 this.logger.debug('Connection released back to shared pool successfully', {
                     connectionId: this.id,
                     operation: 'pool-release-complete'
@@ -1201,10 +852,10 @@ class HSQLDBConnection implements JDBCConnection {
             
             this.logger.connection('released', this.id, {
                 operation: 'close-complete',
-                poolType: 'shared-global'
+                poolType: 'factory-owned'
             });
             
-            // NOUVEAU: Petit délai pour permettre au pool de se stabiliser
+            // NOUVEAU: Petit dÃ©lai pour permettre au pool de se stabiliser
             await new Promise(resolve => setTimeout(resolve, 10));
             
         } catch (error) {
@@ -1215,7 +866,7 @@ class HSQLDBConnection implements JDBCConnection {
                 error: error instanceof Error ? error.message : String(error)
             });
             
-            // NOUVEAU: Forcer le nettoyage local même en cas d'erreur
+            // NOUVEAU: Forcer le nettoyage local mÃªme en cas d'erreur
             this.connobj = null;
             this.conn = null;
         }
@@ -1254,27 +905,34 @@ export class JDBCConnectionFactory implements BaseModule {
      */
     public get isInitialized(): boolean { return this._initialized; }
     
-    /** 
+    /**
+     * Whether initialization completed successfully. 
      * @private 
      * @type {boolean}
      */
     private _initialized = false;
-    /** 
+    /**
+     * Owning manager used to resolve configuration and module dependencies. 
      * @private 
      * @type {HSQLManager | undefined}
      */
     private manager?: HSQLManager;
-    /** 
+    /**
+     * Live connection wrappers indexed by connection identifier. 
      * @private 
      * @type {Map<string, HSQLDBConnection>}
      */
     private activeConnections: Map<string, HSQLDBConnection> = new Map();
-    /** 
+    /**
+     * Monotonic counter used to allocate connection identifiers. 
      * @private 
      * @type {number}
      */
     private connectionCounter = 0;
-    /** 
+    /** Native pool initialization promises indexed by connection URL and configuration. */
+    private pools = new Map<string, Promise<any>>();
+    /**
+     * Module logger for operation context and diagnostic errors. 
      * @private 
      * @type {ModuleLogger}
      */
@@ -1338,6 +996,22 @@ export class JDBCConnectionFactory implements BaseModule {
         });
     }
     
+    /** Acquire a pool for this factory and exact database configuration. */
+    private async getPool(url: string, config?: JDBCPoolConfig): Promise<any> {
+        const key = JSON.stringify([url, config]);
+        let pool = this.pools.get(key);
+        if (!pool) {
+            pool = createJDBCPool(url, config);
+            this.pools.set(key, pool);
+        }
+        try {
+            return await pool;
+        } catch (error) {
+            this.pools.delete(key);
+            throw error;
+        }
+    }
+
     /**
      * Create a new JDBC connection.
      * @async
@@ -1364,7 +1038,8 @@ export class JDBCConnectionFactory implements BaseModule {
             poolConfigProvided: !!config.poolConfig
         });
         
-        const connection = new HSQLDBConnection(connectionId, config, this.logger);
+        const pool = await this.getPool(config.url, config.poolConfig);
+        const connection = new HSQLDBConnection(connectionId, config, this.logger, pool);
         
         try {
             await connection.connect();
@@ -1429,20 +1104,7 @@ export class JDBCConnectionFactory implements BaseModule {
             timeoutMs: managerConfig.connection.timeoutMs!,
             autoCommit: managerConfig.connection.autoCommit!,
             readOnly: managerConfig.connection.readOnly!,
-            // NOUVEAU: Ajout d'une configuration de pool par défaut pour les connexions depuis le manager
-            poolConfig: {
-                minpoolsize: 2,
-                maxpoolsize: 10,
-                properties: {
-                    'hsqldb.write_delay': 'false',
-                    'hsqldb.log_data': 'false',
-                    'hsqldb.lock_file': 'false',
-                    'hsqldb.nio_data_file': 'false',
-                    'hsqldb.applog': '0',
-                    'hsqldb.sqllog': '0',
-                    'shutdown': 'true'
-                }
-            }
+
         };
         
         return await this.createConnection(config);
@@ -1509,9 +1171,10 @@ export class JDBCConnectionFactory implements BaseModule {
     }
     
     /**
-     * Close all connections and cleanup - WITH PROPER JVM SHUTDOWN.
+     * Release all wrappers and drain every factory-owned physical pool, preserving the shared JVM.
      * @async
      * @returns {Promise<void>} Cleanup operation promise.
+     * @throws {AggregateError} After draining all pools when one or more physical sessions fail to close.
      */
     public async destroy(): Promise<void> {
         this.logger.info('Destroying JDBCConnectionFactory and cleaning up resources', {
@@ -1538,28 +1201,28 @@ export class JDBCConnectionFactory implements BaseModule {
             operation: 'destroy-pool-cleanup-start'
         });
         
-        // CRITICAL: Now close the shared JDBC pool if this is the last factory
-        if (globalJDBCPool) {
+        const pools = [...this.pools.values()];
+        this.pools.clear();
+        const cleanupErrors: unknown[] = [];
+        for (const pending of pools) {
             try {
-                await closeGlobalJDBCPool();
-                this.logger.info('Shared JDBC pool closed successfully', {
-                    operation: 'shared-pool-cleanup-complete'
-                });
+                const pool = await pending;
+                // Native purge resolves before close completes. Drain every physical session.
+                const sessions = [...pool.pool, ...pool.reserved];
+                pool.pool = [];
+                pool.reserved = [];
+                const results = await Promise.allSettled(sessions.map(async session => session.conn.close()));
+                for (const result of results) {
+                    if (result.status === 'rejected') cleanupErrors.push(result.reason);
+                }
             } catch (error) {
-                this.logger.warn('Error closing shared JDBC pool during factory destruction', {
-                    operation: 'shared-pool-cleanup-error',
-                    error: error instanceof Error ? error.message : String(error)
-                });
+                cleanupErrors.push(error);
             }
-        } else {
-            this.logger.debug('No global JDBC pool to close', {
-                operation: 'shared-pool-cleanup-skip'
-            });
         }
-        
+
         this._initialized = false;
         
-        this.logger.info('JDBCConnectionFactory destroyed successfully', {
+        this.logger.info('JDBCConnectionFactory cleanup complete', {
             operation: 'destroy-complete'
         });
 
@@ -1580,41 +1243,20 @@ export class JDBCConnectionFactory implements BaseModule {
                 jvmActive: false
             });
         }
+        if (cleanupErrors.length > 0) throw new AggregateError(cleanupErrors, 'Failed to close JDBC pools');
     }
     
     /**
-     * Force process cleanup for JVM shutdown - IMPROVED VERSION.
-     * This method now tries jinst.shutdownJVM() first before falling back to process.exit().
-     * @static
-     * @async
-     * @param {number} [exitCode=0] - Exit code.
-     * @param {number} [delayMs=1000] - Delay before forced exit (increased for proper cleanup).
+     * Schedule process termination for applications whose JVM keeps Node alive.
+     * The shared JVM remains available until the process exits.
+     * @param {number} [exitCode=0] - Process exit code.
+     * @param {number} [delayMs=1000] - Grace period; termination uses half this delay for compatibility.
+     * @returns {Promise<void>} Resolves once the termination timer is scheduled.
      */
     public static async forceProcessCleanup(exitCode: number = 0, delayMs: number = 1000): Promise<void> {
-        // Note: Since this is a static method, we can't use instance logger
-        // For this emergency cleanup method, we'll use minimal console output with clear prefixes
-        
-        console.log('[JDBCConnectionFactory] Enhanced process cleanup starting');
-        
-        // Try proper JVM shutdown first (without logger since this is static)
-        const jvmShutdownSuccess = await shutdownJVMProperly();
-        
-        if (jvmShutdownSuccess) {
-            console.log('[JDBCConnectionFactory] JVM shutdown successful - process will exit naturally');
-            // Wait a bit for natural exit
-            setTimeout(() => {
-                console.log('[JDBCConnectionFactory] Natural process exit timeout - forcing exit');
-                process.exit(exitCode);
-            }, delayMs);
-        } else {
-            console.log('[JDBCConnectionFactory] JVM shutdown not available - forcing process exit');
-            setTimeout(() => {
-                console.log('[JDBCConnectionFactory] Forcing process exit due to JVM cleanup limitations');
-                process.exit(exitCode);
-            }, delayMs / 2); // Shorter delay for forced exit
-        }
+        setTimeout(() => process.exit(exitCode), delayMs / 2);
     }
-    
+
     /**
      * Diagnose connection readiness for JDBC connections.
      * @async
@@ -1656,10 +1298,6 @@ export class JDBCConnectionFactory implements BaseModule {
                 } else {
                     const dbPath = urlMatch[1];
                     details.push(`Database path extracted: ${dbPath}`);
-                    
-                    // Import filesystem utilities
-                    const fs = await import('fs');
-                    const path = await import('path');
                     
                     // Check if main directory exists
                     const dbDir = path.dirname(dbPath);

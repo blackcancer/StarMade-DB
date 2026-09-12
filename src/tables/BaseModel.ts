@@ -19,14 +19,23 @@ import { ValidationError } from '../core/errors.js';
  * Data types supported by the schema system
  */
 export enum DataType {
+    /** Data type value for bigint, serialized as 'BIGINT'. */
     BIGINT = 'BIGINT',
+    /** Data type value for integer, serialized as 'INTEGER'. */
     INTEGER = 'INTEGER',
+    /** Data type value for varchar, serialized as 'VARCHAR'. */
     VARCHAR = 'VARCHAR',
+    /** Data type value for text, serialized as 'TEXT'. */
     TEXT = 'TEXT',
+    /** Data type value for boolean, serialized as 'BOOLEAN'. */
     BOOLEAN = 'BOOLEAN',
+    /** Data type value for timestamp, serialized as 'TIMESTAMP'. */
     TIMESTAMP = 'TIMESTAMP',
+    /** Data type value for decimal, serialized as 'DECIMAL'. */
     DECIMAL = 'DECIMAL',
+    /** Data type value for double, serialized as 'DOUBLE'. */
     DOUBLE = 'DOUBLE',
+    /** Data type value for blob, serialized as 'BLOB'. */
     BLOB = 'BLOB'
 }
 
@@ -34,9 +43,13 @@ export enum DataType {
  * Foreign key action types
  */
 export enum ForeignKeyAction {
+    /** Foreign key action value for cascade, serialized as 'CASCADE'. */
     CASCADE = 'CASCADE',
+    /** Foreign key action value for restrict, serialized as 'RESTRICT'. */
     RESTRICT = 'RESTRICT',
+    /** Foreign key action value for set null, serialized as 'SET NULL'. */
     SET_NULL = 'SET NULL',
+    /** Foreign key action value for no action, serialized as 'NO ACTION'. */
     NO_ACTION = 'NO ACTION'
 }
 
@@ -44,10 +57,15 @@ export enum ForeignKeyAction {
  * Relation types - mirroring Objection.js
  */
 export enum RelationType {
+    /** Relation type value for belongs to one relation, serialized as 'BelongsToOneRelation'. */
     BelongsToOneRelation = 'BelongsToOneRelation',
+    /** Relation type value for has one relation, serialized as 'HasOneRelation'. */
     HasOneRelation = 'HasOneRelation',
+    /** Relation type value for has many relation, serialized as 'HasManyRelation'. */
     HasManyRelation = 'HasManyRelation',
+    /** Relation type value for many to many relation, serialized as 'ManyToManyRelation'. */
     ManyToManyRelation = 'ManyToManyRelation',
+    /** Relation type value for has one through relation, serialized as 'HasOneThroughRelation'. */
     HasOneThroughRelation = 'HasOneThroughRelation'
 }
 
@@ -263,7 +281,7 @@ export abstract class BaseModel {
     /**
      * Loaded relationships data
      */
-    protected relationships: Record<string, any> = {};
+    protected relationships: Record<string, any> = Object.create(null);
 
     /**
      * Create a new model instance
@@ -330,42 +348,38 @@ export abstract class BaseModel {
      * Get a specific relationship definition
      */
     public static getRelation(name: string): RelationshipDefinition | undefined {
-        return this.relationMappings[name];
+        return Object.hasOwn(this.relationMappings, name) ? this.relationMappings[name] : undefined;
     }
 
     /**
-     * Resolve model class from string or function
+     * Resolve a model class or lazy factory; reject invalid targets and preserve factory errors.
      */
     public static resolveModelClass(modelClass: typeof BaseModel | string | (() => typeof BaseModel)): typeof BaseModel {
         if (typeof modelClass === 'string') {
-            // For string references, you would typically have a model registry
-            // For now, throw an error to indicate this needs implementation
             throw new Error(`String model references not yet implemented: ${modelClass}`);
-        } else if (typeof modelClass === 'function') {
-            // Check if it's a function that returns a class (for circular dependencies)
-            // We can distinguish this by checking if it has a prototype with a constructor
-            // and if calling it returns a different function/class
-            try {
-                // If it's a constructor/class, it should have a prototype
-                if (modelClass.prototype && modelClass.prototype.constructor === modelClass) {
-                    // This is a class constructor, return it directly
-                    return modelClass as typeof BaseModel;
-                } else {
-                    // This might be a function that returns a class, try calling it
-                    const result = (modelClass as () => typeof BaseModel)();
-                    if (typeof result === 'function' && result.prototype && result.prototype.constructor === result) {
-                        return result;
-                    } else {
-                        throw new Error('Function did not return a valid model class');
-                    }
-                }
-            } catch (error) {
-                // If we can't determine the type safely, assume it's a class
-                return modelClass as typeof BaseModel;
-            }
-        } else {
+        }
+        if (typeof modelClass !== 'function') {
+            throw new TypeError('Relationship target must be a model class or a model factory');
+        }
+        if (modelClass === BaseModel || modelClass.prototype instanceof BaseModel) {
             return modelClass as typeof BaseModel;
         }
+        const resolved = (modelClass as () => typeof BaseModel)();
+        if (typeof resolved === 'function' && (resolved === BaseModel || resolved.prototype instanceof BaseModel)) {
+            return resolved;
+        }
+        throw new TypeError('Function did not return a valid model class');
+    }
+
+    /**
+     * Extract a column name from a relationship reference, rejecting incomplete references.
+     * @param reference - Column name, optionally qualified by its table.
+     * @returns The final nonempty column identifier.
+     */
+    private static columnNameFromReference(reference: string): string {
+        const column = reference.split('.').pop()!;
+        if (!column) throw new TypeError('Relationship reference must contain a column name');
+        return column;
     }
 
     /**
@@ -383,10 +397,10 @@ export abstract class BaseModel {
                 const to = Array.isArray(relation.join.to) ? relation.join.to : [relation.join.to];
                 
                 // Extract table and column names
-                const fromColumns = from.map(col => col.split('.').pop() || col);
+                const fromColumns = from.map(col => this.columnNameFromReference(col));
                 const toTableColumn = to[0].split('.');
                 const toTable = toTableColumn[0];
-                const toColumns = to.map(col => col.split('.').pop() || col);
+                const toColumns = to.map(col => this.columnNameFromReference(col));
                 
                 const fkName = `FK_${this.tableName}_${relationName.toUpperCase()}`;
                 
@@ -423,7 +437,7 @@ export abstract class BaseModel {
         for (const [relationName, relation] of Object.entries(relations)) {
             if (relation.relation === RelationType.BelongsToOneRelation) {
                 const from = Array.isArray(relation.join.from) ? relation.join.from : [relation.join.from];
-                const fromColumns = from.map(col => col.split('.').pop() || col);
+                const fromColumns = from.map(col => this.columnNameFromReference(col));
                 
                 const hasMatchingForeignKey = foreignKeys.some(fk => 
                     fk.columns.length === fromColumns.length &&
@@ -441,7 +455,7 @@ export abstract class BaseModel {
         for (const fk of foreignKeys) {
             const hasMatchingRelation = Object.values(relations).some(relation => {
                 const from = Array.isArray(relation.join.from) ? relation.join.from : [relation.join.from];
-                const fromColumns = from.map(col => col.split('.').pop() || col);
+                const fromColumns = from.map(col => this.columnNameFromReference(col));
                 
                 return relation.relation === RelationType.BelongsToOneRelation &&
                        fk.columns.length === fromColumns.length &&
@@ -560,7 +574,7 @@ export abstract class BaseModel {
      * Check if a relationship is loaded
      */
     public hasRelated(relationName: string): boolean {
-        return relationName in this.relationships;
+        return Object.hasOwn(this.relationships, relationName);
     }
 
     /**
@@ -575,7 +589,7 @@ export abstract class BaseModel {
      * Clear all loaded relationships
      */
     public clearAllRelated(): this {
-        this.relationships = {};
+        this.relationships = Object.create(null);
         return this;
     }
 

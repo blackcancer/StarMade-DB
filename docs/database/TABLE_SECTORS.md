@@ -95,3 +95,9 @@ see [EXEMPLE_SECTORS.md](./EXEMPLE_SECTORS.md) for a curated list of example que
 | `1.0`   | 2025-01-09 | InitSysRev   | Initial creation of the SECTORS table schema |
 
 [INDEX](./INDEX.md)
+
+## Global coordinate contract
+
+`SectorTable.define()` creates the unique index `secCoordIndex(X,Y,Z)`. Coordinates identify a sector globally, regardless of `STELLAR`; two different rows at the same coordinates conflict even if their system references differ. `getUniqueCoordinateKey()` follows this index. `getSystemContextCoordinateKey()` additionally includes the system ID for diagnostics.
+
+`calculateRelativeCoordinatesInSystem()` uses a 16-sector grid by default, matching the decoder's `SYSTEM_SIZE`. Floor division correctly maps negative positions: sector -1 belongs to grid coordinate -1 with local coordinate 15. This helper accepts an explicit positive integer grid size.

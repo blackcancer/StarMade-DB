@@ -17,7 +17,7 @@
 | **MISSION_STRING** | `VARCHAR(1024)`     | `NULL`                   | High-level mission description  |
 | **COMMAND**        | `VARBINARY(1024)`   | `NULL`                   | Serialized command data         |
 | **FACTION_ACCESS** | `TINYINT(8)`        | `NULL DEFAULT 0`         | Access permission level bitmask |
-| **SAVED_REMOTES**  | `VARBINARY(1024)`   | `NULL`                   | Serialized NBT remote data      |
+| **SAVED_REMOTES**  | `VARBINARY(1024)`   | `NULL`                   | Serialized remote toggle data      |
 | **COMBAT_SETTING** | `VARCHAR(128)`      | `NULL`                   | Combat behavior preset          |
 
 **Primary Key:** `ID`  
@@ -70,27 +70,34 @@ Serialized data containing the specific fleet command with parameters, arguments
 #### Command Types
 | Index | Constant               | Arguments                     | Behavior                                    |
 |-------|------------------------|-------------------------------|---------------------------------------------|
-| `0`   | `IDLE`                 | None                          | Fleet enters idle standby state             |
-| `1`   | `MOVE_FLEET`           | `Vector3i destination`        | Fleet moves to specified sector             |
-| `2`   | `PATROL_FLEET`         | `Vector3i[] waypoints`        | Fleet follows patrol route                  |
-| `3`   | `TRADE_FLEET`          | `Vector3i targetSector`       | Fleet performs trading operations           |
-| `4`   | `FLEET_ATTACK`         | `Vector3i targetSector`       | Fleet attacks specified sector              |
-| `5`   | `FLEET_DEFEND`         | `Vector3i anchorSector`       | Fleet defends specified sector              |
-| `6`   | `ESCORT`               | None                          | Fleet escorts flagship                      |
-| `7`   | `REPAIR`               | None                          | Fleet seeks repair facilities               |
-| `8`   | `STANDOFF`             | None                          | Fleet maintains combat distance             |
-| `9`   | `SENTRY_FORMATION`     | None                          | Fleet forms defensive circle                |
-| `10`  | `SENTRY`               | None                          | Fleet enters static defense mode           |
-| `11`  | `FLEET_IDLE_FORMATION` | None                          | Fleet maintains loose formation             |
-| `12`  | `CALL_TO_CARRIER`      | None                          | Fleet recalls docked ships                 |
-| `13`  | `MINE_IN_SECTOR`       | None                          | Fleet begins mining operations              |
-| `14`  | `CLOAK`                | None                          | Fleet activates cloaking                   |
-| `15`  | `UNCLOAK`              | None                          | Fleet deactivates cloaking                 |
-| `16`  | `JAM`                  | None                          | Fleet activates radar jamming              |
-| `17`  | `UNJAM`                | None                          | Fleet deactivates radar jamming            |
-| `18`  | `ACTIVATE_REMOTE`      | `String name, Boolean state` | Fleet toggles remote system                |
-| `19`  | `INTERDICT`            | None                          | Fleet activates jump interdiction          |
-| `20`  | `STOP_INTERDICT`       | None                          | Fleet deactivates jump interdiction        |
+| `0` | `IDLE` | See command payload | Idle |
+| `1` | `MOVE_FLEET` | See command payload | Move fleet |
+| `2` | `PATROL_FLEET` | See command payload | Patrol fleet |
+| `3` | `TRADE_FLEET` | See command payload | Trade fleet |
+| `4` | `REPAIR_FLEET` | See command payload | Repair fleet |
+| `5` | `FLEET_ATTACK` | See command payload | Fleet attack |
+| `6` | `FLEET_DEFEND` | See command payload | Fleet defend |
+| `7` | `ESCORT` | See command payload | Escort |
+| `8` | `REPAIR` | See command payload | Repair |
+| `9` | `ARTILLERY` | See command payload | Artillery |
+| `10` | `SENTRY_FORMATION` | See command payload | Sentry formation |
+| `11` | `SENTRY` | See command payload | Sentry |
+| `12` | `FLEET_IDLE_FORMATION` | See command payload | Fleet idle formation |
+| `13` | `CALL_TO_CARRIER` | See command payload | Call to carrier |
+| `14` | `MINE_IN_SECTOR` | See command payload | Mine in sector |
+| `15` | `CLOAK` | See command payload | Cloak |
+| `16` | `UNCLOAK` | See command payload | Uncloak |
+| `17` | `JAM` | See command payload | Jam |
+| `18` | `UNJAM` | See command payload | Unjam |
+| `19` | `ACTIVATE_REMOTE` | See command payload | Activate remote |
+| `20` | `INTERDICT` | See command payload | Interdict |
+| `21` | `STOP_INTERDICT` | See command payload | Stop interdict |
+
+The ordinal list above matches `FleetsModel.FleetCommand` and the installed
+`starmade-decoder` command contract, including `REPAIR_FLEET` at ordinal 4.
+The supplied Java table source calls `FleetCommand.serializeBytes()` but does
+not include the `FleetCommandTypes` declaration; argument signatures therefore
+require the corresponding game-version source for independent verification.
 
 #### Argument Value Tags
 | Tag | Type         | Description           | Example Usage                    |
@@ -122,7 +129,7 @@ Access permission level controlling who can command and modify the fleet.
 
 ### SAVED_REMOTES{#saved_remotes}
 
-The SAVED_REMOTES field uses a custom binary format produced by `Fleet.serialize(DataOutput...)` and `Fleet.deserialize(DataInput...)`, which is **not** NBT and **not** Java `ObjectOutputStream`.
+The supplied `FleetTable.java` delegates this column to `Fleet.serializeRemotes()` and `Fleet.deserializeRemotes()`. Those implementations are not included in this source extract. StarMade-DB writes the DataOutput layout below through `starmade-decoder`; its reader also accepts Java ObjectOutputStream payloads. This is not an NBT column.
 
 ##### Header Layout
 | Offset | Size | Java Type | Description                                           |

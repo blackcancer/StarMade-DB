@@ -112,7 +112,9 @@ export interface NpcStatsStatistics {
  * Controller for NPC_STATS table with spawn analytics capabilities
  */
 export class NpcStatsController extends BaseController<NPCStatsModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<NPCStatsModel> = NPCStatsModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'NpcStatsController';
 
     /**
@@ -165,6 +167,7 @@ export class NpcStatsController extends BaseController<NPCStatsModel> {
      * @throws {ErrorFactory} If the query fails
      */
     public async findAll(options: NpcStatsSearchOptions = {}): Promise<NPCStatsModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -474,13 +477,13 @@ export class NpcStatsController extends BaseController<NPCStatsModel> {
                 fleetSumResult, entitySumResult,
                 topFactionsResult, topSystemsResult
             ] = await Promise.all([
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM NPC_STATS', []),
-                this.executeQuery('SELECT COUNT(DISTINCT ID) AS cnt FROM NPC_STATS', []),
-                this.executeQuery('SELECT COUNT(DISTINCT SYS_X || \',\' || SYS_Y || \',\' || SYS_Z) AS cnt FROM NPC_STATS', []),
-                this.executeQuery('SELECT SUM(FLEET_SPAWNS) AS total FROM NPC_STATS', []),
-                this.executeQuery('SELECT SUM(ENTITY_SPAWNS) AS total FROM NPC_STATS', []),
-                this.executeQuery('SELECT ID, SUM(FLEET_SPAWNS + ENTITY_SPAWNS) AS total FROM NPC_STATS GROUP BY ID ORDER BY total DESC LIMIT 5', []),
-                this.executeQuery('SELECT SYS_X, SYS_Y, SYS_Z, SUM(FLEET_SPAWNS + ENTITY_SPAWNS) AS total FROM NPC_STATS GROUP BY SYS_X, SYS_Y, SYS_Z ORDER BY total DESC LIMIT 5', [])
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM NPC_STATS', []),
+                this.executeQuery('SELECT COUNT(DISTINCT ID) AS "cnt" FROM NPC_STATS', []),
+                this.executeQuery('SELECT COUNT(DISTINCT SYS_X || \',\' || SYS_Y || \',\' || SYS_Z) AS "cnt" FROM NPC_STATS', []),
+                this.executeQuery('SELECT SUM(FLEET_SPAWNS) AS "total" FROM NPC_STATS', []),
+                this.executeQuery('SELECT SUM(ENTITY_SPAWNS) AS "total" FROM NPC_STATS', []),
+                this.executeQuery('SELECT ID, SUM(FLEET_SPAWNS + ENTITY_SPAWNS) AS "total" FROM NPC_STATS GROUP BY ID ORDER BY "total" DESC LIMIT 5', []),
+                this.executeQuery('SELECT SYS_X, SYS_Y, SYS_Z, SUM(FLEET_SPAWNS + ENTITY_SPAWNS) AS "total" FROM NPC_STATS GROUP BY SYS_X, SYS_Y, SYS_Z ORDER BY "total" DESC LIMIT 5', [])
             ]);
 
             const mostActiveFactions = topFactionsResult.map((r: any) => ({

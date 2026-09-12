@@ -1,3 +1,8 @@
+import * as related0 from '../player-messages/PlayerMessagesModel.js';
+import * as related1 from '../mines/MinesModel.js';
+import * as related2 from '../trade-nodes/TradeNodesModel.js';
+import * as related3 from '../fleets/FleetsModel.js';
+import * as related4 from '../entities/EntitiesModel.js';
 /**
  * @fileoverview Players Model
  * 
@@ -28,14 +33,23 @@ import {
  * Player permission flags (bitwise)
  */
 export enum PlayerPermission {
+    /** Player permission value for invite, serialized as 1. */
     INVITE = 1,              // 0x1 - Can invite players to faction
+    /** Player permission value for kick, serialized as 2. */
     KICK = 2,                // 0x2 - Can kick players from faction  
+    /** Player permission value for edit permissions, serialized as 4. */
     EDIT_PERMISSIONS = 4,     // 0x4 - Can modify permissions
+    /** Player permission value for edit description, serialized as 8. */
     EDIT_DESCRIPTION = 8,     // 0x8 - Can edit faction description
+    /** Player permission value for relationship, serialized as 16. */
     RELATIONSHIP = 16,        // 0x10 - Can manage faction relationships
+    /** Player permission value for homebase, serialized as 32. */
     HOMEBASE = 32,           // 0x20 - Can manage homebase
+    /** Player permission value for fog of war share, serialized as 64. */
     FOG_OF_WAR_SHARE = 64,   // 0x40 - Can share fog of war
+    /** Player permission value for news post, serialized as 128. */
     NEWS_POST = 128,         // 0x80 - Can post faction news
+    /** Player permission value for admin permissions, serialized as 0x7FFFFFFF. */
     ADMIN_PERMISSIONS = 0x7FFFFFFF // Admin level permissions
 }
 
@@ -43,9 +57,13 @@ export enum PlayerPermission {
  * Common permission combinations
  */
 export enum PlayerRole {
+    /** Player role value for member, serialized as 0. */
     MEMBER = 0,                                           // No permissions
+    /** Player role value for commander, serialized as PlayerPermission.INVITE | PlayerPermission.KICK. */
     COMMANDER = PlayerPermission.INVITE | PlayerPermission.KICK,
+    /** Player role value for captain, serialized as PlayerPermission.INVITE | PlayerPermission.KICK | PlayerPermission.EDIT_PERMISSIONS. */
     CAPTAIN  = PlayerPermission.INVITE | PlayerPermission.KICK | PlayerPermission.EDIT_PERMISSIONS,
+    /** Player role value for full control, serialized as 255. */
     FULL_CONTROL = 255                                   // All permissions
 }
 
@@ -60,8 +78,10 @@ export enum PlayerRole {
  * permission system, and comprehensive player analytics.
  */
 export class PlayersModel extends BaseModel {
+    /** SQL table name used to generate queries for this model. */
     public static tableName = 'PLAYERS';
     
+    /** SQL column, key, index and validation definitions for this table. */
     public static schema: TableSchema = {
         tableName: 'PLAYERS',
         comment: 'Player account information and permissions',
@@ -69,6 +89,7 @@ export class PlayersModel extends BaseModel {
         columns: [
             column('ID', DataType.BIGINT, {
                 primaryKey: true,
+                autoIncrement: true,
                 nullable: false,
                 comment: 'Player unique identifier'
             }),
@@ -152,7 +173,7 @@ export class PlayersModel extends BaseModel {
             sentMessages: relation(
                 Model.HasManyRelation,
                 () => {
-                    return require('../player-messages/PlayerMessagesModel.js').PlayerMessagesModel;
+                    return related0.PlayerMessagesModel;
                 },
                 {
                     from: 'PLAYERS.STARMADE_NAME',
@@ -164,7 +185,7 @@ export class PlayersModel extends BaseModel {
             receivedMessages: relation(
                 Model.HasManyRelation,
                 () => {
-                    return require('../player-messages/PlayerMessagesModel.js').PlayerMessagesModel;
+                    return related0.PlayerMessagesModel;
                 },
                 {
                     from: 'PLAYERS.STARMADE_NAME',
@@ -176,7 +197,7 @@ export class PlayersModel extends BaseModel {
             ownedMines: relation(
                 Model.HasManyRelation,
                 () => {
-                    return require('../mines/MinesModel.js').MinesModel;
+                    return related1.MinesModel;
                 },
                 {
                     from: 'PLAYERS.ID',
@@ -188,7 +209,7 @@ export class PlayersModel extends BaseModel {
             ownedTradeNodes: relation(
                 Model.HasManyRelation,
                 () => {
-                    return require('../trade-nodes/TradeNodesModel.js').TradeNodesModel;
+                    return related2.TradeNodesModel;
                 },
                 {
                     from: 'PLAYERS.STARMADE_NAME',
@@ -200,7 +221,7 @@ export class PlayersModel extends BaseModel {
             ownedFleets: relation(
                 Model.HasManyRelation,
                 () => {
-                    return require('../fleets/FleetsModel.js').FleetsModel;
+                    return related3.FleetsModel;
                 },
                 {
                     from: 'PLAYERS.STARMADE_NAME',
@@ -212,7 +233,7 @@ export class PlayersModel extends BaseModel {
             createdEntities: relation(
                 Model.HasManyRelation,
                 () => {
-                    return require('../entities/EntitiesModel.js').EntitiesModel;
+                    return related4.EntitiesModel;
                 },
                 {
                     from: 'PLAYERS.STARMADE_NAME',
@@ -224,7 +245,7 @@ export class PlayersModel extends BaseModel {
             modifiedEntities: relation(
                 Model.HasManyRelation,
                 () => {
-                    return require('../entities/EntitiesModel.js').EntitiesModel;
+                    return related4.EntitiesModel;
                 },
                 {
                     from: 'PLAYERS.STARMADE_NAME',
@@ -238,28 +259,73 @@ export class PlayersModel extends BaseModel {
     // TYPED ACCESSORS
     // =============================================================================
 
+    /**
+     * Read the PLAYERS.ID column from this model. Numeric strings are converted to integers.
+     * @returns The stored ID value, normalized to an integer when necessary.
+     */
     public getId(): number { 
         const id = this.get('ID'); 
         return typeof id === 'string' ? parseInt(id, 10) : id;
     }
+    /**
+     * Store the PLAYERS.ID column in this model and return this for chaining.
+     * @param id New value for the ID column.
+     * @returns This model for chaining.
+     */
     public setId(id: number): this { return this.set('ID', id); }
 
+    /**
+     * Read the PLAYERS.NAME column from this model.
+     * @returns The stored NAME value.
+     */
     public getName(): string { return this.get('NAME'); }
+    /**
+     * Store the PLAYERS.NAME column in this model and return this for chaining.
+     * @param name New value for the NAME column.
+     * @returns This model for chaining.
+     */
     public setName(name: string): this { return this.set('NAME', name); }
 
+    /**
+     * Read the PLAYERS.STARMADE_NAME column from this model.
+     * @returns The stored STARMADE_NAME value.
+     */
     public getStarmadeName(): string { return this.get('STARMADE_NAME'); }
+    /**
+     * Store the PLAYERS.STARMADE_NAME column in this model and return this for chaining.
+     * @param starmadeName New value for the STARMADE_NAME column.
+     * @returns This model for chaining.
+     */
     public setStarmadeName(starmadeName: string): this { return this.set('STARMADE_NAME', starmadeName); }
 
+    /**
+     * Read the PLAYERS.FACTION column from this model. Numeric strings are converted to integers.
+     * @returns The stored FACTION value, normalized to an integer when necessary.
+     */
     public getFaction(): number { 
         const faction = this.get('FACTION'); 
         return typeof faction === 'string' ? parseInt(faction, 10) : faction;
     }
+    /**
+     * Store the PLAYERS.FACTION column in this model and return this for chaining.
+     * @param faction New value for the FACTION column.
+     * @returns This model for chaining.
+     */
     public setFaction(faction: number): this { return this.set('FACTION', faction); }
 
+    /**
+     * Read the PLAYERS.PERMISSION column from this model. Numeric strings are converted to integers.
+     * @returns The stored PERMISSION value, normalized to an integer when necessary.
+     */
     public getPermission(): number { 
         const permission = this.get('PERMISSION'); 
         return typeof permission === 'string' ? parseInt(permission, 10) : permission;
     }
+    /**
+     * Store the PLAYERS.PERMISSION column in this model and return this for chaining.
+     * @param permission New value for the PERMISSION column.
+     * @returns This model for chaining.
+     */
     public setPermission(permission: number): this { return this.set('PERMISSION', permission); }
 
     // =============================================================================

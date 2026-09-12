@@ -115,7 +115,9 @@ export interface TradeNodeStatistics {
  * Controller for TRADE_NODES table with economic management capabilities
  */
 export class TradeNodesController extends BaseController<TradeNodesModel> {
+    /** Model constructor used to map database rows and obtain the table schema. */
     protected ModelClass: ModelConstructor<TradeNodesModel> = TradeNodesModel;
+    /** Controller name attached to logging and diagnostics. */
     protected controllerName = 'TradeNodesController';
 
     /**
@@ -168,6 +170,7 @@ export class TradeNodesController extends BaseController<TradeNodesModel> {
      * @throws {ErrorFactory} If the query fails
      */
     public async findAll(options: TradeNodeSearchOptions = {}): Promise<TradeNodesModel[]> {
+        this.validateQueryOptions(options);
         this.ensureInitialized();
 
         const {
@@ -432,12 +435,12 @@ export class TradeNodesController extends BaseController<TradeNodesModel> {
 
         try {
             const [totalResult, npcResult, openResult, closedResult, permResult, ownerResult] = await Promise.all([
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM TRADE_NODES', []),
-                this.executeQuery('SELECT COUNT(*) AS cnt FROM TRADE_NODES WHERE FACTION < 0', []),
-                this.executeQuery(`SELECT COUNT(*) AS cnt FROM TRADE_NODES WHERE PERMISSION = ${TradePermissionPreset.UNIVERSAL_ACCESS}`, []),
-                this.executeQuery(`SELECT COUNT(*) AS cnt FROM TRADE_NODES WHERE PERMISSION = ${TradePermissionPreset.NO_ACCESS}`, []),
-                this.executeQuery('SELECT PERMISSION, COUNT(*) AS cnt FROM TRADE_NODES GROUP BY PERMISSION', []),
-                this.executeQuery('SELECT PLAYER, COUNT(*) AS cnt FROM TRADE_NODES WHERE PLAYER IS NOT NULL GROUP BY PLAYER ORDER BY cnt DESC LIMIT 10', [])
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM TRADE_NODES', []),
+                this.executeQuery('SELECT COUNT(*) AS "cnt" FROM TRADE_NODES WHERE FACTION < 0', []),
+                this.executeQuery(`SELECT COUNT(*) AS "cnt" FROM TRADE_NODES WHERE PERMISSION = ${TradePermissionPreset.UNIVERSAL_ACCESS}`, []),
+                this.executeQuery(`SELECT COUNT(*) AS "cnt" FROM TRADE_NODES WHERE PERMISSION = ${TradePermissionPreset.NO_ACCESS}`, []),
+                this.executeQuery('SELECT PERMISSION, COUNT(*) AS "cnt" FROM TRADE_NODES GROUP BY PERMISSION', []),
+                this.executeQuery('SELECT PLAYER, COUNT(*) AS "cnt" FROM TRADE_NODES WHERE PLAYER IS NOT NULL GROUP BY PLAYER ORDER BY "cnt" DESC LIMIT 10', [])
             ]);
 
             const total = Number(totalResult[0]?.cnt ?? 0);
