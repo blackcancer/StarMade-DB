@@ -7,10 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [2.0.1] – 2026-09-20
+
+### Maintenance
+
+- Consolidate getting-started/API documentation and controller validation evidence; correct broken schema links and obsolete contribution/security instructions.
+- Remove unused Mocha/ts-node configuration, the empty TypeScript project, redundant npm aliases and retired JDBC/sandbox prototypes; keep the active test runner, production build and database explorer.
+- Stop tracking IDE caches, intermediate build output, generated reports and compiled Java helpers; preserve local copies and historical SQL data.
+- Retain all executable source files, test assertions, database fixtures and per-file 100% line/branch coverage gates.
 
 ### Fixed
 
+- Store fleet remotes consistently as Java ObjectOutputStream data, reject incomplete recovered objects, and document strict command decoding.
+- Adapt legacy 16-byte system resource cells to the current 19-slot decoder; expose explicit 19-byte writes and reject lossy conversions.
 - Remove proprietary StarMade Java sources from the tracked tree and npm package; retain local references only.
 - Validate table schemas against database metadata without requiring proprietary source files.
 

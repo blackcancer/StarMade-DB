@@ -101,3 +101,15 @@ build/
 out/
 # Proprietary game sources: local reference only; never commit or distribute.
 /docs/starmade src/
+
+# Local IDE state and generated diagnostics
+/.vs/
+/obj/
+*.esproj.user
+*.class
+/tools/reports/
+/reports/
+
+# Historical SQL experiments retained locally, not used by tests
+/tools/04-entities-fixed.sql
+/tools/mysql-schema-creation.sql

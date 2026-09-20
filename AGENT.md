@@ -1,4 +1,4 @@
-﻿# SMToolkit-DB – AGENT.md
+# StarMade-DB – AGENT.md
 
 ## Objective
 
@@ -9,17 +9,14 @@ Develop a robust, secure, and fully documented **TypeScript/JavaScript ES2023 mo
 ## Project Structure
 
 ```
-/SMToolkit-DB
+/StarMade-DB
 ├── docs/
-│   ├── api/                    # Public API documentation
-│   ├── database/               # StarMade database schema documentation
-│   └── CHANGELOG.md              # Change log and version history
+│   ├── api/                    # Generated public and internal API documentation
+│   └── database/               # StarMade database schema documentation
 ├── src/
 │   ├── core/
 │   │   ├── HSQLManager.ts      # Main manager class
 │   │   ├── errors.ts           # Custom error classes
-│   │   ├── utils.ts            # Utility functions
-│   │   ├── events.ts           # Event system
 │   │   ├── index.ts            # Core exports
 │   │   └── modules/
 │   │       ├── connection/     # Database connection management
@@ -29,15 +26,13 @@ Develop a robust, secure, and fully documented **TypeScript/JavaScript ES2023 mo
 │   │       ├── cache/          # Caching system
 │   │       ├── performance/    # Performance monitoring
 │   │       └── logging/        # Logging system
-│   └── tables/                 # Table-specific implementations (future)
+│   └── tables/                 # Models/controllers for all 16 tables
 │       ├── players/
 │       ├── entities/
 │       ├── fleets/
 │       └── ...
 ├── dist/                       # Compiled JavaScript output
-│   ├── [mirror of src]         # Compiled modules
-│   └── lib/
-│       └── hsqldb.jar          # HSQLDB driver
+│   └── [mirror of src]         # Compiled modules; JDBC driver supplied separately
 ├── tests/
 │   ├── sandbox/                # Test database environment
 │   │   └── server-database/
@@ -45,7 +40,7 @@ Develop a robust, secure, and fully documented **TypeScript/JavaScript ES2023 mo
 │   └── [mirror of src]         # Unit and integration tests
 ├── tools/
 │   └── StarMadeExplorer.js     # Database exploration tool
-├── examples/                   # Usage examples
+├── CHANGELOG.md                # Release history
 ├── AGENT.md                    # This file
 ├── README.md                   # Quick-start & usage
 ├── CONTRIBUTING.md             # Contribution guidelines
@@ -132,15 +127,15 @@ interface BaseModule {
        public readonly name = 'MyModule';
        public readonly version = '1.0.0';
        private initialized = false;
-       
+
        public get isInitialized(): boolean {
            return this.initialized;
        }
-       
+
        public async initialize(manager: HSQLManager): Promise<void> {
            // Initialization logic
        }
-       
+
        public async destroy(): Promise<void> {
            // Cleanup logic
        }
@@ -206,7 +201,7 @@ npm test
 * **JSDoc**: Complete documentation for public, protected and private methods and declarations
 * **README**: Update if API changes
 * **CHANGELOG.md**: Log all changes with version
-* **Examples**: Add usage examples for new features
+* **Examples**: Add usage examples to README.md or docs/API.md for new features
 
 ### 3. Code Review Checklist
 
@@ -259,7 +254,7 @@ npm test
 | Coverage: 100% lines and branches per file | ☐ | `npm run test:coverage` |
 | Build successful | ☐ | `npm run build` |
 | Docs updated | ☐ | API.md, CHANGELOG.md |
-| Examples working | ☐ | `npm run examples` |
+| Examples working | ☐ | Execute README/API examples and the explorer against a disposable database copy; `--help` is only a CLI check |
 | Security audit | ☐ | `npm audit` |
 | Performance baseline | ☐ | No regression |
 
@@ -326,3 +321,6 @@ npm test
 ## Proprietary references
 
 StarMade game source code is local reference material only. Never commit it or include it in package artifacts. Tests must run without these private files.
+
+Commits produced by automation use the name `InitSysRev-Agent`. Keep the test runner
+and coverage thresholds authoritative; do not restore obsolete Mocha/ts-node configurations.

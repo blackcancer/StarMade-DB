@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import sinon from 'sinon';
 import { ModelClasses, BaseModel } from '../../src/tables/index.js';
 import { SystemsModel } from '../../src/tables/systems/SystemsModel.js';
-import { StarSystem } from 'starmade-decoder';
+import { StarSystem, DecodeError } from 'starmade-decoder';
 import { PlayersModel, PlayerPermission } from '../../src/tables/players/PlayersModel.js';
 import { FleetsModel } from '../../src/tables/fleets/FleetsModel.js';
 import { TradeNodesModel } from '../../src/tables/trade-nodes/TradeNodesModel.js';
@@ -35,6 +35,44 @@ describe('Model relationship and binary boundaries', () => {
         expect(model.getInfos().length).to.equal(8192);
         expect(model.getResources().length).to.equal(16);
         expect(model.decodeResources().every(resource => resource.density === 0)).to.equal(true);
+    });
+    it('reads and preserves legacy 16-byte resources without changing stored data', () => {
+        const bytes = Buffer.alloc(16); bytes[0] = 80; bytes[15] = 255;
+        const model = new SystemsModel({ RESOURCES: bytes, INFOS: StarSystem.empty().infosToBytes() });
+        expect(model.decodeResources().map(({ index, density }) => [index, density])).to.deep.equal([[0, 80], [15, 255]]);
+        const system = model.decodeStarSystem()!;
+        expect(system.resources[15].density).to.equal(255);
+        expect(system.resources.slice(16).every(resource => resource.density === 0)).to.equal(true);
+        expect(model.getResources()).to.equal(bytes);
+        expect(model.encodeStarSystem(system).getResources()).to.deep.equal(bytes);
+    });
+    it('supports explicit 19-byte resource output and rejects lossy legacy writes', () => {
+        const system = StarSystem.empty().withResourceDensity(18, 255);
+        const model = new SystemsModel();
+        expect(() => model.encodeStarSystem(system)).to.throw(RangeError, '16-byte');
+        expect(model.getInfos()).to.equal(undefined);
+        expect(() => model.encodeResources([...system.resources])).to.throw(RangeError, '16-byte');
+        expect(model.encodeStarSystem(system, 19).getResources().length).to.equal(19);
+        expect(model.getResources()[18]).to.equal(255);
+        expect(model.decodeStarSystem()!.resources[18].density).to.equal(255);
+        expect(model.encodeResources([...system.resources], 19).decodeResources()[0].index).to.equal(18);
+        expect(() => model.encodeResources([], 17 as 16)).to.throw(RangeError, '16 or 19');
+        expect(model.getResources()[18]).to.equal(255);
+    });
+    for (const size of [1, 15, 17, 18, 20]) {
+        it(`rejects malformed resource buffers of ${size} bytes`, () => {
+            const model = new SystemsModel({ RESOURCES: Buffer.alloc(size), INFOS: StarSystem.empty().infosToBytes() });
+            expect(() => model.decodeResources()).to.throw(DecodeError).with.property('code', 'E_FORMAT');
+            expect(() => model.decodeStarSystem()).to.throw(DecodeError).with.property('code', 'E_FORMAT');
+        });
+    }
+    it('keeps absent resources distinct from malformed nonempty cells', () => {
+        for (const raw of [undefined, null, Buffer.alloc(0)]) {
+            const model = new SystemsModel({ RESOURCES: raw as any, INFOS: StarSystem.empty().infosToBytes() });
+            expect(model.decodeResources()).to.deep.equal([]);
+            expect(model.decodeStarSystem()!.resources).to.deep.equal([]);
+        }
+        expect(() => new SystemsModel({ INFOS: Buffer.alloc(1) }).decodeStarSystem()).to.throw(DecodeError);
     });
     it('stores generated FTL IDs and explicit mine creation dates', () => {
         const route = new ModelClasses.FTL();

@@ -1107,7 +1107,7 @@ export class FleetsModel extends BaseModel {
     /**
      * Decodes FLEETS.COMMAND into a typed FleetCommandObject.
      *
-     * Returns null when the column is empty or the data is malformed.
+     * Returns null when the column is empty; malformed bytes raise DecodeError.
      * Requires starmade-decoder to be installed.
      *
      * @example
@@ -1164,7 +1164,9 @@ export class FleetsModel extends BaseModel {
 
     /**
      * Encodes and stores FLEETS.SAVED_REMOTES from a FleetRemotesObject, Map, or
-     * plain record. The writer always uses the portable DataOutput/network format.
+     * plain record. The writer uses the Java ObjectOutputStream database format,
+     * including for objects originally decoded from network bytes. Incomplete
+     * recovery objects raise DecodeError without replacing the stored value.
      *
      * Passing null/undefined clears the column.
      *
@@ -1177,16 +1179,18 @@ export class FleetsModel extends BaseModel {
     ): this {
         if (!remotes) return this.setSavedRemotes(undefined);
 
-        const anyRemotes = remotes as any;
-        if (typeof anyRemotes.toBytes === 'function') {
-            return this.setSavedRemotes(anyRemotes.toBytes());
+        if (remotes instanceof decoder.FleetRemotesObject) {
+            if (!remotes.complete) {
+                throw new decoder.DecodeError('E_INCOMPLETE', 'Cannot store incomplete fleet remotes', { path: 'FLEETS.SAVED_REMOTES' });
+            }
+            return this.setSavedRemotes(decoder.encodeFleetRemotes(new Map(remotes.remotes), 'java'));
         }
 
         const entries = remotes instanceof Map
             ? remotes
             : new Map(Object.entries(remotes as Record<string, boolean>));
         const { encodeFleetRemotes } = decoder;
-        return this.setSavedRemotes(encodeFleetRemotes(entries));
+        return this.setSavedRemotes(encodeFleetRemotes(entries, 'java'));
     }
 
     // =============================================================================

@@ -1,6 +1,6 @@
 {
   "name": "starmade-db",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Unified module for interacting with StarMade's HSQLDB database via JDBC - Modular Architecture",
   "type": "module",
   "main": "dist/core/index.js",
@@ -48,18 +48,11 @@
     "build:watch": "tsc --watch",
     "build:prod": "rimraf dist .tsbuildinfo && tsc --project tsconfig.prod.json",
     "clean": "rimraf dist .tsbuildinfo",
-    "dev": "npm run build:watch",
-    "start": "npm run build && node dist/core/index.js",
     "test": "npm run build && node scripts/run-tests.mjs",
     "test:no-build": "node scripts/run-tests.mjs",
     "test:watch": "node scripts/run-tests.mjs --watch",
     "test:coverage": "npm run build && c8 node scripts/run-tests.mjs",
     "explore": "npm run build && node tools/StarMadeExplorer.js",
-    "explore:verbose": "npm run build && node tools/StarMadeExplorer.js --verbose",
-    "explore:export": "npm run build && node tools/StarMadeExplorer.js --export reports/schema-analysis.json --verbose",
-    "explore:table": "npm run build && node tools/StarMadeExplorer.js --table",
-    "explore:help": "npm run build && node tools/StarMadeExplorer.js --help",
-    "lint": "tsc --noEmit --pretty",
     "type-check": "tsc --noEmit",
     "validate": "npm run type-check && npm run docs:check && npm run test:coverage",
     "prepublishOnly": "npm run validate && npm run build:prod",
@@ -104,30 +97,8 @@
     "mocha": "^12.0.1",
     "rimraf": "^6.0.1",
     "sinon": "^21.0.0",
-    "source-map-support": "^0.5.21",
-    "ts-node": "^10.9.2",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
-  },
-  "mocha": {
-    "timeout": 30000,
-    "recursive": true,
-    "extension": [
-      "ts"
-    ],
-    "spec": "tests/**/*.test.ts",
-    "require": "tsx/esm",
-    "exit": true
-  },
-  "ts-node": {
-    "esm": true,
-    "experimentalSpecifierResolution": "node",
-    "compilerOptions": {
-      "module": "ESNext",
-      "moduleResolution": "bundler",
-      "allowSyntheticDefaultImports": true,
-      "esModuleInterop": true
-    }
   },
   "overrides": {
     "java": "0.16.2",

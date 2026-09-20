@@ -52,7 +52,7 @@ try {
 }
 ```
 
-Results contain `columns`, `rows` and timing information. JDBC may return BIGINT values as strings to preserve precision. Module identifiers use kebab case, for example `parameterized-query`, `transaction-manager`, `schema-analyzer` and `cache-manager`.
+Results contain `columns`, `rows` and timing information. JDBC may return BIGINT values as strings to preserve precision. Module identifiers include `parameterized-query`, `TransactionManager`, `schema-analyzer` and `cache-manager`.
 
 ## Models and controllers
 
@@ -71,10 +71,10 @@ Controllers use SQL column names from their model schema. `orderBy` accepts a co
 
 ## Connections and transactions
 
-Connections default to read-only. Enable writes explicitly with `connection.readOnly: false` and use a transaction for related mutations. The `transaction-manager` module must be enabled with `modules.enableParameterizedQueries: true`.
+Connections default to read-only. Enable writes explicitly with `connection.readOnly: false` and use a transaction for related mutations. The `TransactionManager` module must be enabled with `modules.enableParameterizedQueries: true`.
 
 ```javascript
-const transactions = manager.getModule('transaction-manager');
+const transactions = manager.getModule('TransactionManager');
 await transactions.executeTransaction(async transaction => {
     await transaction.execute(
         'UPDATE PLAYERS SET FACTION = ? WHERE NAME = ?', [123, 'Alice']
@@ -120,8 +120,7 @@ Coverage thresholds are acceptance criteria, not a claim that a particular run p
 
 ## Documentation
 
-- [Getting started](docs/GUIDE.md)
-- [API guide](docs/API.md)
+- [Getting started and API guide](docs/API.md)
 - [Schema validation](docs/SCHEMA_VALIDATION.md)
 - [Generated public API reference](docs/api/reference.md)
 - [Generated internal reference](docs/api/internal.md)
@@ -129,3 +128,24 @@ Coverage thresholds are acceptance criteria, not a claim that a particular run p
 - [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
+
+## Repository tools
+
+`scripts/` contains the disposable test runner and the JSDoc/API documentation tools.
+`tsconfig.json` builds the library with source maps; `tsconfig.prod.json` produces the
+release build without maps or comments. Mocha configuration belongs to the test runner.
+
+The maintained database explorer is `tools/StarMadeExplorer.js`:
+
+```bash
+npm run explore -- --help
+npm run explore -- --table PLAYERS --verbose
+npm run explore -- --export reports/schema-analysis.json --verbose
+```
+
+The explorer targets `tests/sandbox/server-database/test_world`; use it on a disposable
+checkout/copy. For a different database, use the library API with an explicit path.
+Generated reports, compiled Java helpers and local IDE state are not tracked.
+The Visual Studio solution/project remain available as an optional editor entrypoint.
+Historical SQL samples are described in [test-data/README.md](test-data/README.md);
+they are not loaded by the automated test runner.

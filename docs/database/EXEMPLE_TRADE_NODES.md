@@ -641,4 +641,4 @@ LIMIT 20;
 |---------|------------|--------------|----------------------------------------------------| 
 | `1.0`   | 2025-01-09 | InitSysRev   | Initial creation of TRADE_NODES example queries   |
 
-[INDEX](./INDEX.md) | [TRADE_NODE](./TABLE_TRADE_NODE_.md)
+[INDEX](./INDEX.md) | [TRADE_NODE](./TABLE_TRADE_NODES.md)

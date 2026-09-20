@@ -1,434 +1,78 @@
 # Contributing to StarMade-DB
 
-First off, thank you for considering contributing to StarMade-DB! It's people like you that make StarMade-DB such a great tool for the StarMade community.
+Use the [README installation instructions](README.md#requirements-and-installation),
+including a compatible JDK/native toolchain, `HSQLDB_JAR`, and the sibling
+`StarMade-Decoder` checkout. Build that dependency before installing this project.
+Keep discussion respectful and include reproducible steps when reporting issues.
 
-## Table of Contents
+## Development and tests
 
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-- [How Can I Contribute?](#how-can-i-contribute)
-- [Development Process](#development-process)
-- [Style Guidelines](#style-guidelines)
-- [Commit Guidelines](#commit-guidelines)
-- [Pull Request Process](#pull-request-process)
-- [Testing Guidelines](#testing-guidelines)
-- [Documentation](#documentation)
-- [Community](#community)
-
-## Code of Conduct
-
-This project and everyone participating in it is governed by our Code of Conduct. By participating, you are expected to uphold this code. Please report unacceptable behavior to the project maintainers.
-
-### Our Standards
-
-- Be respectful and inclusive
-- Welcome newcomers and help them get started
-- Focus on what is best for the community
-- Show empathy towards other community members
-
-## Getting Started
-
-### Prerequisites
-
-Before you begin, ensure you have the following installed:
-- Node.js 20.19+ on the 20.x line, or Node.js 22.12+
-- A JDK compatible with the installed StarMade HSQLDB driver, plus a C/C++ compiler and Python for the native bridge
-- Git
-- npm or yarn
-
-### Setting Up Your Development Environment
-
-1. **Fork the repository**
-   ```bash
-   # Click the 'Fork' button on GitHub
-   ```
-
-2. **Clone your fork**
-   ```bash
-   git clone https://github.com/blackcancer/StarMade-DB.git
-   cd StarMade-DB
-   ```
-
-3. **Add upstream remote**
-   ```bash
-   git remote add upstream https://github.com/blackcancer/StarMade-DB.git
-   ```
-
-4. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-5. **Build the project**
-   ```bash
-   npm run build
-   ```
-
-6. **Run tests**
-   ```bash
-   npm test
-   ```
-
-7. **Set up test database**
-   ```bash
-   # Ensure you have the test world in tests/sandbox/
-   # The test database should be at:
-   # tests/sandbox/server-database/test_world/
-   ```
-
-## How Can I Contribute?
-
-### Reporting Bugs
-
-Before creating bug reports, please check existing issues to avoid duplicates. When you create a bug report, include as many details as possible:
-
-**Bug Report Template:**
-```markdown
-### Description
-[Clear description of the bug]
-
-### Steps to Reproduce
-1. [First Step]
-2. [Second Step]
-3. [...]
-
-### Expected Behavior
-[What you expected to happen]
-
-### Actual Behavior
-[What actually happened]
-
-### Environment
-- StarMade-DB Version: [e.g., 0.202.86]
-- Node.js Version: [e.g., 18.17.0]
-- Operating System: [e.g., Windows 10, Ubuntu 22.04]
-- Java Version: [e.g., OpenJDK 11]
-
-### Additional Context
-[Any other information that might be helpful]
-```
-
-### Suggesting Enhancements
-
-Enhancement suggestions are tracked as GitHub issues. When creating an enhancement suggestion, include:
-
-**Enhancement Template:**
-```markdown
-### Summary
-[One paragraph summary of the enhancement]
-
-### Motivation
-[Why is this enhancement needed?]
-
-### Detailed Description
-[Detailed description of the proposed enhancement]
-
-### Alternatives Considered
-[Any alternative solutions you've considered]
-
-### Additional Context
-[Any other information or mockups]
-```
-
-### Your First Code Contribution
-
-Unsure where to begin? Look for these tags in our issues:
-- `good first issue` - Simple issues perfect for beginners
-- `help wanted` - Issues where we need community help
-- `documentation` - Documentation improvements
-
-## Development Process
-
-### 1. Create a Feature Branch
+Create a branch for the change. For new behavior or a regression, write a failing
+Mocha/Chai test first, implement the correction, then refactor with tests passing.
+Mirror `src/` in `tests/` and assert results, failure paths and database semantics.
 
 ```bash
-# Update your local repository
-git checkout main
-git pull upstream main
-
-# Create a feature branch
-git checkout -b feature/your-feature-name
-# or
-git checkout -b fix/your-bug-fix
-```
-
-### 2. Make Your Changes
-
-Follow our coding standards and ensure your changes include:
-- Appropriate tests
-- JSDoc documentation
-- Updated examples (if applicable)
-
-### 3. Test Your Changes
-
-```bash
-# Run all tests
-npm test
-
-# Run specific test file
-npm test -- tests/core/modules/your-module.test.js
-
-# Check coverage
-npm run test:coverage
-
-# Ensure build works
+npm ci
 npm run build
+npm run test:no-build -- tests/core/audit-regressions.test.ts
+npm run test:no-build -- '--grep=connection'
+npm run validate
+npm run build:prod
 ```
 
-### 4. Commit Your Changes
+`npm run validate` checks TypeScript, JSDoc descriptions and the complete test suite
+with **100% lines and branches in every executable `src/**/*.ts` file**, including
+private implementation paths. The only source exclusion is declaration files (`*.d.ts`).
+Do not remove assertions, lower thresholds, add ignore annotations or exclude difficult
+files to satisfy the gate. A failing or unexecuted check is not a passing result.
 
-Follow our [Commit Guidelines](#commit-guidelines) for your commit messages.
+The runner in `scripts/run-tests.mjs` configures Mocha and uses `tsx` for TypeScript.
+It copies `tests/sandbox` into a disposable directory; native JDBC integration is part
+of the suite. Use controlled dependency failures for error paths and isolated fixture
+copies or in-memory HSQLDB databases for database assertions. Never run these tests
+against a live game database or reset the checked-in fixture with manual SQL samples.
 
-## Style Guidelines
+Inspect `coverage/index.html` and `coverage/coverage-summary.json`. Include the actual
+commands, results, runtime/driver versions and remaining limitations in the review.
+The dated [quality report](docs/QUALITY.md) records measured results, not a permanent
+certification of later revisions. `tsconfig.json` builds library sources; tests are
+executed by `tsx`, not checked by a separate TypeScript test project.
 
-### TypeScript/JavaScript Style
+## Code, security and documentation
 
-We use ES2023 features and follow these conventions:
+Follow the project's [development rules](AGENT.md). Use TypeScript/ESM, strict types,
+`const` by default, async/await, descriptive names and the existing module lifecycle.
+Keep modern ES2023-compatible source within the configured ES2022 compilation target.
+Use parameterized values and validated schema identifiers for SQL. Validate input and
+paths, preserve read-only defaults, restore session state and release resources after
+errors. Do not add credentials, private data or proprietary StarMade source code.
 
-```javascript
-// Good
-export class MyModule implements BaseModule {
-    readonly name = 'MyModule';
-    readonly version = '1.0.0';
-    #privateField;
-    
-    constructor(config) {
-        this.#privateField = config?.value ?? 'default';
-    }
-    
-    async initialize(manager) {
-        // Implementation
-    }
-}
+Document public, protected and private declarations with meaningful JSDoc descriptions,
+parameters, return values and failure conditions. Presence checks do not replace a
+review of correctness. After declaration or comment changes, run:
 
-// Bad
-export class mymodule {
-    constructor(config) {
-        this.name = "MyModule"  // Missing semicolon, wrong quotes
-        this._privateField = config.value || "default"  // Use # for private
-    }
-}
-```
-
-### Key Principles
-
-1. **Use `const` by default, `let` when necessary, never `var`**
-2. **Private fields with `#` prefix**
-3. **Async/await over promises chains**
-4. **Optional chaining `?.` and nullish coalescing `??`**
-5. **Descriptive variable names**
-6. **Single quotes for strings (except template literals)**
-
-### JSDoc Standards
-
-```javascript
-/**
- * Brief description of the module
- * 
- * @module ModuleName
- * @author Your Name
- * @since 2.0.0
- */
-
-/**
- * Detailed method description
- * 
- * @param {string} param1 - Parameter description
- * @param {Object} [options] - Optional configuration object
- * @param {boolean} [options.flag=false] - Flag description
- * @returns {Promise<Result>} Description of return value
- * @throws {ModuleError} When initialization fails
- * 
- * @example
- * const result = await module.method('value', { flag: true });
- */
-```
-
-## Commit Guidelines
-
-We follow a modified version of [Conventional Commits](https://www.conventionalcommits.org/):
-
-### Format
-```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-### Types
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes (formatting, missing semicolons, etc.)
-- `refactor`: Code refactoring
-- `perf`: Performance improvements
-- `test`: Adding or modifying tests
-- `build`: Build system changes
-- `ci`: CI configuration changes
-- `chore`: Other changes (updating dependencies, etc.)
-
-### Examples
 ```bash
-# Feature
-git commit -m "feat(connection): add connection pooling support"
-
-# Bug fix
-git commit -m "fix(query): handle null parameters in prepared statements"
-
-# Documentation
-git commit -m "docs(readme): add installation troubleshooting section"
-
-# Multiple changes (use body)
-git commit -m "refactor(cache): improve cache invalidation logic
-
-- Extract invalidation logic to separate method
-- Add time-based invalidation support
-- Improve performance for large cache sizes
-
-Closes #123"
+npm run docs:check
+npm run docs:build
 ```
 
-## Pull Request Process
+Commit generated public and internal references together. Maintain the
+[API guide](docs/API.md), [schema evidence](docs/SCHEMA_VALIDATION.md), examples and
+[CHANGELOG.md](CHANGELOG.md) when relevant. Game sources may be consulted privately;
+tests and package artifacts must remain independent of them. The table documentation
+and SQL examples live in [docs/database](docs/database/INDEX.md).
 
-1. **Ensure all tests pass** and every source file reaches 100% line and branch coverage
-2. **Update documentation** for any API changes
-3. **Add examples** for new features
-4. **Update CHANGELOG.md** with your changes
-5. **Ensure clean commit history** (squash if needed)
+## Commits and review
 
-### PR Template
-```markdown
-### Description
-[Brief description of changes]
+Use conventional commit messages such as `fix(connection): restore session state`.
+Automated commits use **InitSysRev-Agent**; preserve other contributors' attribution.
+Avoid unrelated formatting, generated caches and local editor settings.
 
-### Type of Change
-- [ ] Bug fix (non-breaking change)
-- [ ] New feature (non-breaking change)
-- [ ] Breaking change
-- [ ] Documentation update
+A change needs independent review of its behavior and assertions, the required passing
+checks, and updated documentation. Explain the problem, resulting behavior and evidence
+in the pull request. An existing defect remains a documented failure until corrected;
+do not describe partial coverage or a successful build as global acceptance.
 
-### Testing
-- [ ] All tests pass
-- [ ] Added new tests
-- [ ] Coverage: 100% lines and branches per source file
-
-### Checklist
-- [ ] Code follows style guidelines
-- [ ] Self-review completed
-- [ ] Documentation updated
-- [ ] CHANGELOG.md updated
-- [ ] No new warnings
-
-### Related Issues
-Closes #[issue number]
-```
-
-## Testing Guidelines
-
-### Test Structure
-
-Tests should mirror the source structure:
-```
-src/core/modules/connection/ConnectionManager.ts
-tests/core/modules/connection/ConnectionManager.test.ts
-```
-
-### Writing Tests
-
-```typescript
-// tests/core/modules/connection/ConnectionManager.contract.test.ts
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
-import { HSQLManager } from '../../../../src/core/HSQLManager.js';
-import type { ConnectionManager } from '../../../../src/core/modules/connection/ConnectionManager.js';
-
-it('borrows and returns an initialized connection', async () => {
-    const manager = new HSQLManager({
-        starmadeDir: './tests/sandbox',
-        worldName: 'test_world',
-        connection: { readOnly: true },
-        modules: { enableConnectionFactory: true }
-    });
-    try {
-        await manager.initialize();
-        const pool = manager.getModule<ConnectionManager>('connection-manager')!;
-        const connection = await pool.getConnection();
-        try {
-            expect(connection.isActive).to.equal(true);
-            expect(await connection.ping()).to.equal(true);
-        } finally {
-            await pool.releaseConnection(connection);
-        }
-    } finally {
-        await manager.destroy();
-    }
-});
-```
-
-For a regression, assert the broken behavior first and keep its dependencies
-controlled. The test runner supplies the disposable fixture working directory.
-
-### Test Categories
-
-- **Unit Tests**: Test individual modules in isolation
-- **Integration Tests**: Test module interactions
-- **Performance Tests**: Benchmark critical operations
-- **Sandbox Tests**: Test against real database
-
-## Documentation
-
-### When to Update Documentation
-
-- Adding new public APIs
-- Changing existing APIs
-- Adding new modules
-- Improving examples
-- Fixing documentation errors
-
-### Documentation Locations
-
-- **API Documentation**: `docs/api/`
-- **Database Schema**: `docs/database/`
-- **Module Guides**: In module directories
-- **Examples**: `examples/`
-- **Wiki**: For extensive guides and tutorials
-
-## Community
-
-### Getting Help
-
-- **GitHub Issues**: For bugs and features
-- **Discussions**: For questions and ideas
-- **Wiki**: For detailed guides
-
-### Recognition
-
-Contributors will be recognized in:
-- CONTRIBUTORS.md file
-- Release notes
-- Project documentation
-
-## Questions?
-
-Feel free to open an issue with the `question` label or start a discussion in the GitHub Discussions tab.
-
-Thank you for contributing to StarMade-DB!
-## Local verification contract
-
-Follow [README setup](README.md#requirements-and-installation), including the sibling
-`StarMade-Decoder` checkout and `HSQLDB_JAR`. The test runner makes a disposable copy
-of `tests/sandbox`; do not run integration tests against a live game database.
-
-Run `npm run validate` before submitting changes. It checks TypeScript, JSDoc descriptions
-and 100% lines/branches for every source file, including private implementation paths.
-Do not add coverage exclusions or ignore annotations to satisfy the threshold.
-Exercise error paths through controlled dependency failures and test database semantics
-against the bundled fixture or isolated HSQLDB memory databases.
-
-Run `npm run docs:build` after editing declarations or comments. Update the public and
-internal references together with examples and behavioral limitations. The documentation
-check includes private/protected declarations; it does not replace a review of accuracy.
-Schema corrections should cite the local game source and schema evidence in
-[SCHEMA_VALIDATION.md](docs/SCHEMA_VALIDATION.md).
+For a bug report, provide package, Node.js, Java and OS versions, minimal reproduction,
+expected/actual behavior and relevant redacted logs. For a feature, describe the use
+case and constraints. Report vulnerabilities through the [security policy](SECURITY.md).

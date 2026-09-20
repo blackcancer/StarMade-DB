@@ -3,6 +3,13 @@
 This guide describes the current source API. Package version is declared in
 [package.json](../package.json); historical releases are in [CHANGELOG.md](../CHANGELOG.md).
 
+## Prepare the environment
+
+Follow [installation requirements](../README.md#requirements-and-installation). Set
+`JAVA_HOME` to a JDK when compiling the native bridge and `HSQLDB_JAR` to the game driver,
+for example `/srv/StarMade/lib/hsqldb.jar`. This checkout also requires its sibling
+`StarMade-Decoder` project. Use an isolated database copy for development and tests.
+
 ## Reference and exports
 
 The generated [public reference](api/reference.md) lists exported declarations and public
@@ -19,8 +26,8 @@ Create `HSQLManager` with `starmadeDir`, `worldName`, connection settings and mo
 then await `initialize()`. Always await `destroy()` when finished. Configuration snapshots
 are independent of the manager's internal state.
 
-`getModule(name)` uses kebab-case names. Common names include `connection-manager`,
-`parameterized-query`, `transaction-manager`, `query-validator`, `schema-analyzer`,
+`getModule(name)` uses each module's exact registered name. Common names include `connection-manager`,
+`parameterized-query`, `TransactionManager`, `query-validator`, `schema-analyzer`,
 `cache-manager` and `performance-monitor`. A requested module may be absent when its flag
 is disabled; check before calling it. `QueryExecutor` is initialized and registered explicitly.
 See the complete [setup example](../README.md#read-data).
@@ -47,6 +54,34 @@ streaming behavior and validator limitations are described in the
 
 ## Controllers and models
 
+```javascript
+import { HSQLManager, PlayersController } from 'starmade-db';
+
+const manager = new HSQLManager({
+    starmadeDir: '/path/to/StarMade',
+    worldName: 'my_world',
+    connection: { readOnly: true },
+    modules: { enableConnectionFactory: true, enableParameterizedQueries: true }
+});
+try {
+    await manager.initialize();
+    const players = new PlayersController();
+    await players.initialize(manager);
+    const page = await players.findMany({
+        orderBy: 'NAME', orderDirection: 'ASC', limit: 20, offset: 0
+    });
+    console.log(page.map(player => player.getData()));
+} finally {
+    await manager.destroy();
+}
+```
+
+Use exact SQL column names in controller options. Table schemas and game-source evidence
+are indexed by [SCHEMA_VALIDATION.md](SCHEMA_VALIDATION.md). A missing lookup returns
+`null`; a database failure should be handled as an error. BIGINT values returned by JDBC
+can be strings to preserve precision.
+
+
 Controllers require `await controller.initialize(manager)`. Base operations include
 `findById`, `findMany`, `create`, `update` and `delete`. `findById(id, {skipCache: true})`
 reads current database state without reading or writing the controller cache. `findMany`
@@ -62,6 +97,24 @@ checking exact optional arguments.
 
 ## Transactions and analysis
 
+Enable writes explicitly with `connection: {readOnly: false}`. Once initialized:
+
+```javascript
+const transactions = manager.getModule('TransactionManager');
+if (!transactions) throw new Error('Enable modules.enableParameterizedQueries');
+await transactions.executeTransaction(async transaction => {
+    await transaction.execute(
+        'UPDATE PLAYERS SET FACTION = ? WHERE NAME = ?', [123, 'Alice']
+    );
+});
+```
+
+The callback commits on success and rolls back on failure. Keep related queries on its
+transaction context. A standalone batch is not automatically a transaction. HSQLDB's
+locking mode can make concurrent writers wait; never wait for another writer that needs
+a lock held by the current transaction.
+
+
 Enable `modules.enableParameterizedQueries` to load the transaction manager. Use
 `executeTransaction(callback)` for a commit-on-success, rollback-on-failure unit of work.
 Execute transaction SQL through the supplied context so it uses the reserved session.
@@ -75,3 +128,26 @@ for normal cleanup.
 relationships, including composite nullable references. `DatabaseReporter` formats their
 results. Scores include estimates and are not proof of security or measured performance.
 Cache optimization recommendations are advisory; HTTP metric export is unsupported.
+
+## Development checks
+
+See the [contribution guide](../CONTRIBUTING.md) for focused tests, the full coverage gate,
+and regeneration of both API references.
+
+## Binary database compatibility
+
+`FleetsModel.decodeCommand()` returns `null` for absent/empty data and throws
+`DecodeError` for malformed nonempty bytes. `encodeRemotes()` writes the Java
+ObjectOutputStream database representation for records, Maps and FleetRemotesObject
+inputs. Reading also accepts network-format remotes; an incomplete recovered object
+cannot be written back.
+
+`SystemsModel` reads both 16-byte legacy and 19-byte extended resource cells.
+`encodeResources(resources, resourceSize = 16)` and
+`encodeStarSystem(system, resourceSize = 16)` default to the supplied fixture/game schema.
+Pass `19` only for a database column supporting that width. Writing nonzero extended
+resources to a 16-byte column throws before changing the stored cell; values are never
+silently truncated. No database migration is performed by these helpers.
+
+The [schema validation notes](SCHEMA_VALIDATION.md#compatibilité-du-décodeur--20-septembre-2026)
+record the format evidence and strict error cases.

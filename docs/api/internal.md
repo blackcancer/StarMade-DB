@@ -7979,6 +7979,40 @@ Override cache clearing to include system-specific patterns
 protected async clearCachesForTable(tableName: string): Promise<void>
 ```
 
+## src/tables/systems/SystemsModel.ts
+
+### SystemsModel.expandLegacyResources
+
+Expand a legacy cell for the decoder without changing the model's bytes.
+
+[Source](../../src/tables/systems/SystemsModel.ts#L841)
+
+```typescript
+private expandLegacyResources(resources: Buffer | null | undefined): Buffer | null | undefined
+```
+
+- **@param resources** Original database cell, including absent values.
+
+- **@returns** Decoder-compatible bytes; other widths remain subject to strict parsing.
+
+### SystemsModel.encodeResourceBytes
+
+Encode a resource cell for an explicit database width without losing tail values.
+
+[Source](../../src/tables/systems/SystemsModel.ts#L853)
+
+```typescript
+private encodeResourceBytes(resources: import('starmade-decoder').SystemResource[], resourceSize: 16 | 19): Buffer
+```
+
+- **@param resources** Densities exposed by the decoder.
+
+- **@param resourceSize** Database column width.
+
+- **@returns** Encoded cell with the requested byte length.
+
+- **@throws** If the width is unsupported or nonzero extended resources would be discarded.
+
 ## src/tables/trade-history/TradeHistoryController.ts
 
 ### TradeHistoryController.ModelClass

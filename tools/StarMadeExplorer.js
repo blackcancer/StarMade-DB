@@ -1,15 +1,15 @@
-﻿/**
+/**
  * StarMade Database Explorer V2 - Modern Schema and Relationship Analysis
- * 
+ *
  * Next-generation exploration tool leveraging HSQLManager modules for
  * comprehensive StarMade database analysis and professional reporting.
- * 
+ *
  * Architecture:
  * - SchemaAnalyzer: Real JDBC metadata extraction with HSQLDB compatibility
  * - RelationshipAnalyzer: Automatic relationship discovery and validation
  * - DatabaseReporter: Professional multi-format reporting system
  * - ConnectionManager: Robust connection pooling and health monitoring
- * 
+ *
  * Key Features:
  * - Complete schema structure analysis with real metadata
  * - Automatic relationship discovery (explicit + implicit)
@@ -18,20 +18,20 @@
  * - Event-driven progress tracking
  * - Comprehensive health assessment
  * - HSQLDB-compatible queries with proper error handling
- * 
+ *
  * @author InitSysRev
  * @version 1.0.0 - stable release
- * 
+ *
  * @example
  * ```bash
  * # Complete exploration with professional report
- * node tools/StarMadeExplorerV2.js --export report.html --format html --verbose
- * 
+ * node tools/StarMadeExplorer.js --export report.html --format html --verbose
+ *
  * # Specific table analysis
- * node tools/StarMadeExplorerV2.js --table PLAYERS --verbose
- * 
+ * node tools/StarMadeExplorer.js --table PLAYERS --verbose
+ *
  * # Relationship analysis only
- * node tools/StarMadeExplorerV2.js --relationships-only --verbose
+ * node tools/StarMadeExplorer.js --relationships-only --verbose
  * ```
  */
 
@@ -55,7 +55,7 @@ const EXPLORER_CONFIG = {
     // Database location
     starmadeDir: resolve(process.cwd(), 'tests', 'sandbox'),
     worldName: 'test_world',
-    
+
     // Connection settings
     connection: {
         timeoutMs: 30000,
@@ -64,7 +64,7 @@ const EXPLORER_CONFIG = {
         autoCommit: true,
         maxConcurrentConnections: 5
     },
-    
+
     // Module configuration - enable relationship analysis for full module auto-loading
     modules: {
         enableRelationshipAnalysis: true, // Auto-loads: SchemaAnalyzer, RelationshipAnalyzer, DatabaseReporter
@@ -75,7 +75,7 @@ const EXPLORER_CONFIG = {
         enableAutoReconnection: false,
         enableConnectionFactory: true // Auto-loads: ConnectionManager
     },
-    
+
     // Logging configuration
     logging: {
         level: 'info',
@@ -93,7 +93,7 @@ const EXPLORER_CONFIG = {
 
 /**
  * StarMade Database Explorer V2
- * 
+ *
  * Professional database exploration tool with modular architecture
  */
 class StarMadeExplorerV2 {
@@ -115,7 +115,7 @@ class StarMadeExplorerV2 {
         this.relationshipAnalyzer = null;
         this.databaseReporter = null;
         this.connectionManager = null;
-        
+
         // Analysis results
         this.results = {
             schema: null,
@@ -124,7 +124,7 @@ class StarMadeExplorerV2 {
             optimizations: [],
             executiveSummary: null
         };
-        
+
         // State tracking
         this.initialized = false;
         this.startTime = Date.now();
@@ -140,20 +140,20 @@ class StarMadeExplorerV2 {
         }
 
         console.log('Initializing StarMade Database Explorer V2...');
-        
+
         try {
             // Initialize HSQLManager with auto-loaded modules
             this.manager = new HSQLManager(EXPLORER_CONFIG);
             await this.manager.initialize();
-            
+
             console.log('   HSQLManager initialized, retrieving auto-loaded modules...');
-            
+
             // Get all auto-loaded modules from HSQLManager
             this.connectionManager = this.manager.getModule('connection-manager');
             this.schemaAnalyzer = this.manager.getModule('schema-analyzer');
             this.relationshipAnalyzer = this.manager.getModule('relationship-analyzer');
             this.databaseReporter = this.manager.getModule('database-reporter');
-            
+
             // Verify all required modules are available
             const requiredModules = [
                 { name: 'ConnectionManager', module: this.connectionManager, setting: 'enableConnectionFactory' },
@@ -161,7 +161,7 @@ class StarMadeExplorerV2 {
                 { name: 'RelationshipAnalyzer', module: this.relationshipAnalyzer, setting: 'enableRelationshipAnalysis' },
                 { name: 'DatabaseReporter', module: this.databaseReporter, setting: 'enableRelationshipAnalysis' }
             ];
-            
+
             for (const { name, module, setting } of requiredModules) {
                 if (!module) {
                     throw new Error(`${name} not auto-loaded by HSQLManager - check ${setting} setting`);
@@ -173,13 +173,13 @@ class StarMadeExplorerV2 {
 
             this.initialized = true;
             console.log('Explorer initialized successfully');
-            
+
             if (this.options.verbose) {
                 console.log(`   SchemaAnalyzer: v${this.schemaAnalyzer.version} (auto-loaded)`);
                 console.log(`   RelationshipAnalyzer: v${this.relationshipAnalyzer.version} (auto-loaded)`);
                 console.log(`   DatabaseReporter: v${this.databaseReporter.version} (auto-loaded)`);
                 console.log(`   ConnectionManager: v${this.connectionManager.version} (auto-loaded)`);
-                
+
                 if (this.isDatabaseCorrupted) {
                     console.log(`   WARNING: Database corruption detected during connectivity test`);
                 }
@@ -202,11 +202,11 @@ class StarMadeExplorerV2 {
     async testDatabaseConnectivity() {
         try {
             console.log('   Testing database connectivity...');
-            
+
             // Use SchemaAnalyzer's simple table count method
             const tableCount = await this.schemaAnalyzer.getTableCount();
             console.log(`   Found ${tableCount} tables in database`);
-            
+
             if (tableCount === 0) {
                 console.log('   WARNING: Database appears to be empty or has connectivity issues');
                 this.isDatabaseCorrupted = true;
@@ -217,7 +217,7 @@ class StarMadeExplorerV2 {
             } else {
                 console.log('   Database connectivity test passed');
             }
-            
+
         } catch (error) {
             console.log('   Database connectivity test failed:', error.message);
             if (error.message.includes('ArrayIndexOutOfBoundsException')) {
@@ -234,18 +234,18 @@ class StarMadeExplorerV2 {
      */
     async performDiagnostics() {
         console.log('\nConnection Diagnostics:');
-        
+
         try {
             // Use ConnectionManager's testing methods
             const connectionTest = await this.connectionManager.testAllConnections();
-            
+
             console.log('   Database connectivity: OK');
             console.log(`   Healthy connections: ${connectionTest.healthyConnections}/${connectionTest.totalTested}`);
-            
+
             if (connectionTest.details && connectionTest.details.length > 0) {
                 const validResponseTimes = connectionTest.details
                     .filter(d => d.responseTime !== undefined && d.isHealthy);
-                    
+
                 if (validResponseTimes.length > 0) {
                     const avgResponseTime = validResponseTimes
                         .reduce((sum, d) => sum + d.responseTime, 0) / validResponseTimes.length;
@@ -297,7 +297,7 @@ class StarMadeExplorerV2 {
             if (this.options.table) {
                 // Single table analysis
                 console.log(`   Analyzing table: ${this.options.table}`);
-                
+
                 const tableInfo = await this.schemaAnalyzer.analyzeTable(this.options.table, {
                     enableDeepAnalysis: true,
                     enableStatistics: true,
@@ -307,14 +307,14 @@ class StarMadeExplorerV2 {
 
                 console.log('   Table analysis completed');
                 this.displayTableSummary(tableInfo);
-                
+
                 this.results.schema = { tables: [tableInfo] };
                 return this.results.schema;
 
             } else {
                 // Complete schema analysis
                 console.log('   Analyzing complete database schema...');
-                
+
                 const schema = await this.schemaAnalyzer.analyzeSchema({
                     enableDeepAnalysis: !this.isDatabaseCorrupted, // Disable deep analysis if corrupted
                     enableStatistics: !this.isDatabaseCorrupted,
@@ -325,7 +325,7 @@ class StarMadeExplorerV2 {
 
                 console.log('   Schema analysis completed');
                 console.log(`   Tables analyzed: ${schema.tables.length}`);
-                
+
                 if (schema.tables.length === 0) {
                     console.log('   WARNING: SchemaAnalyzer found 0 tables');
                     console.log('   This indicates HSQLDB compatibility issues or database corruption');
@@ -346,7 +346,7 @@ class StarMadeExplorerV2 {
                 console.error('   Schema analysis failed due to database corruption');
                 console.error('   ArrayIndexOutOfBoundsException detected - database stress from testing');
                 this.isDatabaseCorrupted = true;
-                
+
                 // Return minimal schema for graceful continuation
                 this.results.schema = {
                     name: 'HSQLDB',
@@ -382,13 +382,13 @@ class StarMadeExplorerV2 {
 
         try {
             const relationships = await this.relationshipAnalyzer.discoverRelationships();
-            
+
             console.log('   Relationship discovery completed');
             console.log(`   Total relationships: ${relationships.length}`);
-            
+
             const explicitCount = relationships.filter(r => r.discoveryMethod === 'foreign-key').length;
             const implicitCount = relationships.length - explicitCount;
-            
+
             console.log(`   Explicit (FK): ${explicitCount}`);
             console.log(`   Implicit: ${implicitCount}`);
 
@@ -430,7 +430,7 @@ class StarMadeExplorerV2 {
 
         try {
             const analysis = await this.relationshipAnalyzer.performCrossTableAnalysis();
-            
+
             console.log('   Cross-table analysis completed');
             console.log(`   Tables analyzed: ${analysis.tables.length}`);
             console.log(`   Dependencies found: ${analysis.dependencies.length}`);
@@ -475,13 +475,13 @@ class StarMadeExplorerV2 {
 
         try {
             const recommendations = await this.schemaAnalyzer.getOptimizationRecommendations();
-            
+
             console.log('   Performance analysis completed');
             console.log(`   Optimization recommendations: ${recommendations.length}`);
-            
+
             const criticalCount = recommendations.filter(r => r.priority === 'CRITICAL').length;
             const highCount = recommendations.filter(r => r.priority === 'HIGH').length;
-            
+
             if (criticalCount > 0) console.log(`   Critical issues: ${criticalCount}`);
             if (highCount > 0) console.log(`   High priority: ${highCount}`);
 
@@ -509,7 +509,7 @@ class StarMadeExplorerV2 {
      */
     async generateExecutiveSummary() {
         console.log('\nGenerating Executive Summary...');
-        
+
         try {
             const summary = await this.databaseReporter.generateExecutiveSummary({
                 includePerformanceMetrics: this.options.performanceAnalysis && !this.isDatabaseCorrupted,
@@ -519,14 +519,14 @@ class StarMadeExplorerV2 {
 
             this.results.executiveSummary = summary;
             this.displayExecutiveSummary(summary);
-            
+
             return this.results.executiveSummary;
 
         } catch (error) {
             if (error.message.includes('ArrayIndexOutOfBoundsException')) {
                 console.error('   Executive summary generation failed due to database corruption');
                 this.isDatabaseCorrupted = true;
-                
+
                 // Generate minimal summary
                 this.results.executiveSummary = {
                     overview: {
@@ -589,7 +589,7 @@ class StarMadeExplorerV2 {
                     reportFormat = 'json';
                     break;
             }
-            
+
             // Use DatabaseReporter's generateSchemaReport method with correct enum values
             const reportPath = await this.databaseReporter.generateSchemaReport({
                 format: reportFormat, // Use lowercase format value
@@ -600,7 +600,7 @@ class StarMadeExplorerV2 {
                 includePerformance: this.options.performanceAnalysis && !this.isDatabaseCorrupted,
                 includeDataSamples: this.options.sampleData && !this.isDatabaseCorrupted
             });
-            
+
             console.log(`   Export completed successfully: ${reportPath}`);
 
         } catch (error) {
@@ -734,24 +734,24 @@ class StarMadeExplorerV2 {
      */
     displayFinalSummary() {
         const duration = Date.now() - this.startTime;
-        
+
         console.log('\nEXPLORATION COMPLETED');
         console.log('='.repeat(60));
         console.log(`Duration: ${this.formatDuration(duration)}`);
         console.log(`Tables analyzed: ${this.results.schema?.tables?.length || (this.options.table ? 1 : 0)}`);
         console.log(`Relationships found: ${this.results.relationships?.length || 0}`);
         console.log(`Recommendations: ${this.results.optimizations?.length || 0}`);
-        
+
         if (this.options.export) {
             console.log(`Report exported: ${this.options.export}`);
         }
-        
+
         if (this.isDatabaseCorrupted) {
             console.log(`Status: Completed with database corruption warnings`);
         } else {
             console.log(`Status: Completed successfully`);
         }
-        
+
         console.log('='.repeat(60));
     }
 
@@ -792,7 +792,7 @@ class StarMadeExplorerV2 {
         const seconds = Math.floor(ms / 1000);
         const minutes = Math.floor(seconds / 60);
         const remainingSeconds = seconds % 60;
-        
+
         if (minutes > 0) {
             return `${minutes}m ${remainingSeconds}s`;
         } else {
@@ -868,7 +868,7 @@ StarMade Database Explorer V1.0.0
 Professional schema analysis and relationship discovery for StarMade databases.
 
 USAGE:
-  node tools/StarMadeExplorerV2.js [options]
+  node tools/StarMadeExplorer.js [options]
 
 OPTIONS:
   --table TABLE_NAME          Analyze specific table only
@@ -884,16 +884,16 @@ OPTIONS:
 
 EXAMPLES:
   # Complete exploration with HTML report
-  node tools/StarMadeExplorerV2.js --export report.html --format html --verbose
+  node tools/StarMadeExplorer.js --export report.html --format html --verbose
 
   # Analyze specific table with detailed output
-  node tools/StarMadeExplorerV2.js --table PLAYERS --verbose
+  node tools/StarMadeExplorer.js --table PLAYERS --verbose
 
   # Generate markdown documentation
-  node tools/StarMadeExplorerV2.js --export schema.md --format markdown
+  node tools/StarMadeExplorer.js --export schema.md --format markdown
 
   # Relationship analysis only
-  node tools/StarMadeExplorerV2.js --relationships-only --verbose
+  node tools/StarMadeExplorer.js --relationships-only --verbose
 
 FEATURES:
   Real JDBC metadata extraction with HSQLDB compatibility
@@ -908,7 +908,7 @@ FEATURES:
 
 DATABASE:
   Target: ${EXPLORER_CONFIG.starmadeDir}/server-database/${EXPLORER_CONFIG.worldName}
-  
+
 NOTES:
   - All modules (SchemaAnalyzer, RelationshipAnalyzer, DatabaseReporter, ConnectionManager)
     are automatically loaded by HSQLManager for maximum reliability
@@ -969,10 +969,10 @@ const isMainModule = () => {
         // Method 1: Check if this script was called directly
         const scriptPath = fileURLToPath(import.meta.url);
         const mainPath = process.argv[1];
-        
+
         // Normalize paths for cross-platform compatibility
         const normalizeWindowsPath = (path) => path.replace(/\\/g, '/').toLowerCase();
-        
+
         if (process.platform === 'win32') {
             // On Windows, normalize paths and compare
             return normalizeWindowsPath(scriptPath) === normalizeWindowsPath(mainPath);
@@ -982,7 +982,7 @@ const isMainModule = () => {
         }
     } catch (error) {
         // Fallback: check if process.argv[1] includes our script name
-        return process.argv[1] && process.argv[1].includes('StarMadeExplorerV2.js');
+        return process.argv[1] && process.argv[1].includes('StarMadeExplorer.js');
     }
 };
 

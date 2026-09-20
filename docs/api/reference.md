@@ -30782,7 +30782,7 @@ public hasCommandData(): boolean
 
 Decodes FLEETS.COMMAND into a typed FleetCommandObject.
 
-Returns null when the column is empty or the data is malformed.
+Returns null when the column is empty; malformed bytes raise DecodeError.
 Requires starmade-decoder to be installed.
 
 [Source](../../src/tables/fleets/FleetsModel.ts#L1117)
@@ -30830,11 +30830,13 @@ public encodeCommand(
 ### FleetsModel.encodeRemotes
 
 Encodes and stores FLEETS.SAVED_REMOTES from a FleetRemotesObject, Map, or
-plain record. The writer always uses the portable DataOutput/network format.
+plain record. The writer uses the Java ObjectOutputStream database format,
+including for objects originally decoded from network bytes. Incomplete
+recovery objects raise DecodeError without replacing the stored value.
 
 Passing null/undefined clears the column.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1175)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1177)
 
 ```typescript
 public encodeRemotes(
@@ -30848,7 +30850,7 @@ public encodeRemotes(
 
 Get comprehensive fleet summary with relationship data
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1199)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1203)
 
 ```typescript
 public getFleetSummary(): {
@@ -30884,7 +30886,7 @@ public getFleetSummary(): {
 
 Generate fleet display name with enhanced info
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1258)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1262)
 
 ```typescript
 public getDisplayName(): string
@@ -30894,7 +30896,7 @@ public getDisplayName(): string
 
 Get operational status assessment with relationship intelligence
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1285)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1289)
 
 ```typescript
 public getOperationalStatus(): {
@@ -30915,7 +30917,7 @@ public getOperationalStatus(): {
 
 Check if fleet can perform independent operations
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1380)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1384)
 
 ```typescript
 public canOperateIndependently(): boolean
@@ -30925,7 +30927,7 @@ public canOperateIndependently(): boolean
 
 Get fleet hierarchy depth (0 for top-level)
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1387)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1391)
 
 ```typescript
 public getHierarchyDepth(): number
@@ -30935,7 +30937,7 @@ public getHierarchyDepth(): number
 
 Check if fleet is suitable for combat
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1394)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1398)
 
 ```typescript
 public isCombatReady(): boolean
@@ -30945,7 +30947,7 @@ public isCombatReady(): boolean
 
 Get fleet command assessment
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1401)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1405)
 
 ```typescript
 public getCommandAssessment(): {
@@ -43317,7 +43319,7 @@ export const MAX_INFOS_SIZE = 8192;
 ### MAX_RESOURCES_SIZE
 
 Maximum size for RESOURCES binary data as per StarMade database specification.
-Source: VoidSystem.RESOURCES = 19 (confirmed from VoidSystem.java).
+The extended StarMade-Open schema uses 19 bytes; the supplied game/fixture uses 16.
 
 [Source](../../src/tables/systems/SystemsModel.ts#L40)
 
@@ -43328,7 +43330,7 @@ export const MAX_RESOURCES_SIZE = 19;
 ### RESOURCE_COUNT
 
 Number of resource types tracked in RESOURCES field.
-Source: VoidSystem.RESOURCES = 19.
+The decoder exposes 19 resource slots, including three absent in the legacy schema.
 
 [Source](../../src/tables/systems/SystemsModel.ts#L46)
 
@@ -44150,15 +44152,17 @@ INFOS: 16³ × 2-byte grid of sector types and metadata (SectorType enum +
 PlanetType for planet sectors). RESOURCES: 19-byte resource density array
 indexed by ElementKeyMap.resources.
 
-Returns null when INFOS is null or undersized (< 8192 bytes).
+Returns null when INFOS is absent/empty. Malformed nonempty cells raise DecodeError.
+Legacy 16-byte resource cells are expanded with three absent resource slots
+for decoding only; the stored bytes are preserved.
 
-[Source](../../src/tables/systems/SystemsModel.ts#L774)
+[Source](../../src/tables/systems/SystemsModel.ts#L776)
 
 ```typescript
 public decodeStarSystem(): import('starmade-decoder').StarSystem | null
 ```
 
-- **@example** const sys = system.decodeStarSystem(); if (sys) {   console.log(sys.toString());          // StarSystem(sun=1, planets=3, ...)   console.log(sys.planets);             // SectorInfo[] for all planet sectors   console.log(sys.presentResources);    // SystemResource[] with density > 0   sys.withResourceDensity(0, 80)        // immutable mutation     .resourcesToBytes();                // re-encoded for DB write-back }
+- **@example** const sys = system.decodeStarSystem(); if (sys) {   console.log(sys.toString());          // StarSystem(sun=1, planets=3, ...)   console.log(sys.planets);             // SectorInfo[] for all planet sectors   console.log(sys.presentResources);    // SystemResource[] with density > 0   system.encodeStarSystem(             // preserve the target database layout     sys.withResourceDensity(0, 80));    // reject any lossy legacy conversion }
 
 ### SystemsModel.decodeResources
 
@@ -44167,7 +44171,7 @@ Decodes only SYSTEMS.RESOURCES into a typed array of SystemResource.
 Convenience shortcut when sector grid data is not needed.
 Returns resources with density > 0 by default.
 
-[Source](../../src/tables/systems/SystemsModel.ts#L791)
+[Source](../../src/tables/systems/SystemsModel.ts#L793)
 
 ```typescript
 public decodeResources(): import('starmade-decoder').SystemResource[]
@@ -44178,13 +44182,19 @@ public decodeResources(): import('starmade-decoder').SystemResource[]
 ### SystemsModel.encodeStarSystem
 
 Encodes and stores SYSTEMS.INFOS + SYSTEMS.RESOURCES from a StarSystem
-business object.
+business object. Defaults to the supplied database's 16-byte layout.
 
-[Source](../../src/tables/systems/SystemsModel.ts#L806)
+[Source](../../src/tables/systems/SystemsModel.ts#L811)
 
 ```typescript
-public encodeStarSystem(system: import('starmade-decoder').StarSystem): this
+public encodeStarSystem(system: import('starmade-decoder').StarSystem, resourceSize: 16 | 19 = 16): this
 ```
+
+- **@param system** Typed system to encode.
+
+- **@param resourceSize** Target database column width: 16 (legacy) or 19 (extended).
+
+- **@throws** If the width is unsupported or a legacy write would lose resources.
 
 - **@example** const updated = system.decodeStarSystem()?.withResourceDensity(0, 80); if (updated) system.encodeStarSystem(updated);
 
@@ -44192,7 +44202,7 @@ public encodeStarSystem(system: import('starmade-decoder').StarSystem): this
 
 Encodes and stores SYSTEMS.INFOS from typed sector entries.
 
-[Source](../../src/tables/systems/SystemsModel.ts#L815)
+[Source](../../src/tables/systems/SystemsModel.ts#L821)
 
 ```typescript
 public encodeInfos(infos: import('starmade-decoder').SectorInfo[]): this
@@ -44202,11 +44212,17 @@ public encodeInfos(infos: import('starmade-decoder').SectorInfo[]): this
 
 Encodes and stores SYSTEMS.RESOURCES from typed resource density entries.
 
-[Source](../../src/tables/systems/SystemsModel.ts#L823)
+[Source](../../src/tables/systems/SystemsModel.ts#L832)
 
 ```typescript
-public encodeResources(resources: import('starmade-decoder').SystemResource[]): this
+public encodeResources(resources: import('starmade-decoder').SystemResource[], resourceSize: 16 | 19 = 16): this
 ```
+
+- **@param resources** Densities to encode.
+
+- **@param resourceSize** Target database column width: 16 (legacy) or 19 (extended).
+
+- **@throws** If the width is unsupported or a legacy write would lose resources.
 
 ## src/tables/trade-history/TradeHistoryController.ts
 

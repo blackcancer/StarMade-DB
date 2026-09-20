@@ -13,7 +13,7 @@ Vérification du 12 septembre 2026, à partir de `docs/database`, des seize clas
 - les 22 octets big-endian de chaque objet flottant, selon les écritures `writeShort`, `writeInt`, `writeFloat` de `SectorItemTable.getItemBinaryString()` ;
 - les entrées vides et les deux formes d'encodage, objets métier et structures simples ;
 - les 22 ordinaux de commandes partagés avec `starmade-decoder`, la taille de 1024 octets et la conservation d'un identifiant supérieur à `Number.MAX_SAFE_INTEGER` dans le binaire ;
-- un exemple exact du format DataOutput des télécommandes, ainsi que les entrées objet, Map et objet métier ;
+- une capture indépendante JDK HashMap et le format Java ObjectOutputStream des télécommandes, ainsi que les entrées objet, Map et objet métier (y compris la conversion du format réseau) ;
 - la conservation des identifiants 64 bits dans les données commerciales encodées.
 
 ## Défauts corrigés
@@ -42,7 +42,7 @@ Les `DataType` des modèles sont des catégories applicatives : `INTEGER` couvre
 
 La lecture tolérante des tableaux ne vérifie pas à elle seule leur écriture JDBC. Le Java du jeu utilise `PreparedStatement.setArray()` pour la composition des mines : une écriture complète doit conserver cette sémantique, et pas simplement stocker du JSON comme VARCHAR.
 
-Les extraits fournis n'incluent pas `FleetCommandTypes`, `Fleet.serializeRemotes()` ni les définitions de toutes les permissions. Les tests de commandes/télécommandes établissent la cohérence avec le décodeur et les formats documentés ; ils ne remplacent pas une comparaison indépendante avec ces classes absentes. Les labels métier des slots de composition ne sont pas démontrés par `MinesTable.java`, qui traite ce champ comme un tableau opaque.
+Les extraits initiaux n'incluaient pas `FleetCommandTypes`, `Fleet.serializeRemotes()` ni les définitions de toutes les permissions. Le contrôle complémentaire du 20 septembre ci-dessous confirme la sérialisation des télécommandes ; la validation indépendante de tous les ordinaux et permissions reste limitée. Les labels métier des slots de composition ne sont pas démontrés par `MinesTable.java`, qui traite ce champ comme un tableau opaque.
 
 Les getters numériques historiques convertissent certains BIGINT en `number`. Les tests binaires conservent la précision avec `bigint`, mais cela ne garantit pas la précision de tous les getters SQL au-delà de 2^53−1. Une migration de l'API des identifiants demande un périmètre distinct et explicite.
 
@@ -73,4 +73,25 @@ Le drapeau `--check-coverage=false` sert exclusivement à cette exécution parti
 
 ## Contrôleurs et garanties JDBC
 
-Le [complément sur les contrôleurs](CONTROLLER_VALIDATION.md) décrit les identités récupérées sur la même connexion JDBC, les filtres conformes au schéma, les statistiques, les références composites et les allocations concurrentes de séquences.
+Le [complément sur les contrôleurs](QUALITY.md#controleurs-et-garanties-jdbc) décrit les identités récupérées sur la même connexion JDBC, les filtres conformes au schéma, les statistiques, les références composites et les allocations concurrentes de séquences.
+
+## Compatibilité du décodeur — 20 septembre 2026
+
+La dépendance locale `starmade-decoder` a évolué depuis la qualification du 12 septembre.
+Les trois anciens échecs binaires ont été reproduits sur la révision antérieure au nettoyage
+(`25c5ea9`), avec la même dépendance. La correction s'appuie sur les formats suivants :
+
+| Cellule | Contrat et preuve |
+| --- | --- |
+| `FLEETS.COMMAND` | Une cellule absente/vide donne `null` ; une cellule non vide tronquée lève `DecodeError`. Le parseur strict du décodeur propage `E_FORMAT` pour ces sous-flux. Les tests conservent les assertions d'absence et ajoutent le rejet des longueurs 1, 8 et 12. |
+| `FLEETS.SAVED_REMOTES` | `Fleet.serializeRemotes()` dans les sources locales New Foundations emploie Java ObjectOutputStream pour une HashMap. Tous les types d'entrée du modèle écrivent désormais ce format ; les lectures réseau restent acceptées. Une capture indépendante du JDK sert d'oracle et le JDK a relu la sortie du modèle. Les résultats de récupération incomplets sont refusés sans remplacer la valeur stockée. |
+| `SYSTEMS.RESOURCES` | Le JAR installé et le schéma HSQLDB fourni utilisent 16 octets ; les sources locales StarMade-Open et le décodeur actuel exposent 19 emplacements. Les constantes du JAR ont été inspectées sans copier son code. Les cellules de 16 octets sont étendues de trois zéros uniquement pour la lecture. L'écriture reste à 16 octets par défaut ; passer explicitement `19` cible un schéma étendu. Toute perte de densités non nulles est refusée. |
+
+La capture JDK conserve son seuil interne de redimensionnement HashMap. Pour comparer
+l'écriture canonique du décodeur, le test attend ce champ à zéro ; ce champ ne contient
+aucune télécommande et le flux ainsi produit a été accepté par ObjectInputStream.
+
+Les fichiers de jeu restent des références locales privées. Aucun fichier Java ni JAR
+n'est ajouté au dépôt ou au paquet. La fixture de 16 octets n'est ni migrée ni remplacée.
+Les tailles non vides autres que 16 et 19 restent des erreurs de décodage ; les tests
+vérifient la conservation des octets et les écritures sans perte dans les deux formats.

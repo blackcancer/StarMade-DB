@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { FleetCommandObject, FleetRemotesObject, SectorItemsObject, TradePricesObject, FLEET_COMMAND_TYPES } from 'starmade-decoder';
+import { FleetCommandObject, FleetRemotesObject, SectorItemsObject, TradePricesObject, FLEET_COMMAND_TYPES, DecodeError } from 'starmade-decoder';
 import { FleetsModel, FleetCommand } from '../../src/tables/fleets/FleetsModel.js';
 import { SectorsItemsModel, ITEM_RECORD_SIZE, MAX_ITEMS_SIZE } from '../../src/tables/sectors-items/SectorsItemsModel.js';
 import { TradeNodesModel } from '../../src/tables/trade-nodes/TradeNodesModel.js';
@@ -44,17 +44,40 @@ describe('StarMade binary model contract', () => {
         model.encodeCommand(null);
         expect(model.getCommand()).to.equal(undefined);
         model.setCommand(Buffer.from([1]));
-        expect(model.decodeCommand()).to.equal(null);
+        expect(() => model.decodeCommand()).to.throw(DecodeError).with.property('code', 'E_FORMAT');
     });
-    const goldenRemotes = Buffer.from('0100010004646f6f7201', 'hex');
-    for (const remotes of [{ door: true }, new Map([['door', true]]), FleetRemotesObject.from({ door: true })]) {
+    // Independent JDK ObjectOutputStream capture of HashMap<String, Boolean> {door: true}.
+    const goldenRemotes = Buffer.from('aced0005737200116a6176612e7574696c2e486173684d61700507dac1c31660d103000246000a6c6f6164466163746f724900097468726573686f6c6478703f4000000000000c77080000001000000001740004646f6f72737200116a6176612e6c616e672e426f6f6c65616ecd207280d59cfaee0200015a000576616c756578700178', 'hex');
+    // HashMap's resize threshold is an implementation hint, not a remote state.
+    // The decoder writes zero; an independent JDK ObjectInputStream accepts this stream.
+    const canonicalRemotes = Buffer.from(goldenRemotes);
+    canonicalRemotes.writeInt32BE(0, 67);
+    it('reads an independent JDK HashMap capture', () => {
+        const model = new FleetsModel({ SAVED_REMOTES: goldenRemotes });
+        expect([...model.decodeRemotes().remotes]).to.deep.equal([['door', true]]);
+    });
+    const networkRemotes = Buffer.from('0100010004646f6f7201', 'hex');
+    for (const remotes of [{ door: true }, new Map([['door', true]]), FleetRemotesObject.from({ door: true }), FleetRemotesObject.fromBytes(networkRemotes)]) {
         it(`encodes a saved remote from ${remotes.constructor.name}`, () => {
             const model = new FleetsModel();
             expect(model.encodeRemotes(remotes)).to.equal(model);
-            expect(model.getSavedRemotes()).to.deep.equal(goldenRemotes);
+            expect(model.getSavedRemotes()).to.deep.equal(canonicalRemotes);
             expect([...model.decodeRemotes().remotes]).to.deep.equal([['door', true]]);
             expect(model.encodeRemotes(null).getSavedRemotes()).to.equal(undefined);
             expect(model.decodeRemotes().remotes.size).to.equal(0);
+        });
+    }
+    it('rejects incomplete recovered remotes without replacing existing data', () => {
+        const model = new FleetsModel({ SAVED_REMOTES: goldenRemotes });
+        const partial = FleetRemotesObject.fromBytes(networkRemotes.subarray(0, -1), { mode: 'recover' });
+        expect(partial.complete).to.equal(false);
+        expect(() => model.encodeRemotes(partial)).to.throw(DecodeError).with.property('code', 'E_INCOMPLETE');
+        expect(model.getSavedRemotes()).to.deep.equal(goldenRemotes);
+    });
+    for (const size of [1, 8, 12]) {
+        it(`rejects a truncated command of ${size} bytes with a structured error`, () => {
+            const model = new FleetsModel({ COMMAND: Buffer.alloc(size) });
+            expect(() => model.decodeCommand()).to.throw(DecodeError).with.property('code', 'E_FORMAT');
         });
     }
     for (const prices of [{ entDbId: 9007199254740993n, entries: [] }, TradePricesObject.empty(9007199254740993n)]) {

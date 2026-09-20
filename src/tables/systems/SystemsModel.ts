@@ -35,13 +35,13 @@ export const MAX_INFOS_SIZE = 8192;
 
 /**
  * Maximum size for RESOURCES binary data as per StarMade database specification.
- * Source: VoidSystem.RESOURCES = 19 (confirmed from VoidSystem.java).
+ * The extended StarMade-Open schema uses 19 bytes; the supplied game/fixture uses 16.
  */
 export const MAX_RESOURCES_SIZE = 19;
 
 /**
  * Number of resource types tracked in RESOURCES field.
- * Source: VoidSystem.RESOURCES = 19.
+ * The decoder exposes 19 resource slots, including three absent in the legacy schema.
  */
 export const RESOURCE_COUNT = 19;
 
@@ -759,7 +759,9 @@ export class SystemsModel extends BaseModel {
      * PlanetType for planet sectors). RESOURCES: 19-byte resource density array
      * indexed by ElementKeyMap.resources.
      *
-     * Returns null when INFOS is null or undersized (< 8192 bytes).
+     * Returns null when INFOS is absent/empty. Malformed nonempty cells raise DecodeError.
+     * Legacy 16-byte resource cells are expanded with three absent resource slots
+     * for decoding only; the stored bytes are preserved.
      *
      * @example
      * const sys = system.decodeStarSystem();
@@ -767,15 +769,15 @@ export class SystemsModel extends BaseModel {
      *   console.log(sys.toString());          // StarSystem(sun=1, planets=3, ...)
      *   console.log(sys.planets);             // SectorInfo[] for all planet sectors
      *   console.log(sys.presentResources);    // SystemResource[] with density > 0
-     *   sys.withResourceDensity(0, 80)        // immutable mutation
-     *     .resourcesToBytes();                // re-encoded for DB write-back
+     *   system.encodeStarSystem(             // preserve the target database layout
+     *     sys.withResourceDensity(0, 80));    // reject any lossy legacy conversion
      * }
      */
     public decodeStarSystem(): import('starmade-decoder').StarSystem | null {
         const infos = this.getInfos();
         const resources = this.getResources();
         const { StarSystem } = decoder;
-        return StarSystem.fromBytes(infos ?? null, resources ?? null);
+        return StarSystem.fromBytes(infos ?? null, this.expandLegacyResources(resources) ?? null);
     }
 
     /**
@@ -792,21 +794,25 @@ export class SystemsModel extends BaseModel {
         const raw = this.getResources();
         if (!raw) return [];
         const { decodeSystemResources } = decoder;
-        return decodeSystemResources(raw);
+        return decodeSystemResources(this.expandLegacyResources(raw));
     }
 
     /**
      * Encodes and stores SYSTEMS.INFOS + SYSTEMS.RESOURCES from a StarSystem
-     * business object.
+     * business object. Defaults to the supplied database's 16-byte layout.
+     * @param system Typed system to encode.
+     * @param resourceSize Target database column width: 16 (legacy) or 19 (extended).
+     * @throws {RangeError} If the width is unsupported or a legacy write would lose resources.
      *
      * @example
      * const updated = system.decodeStarSystem()?.withResourceDensity(0, 80);
      * if (updated) system.encodeStarSystem(updated);
      */
-    public encodeStarSystem(system: import('starmade-decoder').StarSystem): this {
+    public encodeStarSystem(system: import('starmade-decoder').StarSystem, resourceSize: 16 | 19 = 16): this {
+        const resources = this.encodeResourceBytes([...system.resources], resourceSize);
         return this
             .setInfos(system.infosToBytes())
-            .setResources(system.resourcesToBytes());
+            .setResources(resources);
     }
 
     /**
@@ -819,9 +825,38 @@ export class SystemsModel extends BaseModel {
 
     /**
      * Encodes and stores SYSTEMS.RESOURCES from typed resource density entries.
+     * @param resources Densities to encode.
+     * @param resourceSize Target database column width: 16 (legacy) or 19 (extended).
+     * @throws {RangeError} If the width is unsupported or a legacy write would lose resources.
      */
-    public encodeResources(resources: import('starmade-decoder').SystemResource[]): this {
-        const { encodeSystemResources } = decoder;
-        return this.setResources(encodeSystemResources(resources));
+    public encodeResources(resources: import('starmade-decoder').SystemResource[], resourceSize: 16 | 19 = 16): this {
+        return this.setResources(this.encodeResourceBytes(resources, resourceSize));
     }
+
+    /**
+     * Expand a legacy cell for the decoder without changing the model's bytes.
+     * @param resources Original database cell, including absent values.
+     * @returns Decoder-compatible bytes; other widths remain subject to strict parsing.
+     */
+    private expandLegacyResources(resources: Buffer | null | undefined): Buffer | null | undefined {
+        if (resources?.length !== 16) return resources;
+        return Buffer.concat([resources, Buffer.alloc(3)]);
+    }
+
+    /**
+     * Encode a resource cell for an explicit database width without losing tail values.
+     * @param resources Densities exposed by the decoder.
+     * @param resourceSize Database column width.
+     * @returns Encoded cell with the requested byte length.
+     * @throws {RangeError} If the width is unsupported or nonzero extended resources would be discarded.
+     */
+    private encodeResourceBytes(resources: import('starmade-decoder').SystemResource[], resourceSize: 16 | 19): Buffer {
+        if (resourceSize !== 16 && resourceSize !== 19) throw new RangeError('Resource size must be 16 or 19 bytes');
+        const encoded = decoder.encodeSystemResources(resources);
+        if (encoded.subarray(resourceSize).some(density => density !== 0)) {
+            throw new RangeError('Cannot store extended resource densities in a 16-byte database column');
+        }
+        return encoded.subarray(0, resourceSize);
+    }
+
 }

@@ -96,8 +96,8 @@ The [EXEMPLE_ADVANCED.md](./EXEMPLE_ADVANCED.md) document provides sophisticated
 ## Getting Started
 
 ### For Database Analysis
-1. Start with [SCHEMA.md](./SCHEMA.md) for complete table structures
-2. Review [ENUMS.md](./ENUMS.md) for enumeration values and meanings
+1. Start with [schema validation](../SCHEMA_VALIDATION.md) for complete table structures
+2. Review the individual table documents above for enumeration values and meanings
 3. Explore individual TABLE_*.md files for detailed column descriptions
 4. Use EXEMPLE_*.md files for query inspiration and learning
 
