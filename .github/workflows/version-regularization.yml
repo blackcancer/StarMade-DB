@@ -1,0 +1,35 @@
+name: Historical version audit
+on:
+  push:
+    branches: [maintenance/version-regularization-20260923]
+    paths: [.github/workflows/version-regularization.yml]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Inspect historical manifests and tag targets without modifying repositories
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, subprocess, tempfile
+          def git(root, *args):
+              return subprocess.check_output(['git', '-C', str(root), *args], text=True).strip()
+          for name in ['StarMade-DB', 'StarMade-Decoder', 'StarMade-BlockEditor']:
+              root = pathlib.Path(tempfile.mkdtemp()) / name
+              subprocess.run(['git', 'clone', '--quiet', '--no-checkout', 'https://github.com/blackcancer/' + name + '.git', str(root)], check=True)
+              print('\nREPOSITORY', name, flush=True)
+              print('MAIN', git(root, 'rev-parse', 'origin/main'), flush=True)
+              print('TAGS', git(root, 'for-each-ref', '--format=%(refname:short) %(objectname) %(*objectname)', 'refs/tags/'), flush=True)
+              for sha in git(root, 'log', '--first-parent', '--format=%H', 'origin/main', '--', 'package.json').splitlines():
+                  try:
+                      version = json.loads(git(root, 'show', sha + ':package.json'))['version']
+                  except (subprocess.CalledProcessError, ValueError, KeyError):
+                      continue
+                  files = git(root, 'ls-tree', '-r', '--name-only', sha).splitlines()
+                  restricted = [p for p in files if p.lower().endswith(('.java', '.class', '.jar'))]
+                  print(json.dumps({'commit': sha, 'version': version, 'description': git(root, 'show', '-s', '--format=%cI %s', sha), 'javaFileCount': len(restricted), 'javaPaths': restricted[:12]}), flush=True)
+              print('RECENT_HISTORY', git(root, 'log', '-25', '--first-parent', '--format=%H %s', 'origin/main'), flush=True)
+          PY
