@@ -1,35 +1,24 @@
-name: Historical version audit
+name: Reconcile historical versions
 on:
   push:
     branches: [maintenance/version-regularization-20260923]
     paths: [.github/workflows/version-regularization.yml]
 permissions:
-  contents: read
+  contents: write
+concurrency:
+  group: version-regularization-20260923
+  cancel-in-progress: false
 jobs:
-  audit:
+  reconcile:
+    if: github.repository == 'blackcancer/StarMade-DB'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Inspect historical manifests and tag targets without modifying repositories
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import json, pathlib, subprocess, tempfile
-          def git(root, *args):
-              return subprocess.check_output(['git', '-C', str(root), *args], text=True).strip()
-          for name in ['StarMade-DB', 'StarMade-Decoder', 'StarMade-BlockEditor']:
-              root = pathlib.Path(tempfile.mkdtemp()) / name
-              subprocess.run(['git', 'clone', '--quiet', '--no-checkout', 'https://github.com/blackcancer/' + name + '.git', str(root)], check=True)
-              print('\nREPOSITORY', name, flush=True)
-              print('MAIN', git(root, 'rev-parse', 'origin/main'), flush=True)
-              print('TAGS', git(root, 'for-each-ref', '--format=%(refname:short) %(objectname) %(*objectname)', 'refs/tags/'), flush=True)
-              for sha in git(root, 'log', '--first-parent', '--format=%H', 'origin/main', '--', 'package.json').splitlines():
-                  try:
-                      version = json.loads(git(root, 'show', sha + ':package.json'))['version']
-                  except (subprocess.CalledProcessError, ValueError, KeyError):
-                      continue
-                  files = git(root, 'ls-tree', '-r', '--name-only', sha).splitlines()
-                  restricted = [p for p in files if p.lower().endswith(('.java', '.class', '.jar'))]
-                  print(json.dumps({'commit': sha, 'version': version, 'description': git(root, 'show', '-s', '--format=%cI %s', sha), 'javaFileCount': len(restricted), 'javaPaths': restricted[:12]}), flush=True)
-              print('RECENT_HISTORY', git(root, 'log', '-25', '--first-parent', '--format=%H %s', 'origin/main'), flush=True)
-          PY
+      - name: Retrieve the reviewed reconciliation script at an immutable commit
+        run: curl --fail --silent --show-error --max-time 60 https://raw.githubusercontent.com/blackcancer/StarMade-DB/36af107bce5e332210e81faccdffb533dc65f1ee/scripts/regularize-versions.mjs -o regularize-versions.mjs
+      - name: Validate targets, preserve published refs, restore tags and releases
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          VERSION_PLAN: >-
+            {"repository":"blackcancer/StarMade-DB","snapshot":"d3383859285d3ee7007499ccaabfc6fabb90be7a","latest":"v2.0.2","existingTags":{"v1.0.0":"827ec25c492f40cd74f4316fc153524feda7692b","v1.0.1":"e64d214fab34678fd0101a842cb6f34e89fe1a57","v2.0.1":"1de44b430ef388ffda451109a3d24175b1697a05","v2.0.2":"b0f94426f658e13f66f514fd7fa7991299bc5acc"},"versions":[{"tag":"v1.0.0","original":"bc9640cfae31c4c38602f560ac12c64774f0373b","originalVersion":"1.0.0","summary":"Initial historical StarMade-DB release. Existing annotated tag preserved."},{"tag":"v1.0.1","original":"fe243db3f4e7f94c73dc39fc4862347e314df299","originalVersion":"1.0.0","summary":"Historical GitHub installation fix adding the prepare script.","reason":"The original annotated tag explicitly identifies Release 1.0.1 - Fix GitHub install (add prepare script), but its package.json remained at 1.0.0. This published tag is retained unchanged; the discrepancy is documented rather than silently rewriting public history."},{"tag":"v1.1.0","original":"28104870539455e9d1227aa638e9c766515c3f4c","originalVersion":"2.0.0","normalize":true,"summary":"Historical controller expansion, including nine table controllers and API documentation.","reason":"Commit 96723c84f58cc6e392215cdccc8b61906fa04cd4 explicitly renumbered the historical 2.1.0 changelog entry to 1.1.0. The retained pre-Decoder-integration code snapshot still declares package version 2.0.0. This archival reconstruction corrects root package and lockfile versions only, with no runtime or dependency changes."},{"tag":"v1.2.0","original":"96723c84f58cc6e392215cdccc8b61906fa04cd4","originalVersion":"1.2.0","summary":"StarMade-Decoder VARBINARY integration and normalized historical release numbering."},{"tag":"v1.3.0","original":"f26c5e77dd2c16ed799c33626b22910b894c205d","originalVersion":"1.3.0","summary":"VARBINARY encode helpers completing the typed read/edit/write workflow."},{"tag":"v2.0.0","original":"25c5ea944b661a30e7c5a3aa55cb0ea0e64fc55e","originalVersion":"2.0.0","summary":"Audited connection, transaction, query, schema and controller corrections. The tag records the final 2.0.0 historical state, including the source-distribution cleanup."},{"tag":"v2.0.1","original":"f592ae3419a156c5a65ab0a0abd85aa7674ca3e3","originalVersion":"2.0.1","summary":"Maintenance, fleet-remote serialization and legacy/current resource compatibility corrections."},{"tag":"v2.0.2","original":"d3383859285d3ee7007499ccaabfc6fabb90be7a","originalVersion":"2.0.2","summary":"Updated StarMade-Open schema and binary compatibility, explicit legacy-sdk decoding and matching Decoder corrections. Consult the pinned changelog and migration documentation before upgrading."}]}
+        run: node regularize-versions.mjs
