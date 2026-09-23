@@ -668,7 +668,7 @@ describe('FleetMembersModel Complete Tests', function () {
 
             expect(schema.tableName).to.equal('FLEET_MEMBERS');
             expect(schema.comment).to.equal('Fleet composition and member relationships');
-            expect(schema.columns).to.be.an('array').with.length(7);
+            expect(schema.columns).to.be.an('array').with.length(8);
             expect(schema.primaryKey).to.deep.equal(['ID']);
             expect(schema.foreignKeys).to.be.an('array').with.length(2);
             expect(schema.indexes).to.be.an('array').with.length(3); // Correction: 3 au lieu de 5
@@ -1662,7 +1662,7 @@ describe('FleetMembersModel Complete Tests', function () {
 
         it('should have correct validation rules count', function () {
             const schema = FleetMembersModel.getSchema();
-            expect(schema.validationRules).to.have.length(7); // Updated to match actual count
+            expect(schema.validationRules).to.have.length(8); // Updated to match actual count
         });
     });
 });

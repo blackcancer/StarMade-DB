@@ -223,6 +223,9 @@ export class FleetMembersModel extends BaseModel {
                 nullable: false,
                 comment: 'ID of entity docked to (-1 if not docked)'
             }),
+            column('CARGO_CAPACITY', DataType.DOUBLE, {
+                nullable: false, defaultValue: 0, comment: 'Cargo capacity available for trade deliveries'
+            }),
             column('FACTION', DataType.INTEGER, {
                 nullable: false,
                 defaultValue: 0,
@@ -250,6 +253,9 @@ export class FleetMembersModel extends BaseModel {
         ],
 
         validationRules: [
+            validation('CARGO_CAPACITY', 'custom', {
+                validator: (value: unknown) => value === undefined || (typeof value === 'number' && Number.isFinite(value)) || 'Cargo capacity must be a finite number'
+            }),
             validation('FLEET_ID', 'required'),
             validation('ENTITY_ID', 'required'),
             validation('LIST_INDEX', 'required'),
@@ -321,6 +327,11 @@ export class FleetMembersModel extends BaseModel {
     // =============================================================================
     // TYPED ACCESSORS
     // =============================================================================
+
+    /** Read cargo capacity; a column omitted from a legacy row remains undefined. */
+    public getCargoCapacity(): number | undefined { return this.get('CARGO_CAPACITY'); }
+    /** Store cargo capacity for trade deliveries. */
+    public setCargoCapacity(value: number): this { return this.set('CARGO_CAPACITY', value); }
 
     /**
      * Read the FLEET_MEMBERS.ID column from this model. Numeric strings are converted to integers.

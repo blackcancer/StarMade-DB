@@ -32,18 +32,22 @@
 ### TYPE{#type}
 Sector classification that determines the primary characteristics and contents of the sector.
 
-| Value | Name            | Description          | Characteristics                       | Hazard Level |
-|-------|-----------------|----------------------|---------------------------------------|--------------|
-| `0`   | `VOID`          | Empty void space     | No special features, safe for travel | None          |
-| `1`   | `ASTEROID`      | Asteroid belt sector | Contains mineable asteroids           | Low          |
-| `2`   | `PLANET`        | Planet sector        | Has planetary body with resources     | Low          |
-| `3`   | `SPACE_STATION` | Space station sector | Contains station entity               | None         |
-| `4`   | `SUN`           | Star/sun sector      | System center, extreme heat damage    | Extreme      |
-| `5`   | `BLACK_HOLE`    | Black hole sector    | Gravity well, ship destruction        | Extreme      |
-| `6`   | `WORMHOLE`      | Wormhole sector      | Natural jump point                    | Medium       |
-| `7`   | `NEBULA`        | Nebula sector        | Reduced visibility, possible resources| Low          |
-| `8`   | `DOUBLE_STAR`   | Binary star system   | Two stars orbiting each other         | Extreme      |
-| `9`   | `GIANT`         | Giant star sector    | Massive star with extended damage zone| Extreme      |
+Current StarMade-Open `e5a3b49d8` ordinals, also used in `SYSTEMS.INFOS`:
+
+| Value | Name |
+| --- | --- |
+| `0` | `SPACE_STATION` |
+| `1` | `ASTEROID` |
+| `2` | `PLANET` |
+| `3` | `MAIN` |
+| `4` | `SUN` |
+| `5` | `BLACK_HOLE` |
+| `6` | `VOID` |
+| `7` | `LOW_ASTEROID` |
+| `8` | `GIANT` |
+| `9` | `DOUBLE_STAR` |
+
+`WORMHOLE` and `NEBULA` were erroneous application labels and are not sector enum values in this revision.
 
 ### PROTECTION{#protection}
 Protection level flags using bitwise combinations to control sector behavior and access.

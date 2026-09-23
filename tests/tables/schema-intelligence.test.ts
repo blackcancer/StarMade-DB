@@ -12,7 +12,7 @@ describe('Optional relation intelligence', () => {
         expect(visibility.getSectorIntelligence()).to.deep.equal({name:undefined,type:undefined,stellar:undefined,protection:undefined,isLoaded:true});
         expect(visibility.getSectorProtectionStatus()).to.deep.equal({isProtected:false,isSafeZone:false,isLocked:false,protectionLevel:undefined,isLoaded:true});
     });
-    for (const type of ['PLANET','WORMHOLE','SUN','BLACK_HOLE']) {
+    for (const type of ['PLANET','MAIN','SUN','BLACK_HOLE']) {
         it(`values protected ${type} observations`, () => {
             sinon.stub(Date,'now').returns(1000000000);
             const visibility = new VisibilityModel({ID:-10000000,TIMESTAMP:Date.now()});

@@ -136,18 +136,54 @@ and regeneration of both API references.
 
 ## Binary database compatibility
 
+The default `current` profile targets StarMade-Open `e5a3b49d8`: 24 fleet commands,
+10 sector types, five planet types and zlib-wrapped trade prices. SQL `SectorType`
+and `SystemType` use the game ordinals; the erroneous `WORMHOLE`/`NEBULA` labels
+have been removed. Do not reuse old numeric enum literals.
+
+`decodeCommand(profile?)`, `decodeStarSystem(profile?)`, `encodeInfos(entries, profile?)`
+and `TradeNodesModel.decodeItems(profile?)` accept `current` or `legacy-sdk`.
+The legacy profile preserves **SDK 2.0.1** ordinals and raw-DEFLATE prices; it is not
+a certification of an older game release. Binary cells do not identify their profile.
+Decoder business objects retain their profile across edits and serialization.
+`TradeNodesModel.encodeItems(rawPrices, profile?)` uses the selected profile for raw
+structures; a business object uses its own profile.
+
+```javascript
+const command = fleet.decodeCommand('current');
+const oldCommand = oldFleet.decodeCommand('legacy-sdk');
+const prices = tradeNode.decodeItems('current');
+if (prices) tradeNode.encodeItems(prices.withSellOrder(259, 2, 500));
+```
+
 `FleetsModel.decodeCommand()` returns `null` for absent/empty data and throws
 `DecodeError` for malformed nonempty bytes. `encodeRemotes()` writes the Java
 ObjectOutputStream database representation for records, Maps and FleetRemotesObject
 inputs. Reading also accepts network-format remotes; an incomplete recovered object
 cannot be written back.
 
-`SystemsModel` reads both 16-byte legacy and 19-byte extended resource cells.
+`SystemsModel` reads both 16-byte current and 19-byte extended resource cells.
 `encodeResources(resources, resourceSize = 16)` and
 `encodeStarSystem(system, resourceSize = 16)` default to the supplied fixture/game schema.
 Pass `19` only for a database column supporting that width. Writing nonzero extended
 resources to a 16-byte column throws before changing the stored cell; values are never
 silently truncated. No database migration is performed by these helpers.
 
-The [schema validation notes](SCHEMA_VALIDATION.md#compatibilité-du-décodeur--20-septembre-2026)
-record the format evidence and strict error cases.
+Absent resource cells remain distinct from zero-filled cells: `decodeResources()`
+and the decoded system's `resources` return empty arrays when the cell is absent.
+
+`FleetsModel` provides `get/setCombinedTargeting()` and `get/setMessageLog()`;
+`FleetMembersModel` provides `get/setCargoCapacity()`. The controllers support
+sorting and updating their SQL columns on a database containing the new schema.
+Cargo must be finite, the targeting flag boolean or null, and the message at most
+4096 characters containing a JSON array of strings (empty string/null is also accepted).
+Each game message string encodes a JSON object with timestamp, type and description.
+An omitted column remains undefined on an in-memory model;
+read the created row to observe database defaults.
+
+Fleet membership mutations use `{fleetId, entityId}`, not the membership's `ID`.
+Incomplete keys are rejected before any row lookup. The library does not add the
+new columns to existing worlds: schema migration belongs to the game/operator.
+
+The [schema validation notes](SCHEMA_VALIDATION.md#compatibilite-open-20260923)
+record the audit, corrections and independent format evidence.

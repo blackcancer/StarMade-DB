@@ -26909,7 +26909,7 @@ public async update(
 
 Delete a fleet member record by fleet and entity identifiers
 
-[Source](../../src/tables/fleet-members/FleetMembersController.ts#L359)
+[Source](../../src/tables/fleet-members/FleetMembersController.ts#L360)
 
 ```typescript
 public async delete(
@@ -26930,7 +26930,7 @@ public async delete(
 
 Remove all member records from a given fleet
 
-[Source](../../src/tables/fleet-members/FleetMembersController.ts#L375)
+[Source](../../src/tables/fleet-members/FleetMembersController.ts#L384)
 
 ```typescript
 public async removeAllFromFleet(fleetId: number): Promise<number>
@@ -26946,7 +26946,7 @@ public async removeAllFromFleet(fleetId: number): Promise<number>
 
 Create multiple fleet member records
 
-[Source](../../src/tables/fleet-members/FleetMembersController.ts#L399)
+[Source](../../src/tables/fleet-members/FleetMembersController.ts#L408)
 
 ```typescript
 public async bulkCreate(
@@ -26967,7 +26967,7 @@ public async bulkCreate(
 
 Delete multiple fleet member records
 
-[Source](../../src/tables/fleet-members/FleetMembersController.ts#L430)
+[Source](../../src/tables/fleet-members/FleetMembersController.ts#L439)
 
 ```typescript
 public async bulkDelete(
@@ -26988,7 +26988,7 @@ public async bulkDelete(
 
 Get comprehensive fleet member statistics
 
-[Source](../../src/tables/fleet-members/FleetMembersController.ts#L463)
+[Source](../../src/tables/fleet-members/FleetMembersController.ts#L472)
 
 ```typescript
 public async getStatistics(): Promise<FleetMemberStatistics>
@@ -27002,7 +27002,7 @@ public async getStatistics(): Promise<FleetMemberStatistics>
 
 Count members in a specific fleet
 
-[Source](../../src/tables/fleet-members/FleetMembersController.ts#L511)
+[Source](../../src/tables/fleet-members/FleetMembersController.ts#L520)
 
 ```typescript
 public async countByFleet(fleetId: number): Promise<number>
@@ -27454,17 +27454,37 @@ public static schema: TableSchema = {
 Define relationships for this model
 Similar to Objection.js relationMappings with optimized index usage
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L277)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L283)
 
 ```typescript
 public static get relationMappings(): RelationMappings
+```
+
+### FleetMembersModel.getCargoCapacity
+
+Read cargo capacity; a column omitted from a legacy row remains undefined.
+
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L332)
+
+```typescript
+public getCargoCapacity(): number | undefined
+```
+
+### FleetMembersModel.setCargoCapacity
+
+Store cargo capacity for trade deliveries.
+
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L334)
+
+```typescript
+public setCargoCapacity(value: number): this
 ```
 
 ### FleetMembersModel.getId
 
 Read the FLEET_MEMBERS.ID column from this model. Numeric strings are converted to integers.
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L329)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L340)
 
 ```typescript
 public getId(): number
@@ -27476,7 +27496,7 @@ public getId(): number
 
 Store the FLEET_MEMBERS.ID column in this model and return this for chaining.
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L335)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L346)
 
 ```typescript
 public setId(id: number): this
@@ -27490,7 +27510,7 @@ public setId(id: number): this
 
 Read the FLEET_MEMBERS.FLEET_ID column from this model.
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L341)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L352)
 
 ```typescript
 public getFleetId(): number
@@ -27502,7 +27522,7 @@ public getFleetId(): number
 
 Store the FLEET_MEMBERS.FLEET_ID column in this model and return this for chaining.
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L347)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L358)
 
 ```typescript
 public setFleetId(fleetId: number): this
@@ -27516,7 +27536,7 @@ public setFleetId(fleetId: number): this
 
 Read the FLEET_MEMBERS.ENTITY_ID column from this model.
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L353)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L364)
 
 ```typescript
 public getEntityId(): number
@@ -27528,7 +27548,7 @@ public getEntityId(): number
 
 Store the FLEET_MEMBERS.ENTITY_ID column in this model and return this for chaining.
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L359)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L370)
 
 ```typescript
 public setEntityId(entityId: number): this
@@ -27542,7 +27562,7 @@ public setEntityId(entityId: number): this
 
 Read the FLEET_MEMBERS.MISSION_STRING column from this model.
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L365)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L376)
 
 ```typescript
 public getMissionString(): string | undefined
@@ -27554,7 +27574,7 @@ public getMissionString(): string | undefined
 
 Store the FLEET_MEMBERS.MISSION_STRING column in this model and return this for chaining.
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L371)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L382)
 
 ```typescript
 public setMissionString(missionString: string | undefined): this
@@ -27568,7 +27588,7 @@ public setMissionString(missionString: string | undefined): this
 
 Read the FLEET_MEMBERS.LIST_INDEX column from this model.
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L377)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L388)
 
 ```typescript
 public getListIndex(): number
@@ -27580,7 +27600,7 @@ public getListIndex(): number
 
 Store the FLEET_MEMBERS.LIST_INDEX column in this model and return this for chaining.
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L383)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L394)
 
 ```typescript
 public setListIndex(listIndex: number): this
@@ -27594,7 +27614,7 @@ public setListIndex(listIndex: number): this
 
 Read the FLEET_MEMBERS.DOCKED_TO column from this model.
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L389)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L400)
 
 ```typescript
 public getDockedTo(): number
@@ -27606,7 +27626,7 @@ public getDockedTo(): number
 
 Store the FLEET_MEMBERS.DOCKED_TO column in this model and return this for chaining.
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L395)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L406)
 
 ```typescript
 public setDockedTo(dockedTo: number): this
@@ -27620,7 +27640,7 @@ public setDockedTo(dockedTo: number): this
 
 Read the FLEET_MEMBERS.FACTION column from this model.
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L401)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L412)
 
 ```typescript
 public getFaction(): number
@@ -27632,7 +27652,7 @@ public getFaction(): number
 
 Store the FLEET_MEMBERS.FACTION column in this model and return this for chaining.
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L407)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L418)
 
 ```typescript
 public setFaction(faction: number): this
@@ -27646,7 +27666,7 @@ public setFaction(faction: number): this
 
 Get the fleet this member belongs to
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L414)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L425)
 
 ```typescript
 public getFleet(): any | undefined
@@ -27656,7 +27676,7 @@ public getFleet(): any | undefined
 
 Set the fleet this member belongs to
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L419)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L430)
 
 ```typescript
 public setFleet(fleet: any | undefined): this
@@ -27666,7 +27686,7 @@ public setFleet(fleet: any | undefined): this
 
 Get the entity that is a member of the fleet
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L424)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L435)
 
 ```typescript
 public getEntity(): any | undefined
@@ -27676,7 +27696,7 @@ public getEntity(): any | undefined
 
 Set the entity that is a member of the fleet
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L429)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L440)
 
 ```typescript
 public setEntity(entity: any | undefined): this
@@ -27686,7 +27706,7 @@ public setEntity(entity: any | undefined): this
 
 Get the entity this member is docked to (null if not docked)
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L434)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L445)
 
 ```typescript
 public getDockedToEntity(): any | undefined
@@ -27696,7 +27716,7 @@ public getDockedToEntity(): any | undefined
 
 Set the entity this member is docked to
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L439)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L450)
 
 ```typescript
 public setDockedToEntity(entity: any | undefined): this
@@ -27706,7 +27726,7 @@ public setDockedToEntity(entity: any | undefined): this
 
 Check if fleet relation is loaded
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L444)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L455)
 
 ```typescript
 public hasFleetLoaded(): boolean
@@ -27716,7 +27736,7 @@ public hasFleetLoaded(): boolean
 
 Check if entity relation is loaded
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L449)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L460)
 
 ```typescript
 public hasEntityLoaded(): boolean
@@ -27726,7 +27746,7 @@ public hasEntityLoaded(): boolean
 
 Check if docked-to entity relation is loaded
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L454)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L465)
 
 ```typescript
 public hasDockedToEntityLoaded(): boolean
@@ -27736,7 +27756,7 @@ public hasDockedToEntityLoaded(): boolean
 
 Check if all relations are loaded
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L459)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L470)
 
 ```typescript
 public hasAllRelationsLoaded(): boolean
@@ -27746,7 +27766,7 @@ public hasAllRelationsLoaded(): boolean
 
 Check if critical relations are loaded (fleet and entity)
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L465)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L476)
 
 ```typescript
 public hasCriticalRelationsLoaded(): boolean
@@ -27756,7 +27776,7 @@ public hasCriticalRelationsLoaded(): boolean
 
 Get fleet name from loaded relation
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L476)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L487)
 
 ```typescript
 public getFleetName(): string | undefined
@@ -27766,7 +27786,7 @@ public getFleetName(): string | undefined
 
 Get entity name from loaded relation
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L487)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L498)
 
 ```typescript
 public getEntityName(): string | undefined
@@ -27776,7 +27796,7 @@ public getEntityName(): string | undefined
 
 Get docked-to entity name from loaded relation
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L498)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L509)
 
 ```typescript
 public getDockedToEntityName(): string | undefined
@@ -27786,7 +27806,7 @@ public getDockedToEntityName(): string | undefined
 
 Get fleet display name with enhanced info
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L509)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L520)
 
 ```typescript
 public getFleetDisplayName(): string
@@ -27796,7 +27816,7 @@ public getFleetDisplayName(): string
 
 Get entity display name with enhanced info
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L520)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L531)
 
 ```typescript
 public getEntityDisplayName(): string
@@ -27806,7 +27826,7 @@ public getEntityDisplayName(): string
 
 Get normalized mission state
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L535)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L546)
 
 ```typescript
 public getMissionState(): MemberMissionState | null
@@ -27816,7 +27836,7 @@ public getMissionState(): MemberMissionState | null
 
 Get mission category
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L581)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L592)
 
 ```typescript
 public getMissionCategory(): MissionCategory
@@ -27826,7 +27846,7 @@ public getMissionCategory(): MissionCategory
 
 Check if member has a recognized mission state
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L597)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L608)
 
 ```typescript
 public hasRecognizedMission(): boolean
@@ -27836,7 +27856,7 @@ public hasRecognizedMission(): boolean
 
 Check if this member has an individual mission
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L604)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L615)
 
 ```typescript
 public hasIndividualMission(): boolean
@@ -27846,7 +27866,7 @@ public hasIndividualMission(): boolean
 
 Get current mission status (with fallback)
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L612)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L623)
 
 ```typescript
 public getCurrentMission(): string
@@ -27856,7 +27876,7 @@ public getCurrentMission(): string
 
 Check if member is idle
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L623)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L634)
 
 ```typescript
 public isIdle(): boolean
@@ -27866,7 +27886,7 @@ public isIdle(): boolean
 
 Check if member is in combat mode
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L631)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L642)
 
 ```typescript
 public isInCombat(): boolean
@@ -27876,7 +27896,7 @@ public isInCombat(): boolean
 
 Check if member is mining
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L639)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L650)
 
 ```typescript
 public isMining(): boolean
@@ -27886,7 +27906,7 @@ public isMining(): boolean
 
 Check if member is trading
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L647)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L658)
 
 ```typescript
 public isTrading(): boolean
@@ -27896,7 +27916,7 @@ public isTrading(): boolean
 
 Check if member is moving
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L655)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L666)
 
 ```typescript
 public isMoving(): boolean
@@ -27906,7 +27926,7 @@ public isMoving(): boolean
 
 Check if member is in sentry mode
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L663)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L674)
 
 ```typescript
 public isSentry(): boolean
@@ -27916,7 +27936,7 @@ public isSentry(): boolean
 
 Check if member is performing operations
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L673)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L684)
 
 ```typescript
 public isPerformingOperations(): boolean
@@ -27926,7 +27946,7 @@ public isPerformingOperations(): boolean
 
 Check if member is in special mode (stealth/EW)
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L681)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L692)
 
 ```typescript
 public isInSpecialMode(): boolean
@@ -27936,7 +27956,7 @@ public isInSpecialMode(): boolean
 
 Check if member is providing support
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L689)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L700)
 
 ```typescript
 public isProvidingSupport(): boolean
@@ -27946,7 +27966,7 @@ public isProvidingSupport(): boolean
 
 Check if this member is docked
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L700)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L711)
 
 ```typescript
 public isDocked(): boolean
@@ -27956,7 +27976,7 @@ public isDocked(): boolean
 
 Check if member is flagship (index 0)
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L707)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L718)
 
 ```typescript
 public isFlagship(): boolean
@@ -27966,7 +27986,7 @@ public isFlagship(): boolean
 
 Check if member is docked to another fleet member
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L714)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L725)
 
 ```typescript
 public isDockedToFleetMember(): boolean
@@ -27976,7 +27996,7 @@ public isDockedToFleetMember(): boolean
 
 Get docking status with enhanced entity information
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L721)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L732)
 
 ```typescript
 public getDockingStatus(): DockingStatus
@@ -27986,7 +28006,7 @@ public getDockingStatus(): DockingStatus
 
 Get docking status description with enhanced info
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L743)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L754)
 
 ```typescript
 public getDockingStatusDescription(): string
@@ -27996,7 +28016,7 @@ public getDockingStatusDescription(): string
 
 Get member priority based on list index
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L759)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L770)
 
 ```typescript
 public getPriority(): MemberPriority
@@ -28006,7 +28026,7 @@ public getPriority(): MemberPriority
 
 Check if member is suitable for flagship role
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L770)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L781)
 
 ```typescript
 public isSuitableForFlagship(): boolean
@@ -28016,7 +28036,7 @@ public isSuitableForFlagship(): boolean
 
 Get faction name for known factions
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L782)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L793)
 
 ```typescript
 public getFactionName(): string
@@ -28026,7 +28046,7 @@ public getFactionName(): string
 
 Check if member belongs to NPC faction
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L801)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L812)
 
 ```typescript
 public isNPCFaction(): boolean
@@ -28036,7 +28056,7 @@ public isNPCFaction(): boolean
 
 Check if member belongs to player faction
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L809)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L820)
 
 ```typescript
 public isPlayerFaction(): boolean
@@ -28046,7 +28066,7 @@ public isPlayerFaction(): boolean
 
 Check if member is neutral (no faction)
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L817)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L828)
 
 ```typescript
 public isNeutral(): boolean
@@ -28056,7 +28076,7 @@ public isNeutral(): boolean
 
 Check if member can perform independent actions
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L828)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L839)
 
 ```typescript
 public canActIndependently(): boolean
@@ -28066,7 +28086,7 @@ public canActIndependently(): boolean
 
 Check if member can engage in combat
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L835)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L846)
 
 ```typescript
 public canEngageInCombat(): boolean
@@ -28076,7 +28096,7 @@ public canEngageInCombat(): boolean
 
 Check if member is available for assignment
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L850)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L861)
 
 ```typescript
 public isAvailableForAssignment(): boolean
@@ -28086,7 +28106,7 @@ public isAvailableForAssignment(): boolean
 
 Check if member is in formation
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L857)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L868)
 
 ```typescript
 public isInFormation(): boolean
@@ -28096,7 +28116,7 @@ public isInFormation(): boolean
 
 Get comprehensive member status summary with relationship data
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L869)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L880)
 
 ```typescript
 public getStatusSummary(): {
@@ -28132,7 +28152,7 @@ public getStatusSummary(): {
 
 Get operational readiness assessment with relationship intelligence
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L928)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L939)
 
 ```typescript
 public getOperationalReadiness(): {
@@ -28152,7 +28172,7 @@ public getOperationalReadiness(): {
 
 Get docking chain analysis with relationship data
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L1005)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L1016)
 
 ```typescript
 public getDockingChainAnalysis(): {
@@ -28169,7 +28189,7 @@ public getDockingChainAnalysis(): {
 
 Get member tactical assessment with enhanced relationship data
 
-[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L1051)
+[Source](../../src/tables/fleet-members/FleetMembersModel.ts#L1062)
 
 ```typescript
 public getTacticalAssessment(): {
@@ -29199,10 +29219,9 @@ public async updateCombatSetting(fleetId: number, combatSetting: CombatSetting):
 ### FleetCommand
 
 Fleet command types — exact ordinal order from FleetCommandTypes.java.
-Note: REPAIR_FLEET(4) was missing in the previous version, causing all
-subsequent ordinals to be off by one.
+Targets StarMade-Open e5a3b49d8; historical SDK ordinals require an explicit decoder profile.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L38)
+[Source](../../src/tables/fleets/FleetsModel.ts#L37)
 
 ```typescript
 export enum FleetCommand {
@@ -29210,229 +29229,249 @@ export enum FleetCommand {
 
 ### FleetCommand.IDLE
 
-Fleet command value for idle, serialized as 0.
+Game ordinal for idle.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L40)
+[Source](../../src/tables/fleets/FleetsModel.ts#L39)
 
 ```typescript
-IDLE             = 0
+IDLE = 0
 ```
 
 ### FleetCommand.MOVE_FLEET
 
-Fleet command value for move fleet, serialized as 1.
+Game ordinal for move fleet.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L42)
+[Source](../../src/tables/fleets/FleetsModel.ts#L41)
 
 ```typescript
-MOVE_FLEET       = 1
+MOVE_FLEET = 1
 ```
 
 ### FleetCommand.PATROL_FLEET
 
-Fleet command value for patrol fleet, serialized as 2.
+Game ordinal for patrol fleet.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L44)
+[Source](../../src/tables/fleets/FleetsModel.ts#L43)
 
 ```typescript
-PATROL_FLEET     = 2
+PATROL_FLEET = 2
 ```
 
-### FleetCommand.TRADE_FLEET
+### FleetCommand.TRADE_FLEET_NPC
 
-Fleet command value for trade fleet, serialized as 3.
+Game ordinal for trade fleet npc.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L46)
+[Source](../../src/tables/fleets/FleetsModel.ts#L45)
 
 ```typescript
-TRADE_FLEET      = 3
+TRADE_FLEET_NPC = 3
 ```
 
-### FleetCommand.REPAIR_FLEET
+### FleetCommand.TRADE_FLEET_ACTIVE
 
-Fleet command value for repair fleet, serialized as 4.
+Game ordinal for trade fleet active.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L48)
+[Source](../../src/tables/fleets/FleetsModel.ts#L47)
 
 ```typescript
-REPAIR_FLEET     = 4
+TRADE_FLEET_ACTIVE = 4
+```
+
+### FleetCommand.TRADE_FLEET_WAITING
+
+Game ordinal for trade fleet waiting.
+
+[Source](../../src/tables/fleets/FleetsModel.ts#L49)
+
+```typescript
+TRADE_FLEET_WAITING = 5
 ```
 
 ### FleetCommand.FLEET_ATTACK
 
-Fleet command value for fleet attack, serialized as 5.
+Game ordinal for fleet attack.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L50)
+[Source](../../src/tables/fleets/FleetsModel.ts#L51)
 
 ```typescript
-FLEET_ATTACK     = 5
+FLEET_ATTACK = 6
 ```
 
 ### FleetCommand.FLEET_DEFEND
 
-Fleet command value for fleet defend, serialized as 6.
+Game ordinal for fleet defend.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L52)
+[Source](../../src/tables/fleets/FleetsModel.ts#L53)
 
 ```typescript
-FLEET_DEFEND     = 6
+FLEET_DEFEND = 7
 ```
 
 ### FleetCommand.ESCORT
 
-Fleet command value for escort, serialized as 7.
+Game ordinal for escort.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L54)
+[Source](../../src/tables/fleets/FleetsModel.ts#L55)
 
 ```typescript
-ESCORT           = 7
+ESCORT = 8
 ```
 
 ### FleetCommand.REPAIR
 
-Fleet command value for repair, serialized as 8.
+Game ordinal for repair.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L56)
+[Source](../../src/tables/fleets/FleetsModel.ts#L57)
 
 ```typescript
-REPAIR           = 8
+REPAIR = 9
 ```
 
-### FleetCommand.ARTILLERY
+### FleetCommand.STANDOFF
 
-Fleet command value for artillery, serialized as 9.
+Game ordinal for standoff.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L58)
+[Source](../../src/tables/fleets/FleetsModel.ts#L59)
 
 ```typescript
-ARTILLERY        = 9
+STANDOFF = 10
+```
+
+### FleetCommand.RECON_FLEET
+
+Game ordinal for recon fleet.
+
+[Source](../../src/tables/fleets/FleetsModel.ts#L61)
+
+```typescript
+RECON_FLEET = 11
 ```
 
 ### FleetCommand.SENTRY_FORMATION
 
-Fleet command value for sentry formation, serialized as 10.
+Game ordinal for sentry formation.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L60)
+[Source](../../src/tables/fleets/FleetsModel.ts#L63)
 
 ```typescript
-SENTRY_FORMATION = 10
+SENTRY_FORMATION = 12
 ```
 
 ### FleetCommand.SENTRY
 
-Fleet command value for sentry, serialized as 11.
+Game ordinal for sentry.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L62)
+[Source](../../src/tables/fleets/FleetsModel.ts#L65)
 
 ```typescript
-SENTRY           = 11
+SENTRY = 13
 ```
 
 ### FleetCommand.FLEET_IDLE_FORMATION
 
-Fleet command value for fleet idle formation, serialized as 12.
+Game ordinal for fleet idle formation.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L64)
+[Source](../../src/tables/fleets/FleetsModel.ts#L67)
 
 ```typescript
-FLEET_IDLE_FORMATION = 12
+FLEET_IDLE_FORMATION = 14
 ```
 
 ### FleetCommand.CALL_TO_CARRIER
 
-Fleet command value for call to carrier, serialized as 13.
+Game ordinal for call to carrier.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L66)
+[Source](../../src/tables/fleets/FleetsModel.ts#L69)
 
 ```typescript
-CALL_TO_CARRIER  = 13
+CALL_TO_CARRIER = 15
 ```
 
 ### FleetCommand.MINE_IN_SECTOR
 
-Fleet command value for mine in sector, serialized as 14.
+Game ordinal for mine in sector.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L68)
+[Source](../../src/tables/fleets/FleetsModel.ts#L71)
 
 ```typescript
-MINE_IN_SECTOR   = 14
+MINE_IN_SECTOR = 16
 ```
 
 ### FleetCommand.CLOAK
 
-Fleet command value for cloak, serialized as 15.
+Game ordinal for cloak.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L70)
+[Source](../../src/tables/fleets/FleetsModel.ts#L73)
 
 ```typescript
-CLOAK            = 15
+CLOAK = 17
 ```
 
 ### FleetCommand.UNCLOAK
 
-Fleet command value for uncloak, serialized as 16.
+Game ordinal for uncloak.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L72)
+[Source](../../src/tables/fleets/FleetsModel.ts#L75)
 
 ```typescript
-UNCLOAK          = 16
+UNCLOAK = 18
 ```
 
 ### FleetCommand.JAM
 
-Fleet command value for jam, serialized as 17.
+Game ordinal for jam.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L74)
+[Source](../../src/tables/fleets/FleetsModel.ts#L77)
 
 ```typescript
-JAM              = 17
+JAM = 19
 ```
 
 ### FleetCommand.UNJAM
 
-Fleet command value for unjam, serialized as 18.
+Game ordinal for unjam.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L76)
+[Source](../../src/tables/fleets/FleetsModel.ts#L79)
 
 ```typescript
-UNJAM            = 18
+UNJAM = 20
 ```
 
 ### FleetCommand.ACTIVATE_REMOTE
 
-Fleet command value for activate remote, serialized as 19.
+Game ordinal for activate remote.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L78)
+[Source](../../src/tables/fleets/FleetsModel.ts#L81)
 
 ```typescript
-ACTIVATE_REMOTE  = 19
+ACTIVATE_REMOTE = 21
 ```
 
 ### FleetCommand.INTERDICT
 
-Fleet command value for interdict, serialized as 20.
+Game ordinal for interdict.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L80)
+[Source](../../src/tables/fleets/FleetsModel.ts#L83)
 
 ```typescript
-INTERDICT        = 20
+INTERDICT = 22
 ```
 
 ### FleetCommand.STOP_INTERDICT
 
-Fleet command value for stop interdict, serialized as 21.
+Game ordinal for stop interdict.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L82)
+[Source](../../src/tables/fleets/FleetsModel.ts#L85)
 
 ```typescript
-STOP_INTERDICT   = 21
+STOP_INTERDICT = 23
 ```
 
 ### FactionAccess
 
 Fleet faction access levels
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L88)
+[Source](../../src/tables/fleets/FleetsModel.ts#L91)
 
 ```typescript
 export enum FactionAccess {
@@ -29442,7 +29481,7 @@ export enum FactionAccess {
 
 Faction access value for none, serialized as 0.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L90)
+[Source](../../src/tables/fleets/FleetsModel.ts#L93)
 
 ```typescript
 NONE = 0
@@ -29452,7 +29491,7 @@ NONE = 0
 
 Faction access value for officer, serialized as 1.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L92)
+[Source](../../src/tables/fleets/FleetsModel.ts#L95)
 
 ```typescript
 OFFICER = 1
@@ -29462,7 +29501,7 @@ OFFICER = 1
 
 Faction access value for commander, serialized as 2.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L94)
+[Source](../../src/tables/fleets/FleetsModel.ts#L97)
 
 ```typescript
 COMMANDER = 2
@@ -29472,7 +29511,7 @@ COMMANDER = 2
 
 Faction access value for member, serialized as 3.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L96)
+[Source](../../src/tables/fleets/FleetsModel.ts#L99)
 
 ```typescript
 MEMBER = 3
@@ -29482,7 +29521,7 @@ MEMBER = 3
 
 Faction access value for recruit, serialized as 4.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L98)
+[Source](../../src/tables/fleets/FleetsModel.ts#L101)
 
 ```typescript
 RECRUIT = 4
@@ -29492,7 +29531,7 @@ RECRUIT = 4
 
 Faction access value for all, serialized as 5.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L100)
+[Source](../../src/tables/fleets/FleetsModel.ts#L103)
 
 ```typescript
 ALL = 5
@@ -29502,7 +29541,7 @@ ALL = 5
 
 Combat behavior settings
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L106)
+[Source](../../src/tables/fleets/FleetsModel.ts#L109)
 
 ```typescript
 export enum CombatSetting {
@@ -29512,7 +29551,7 @@ export enum CombatSetting {
 
 Combat setting value for passive, serialized as 'PASSIVE'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L108)
+[Source](../../src/tables/fleets/FleetsModel.ts#L111)
 
 ```typescript
 PASSIVE = 'PASSIVE'
@@ -29522,7 +29561,7 @@ PASSIVE = 'PASSIVE'
 
 Combat setting value for sometimes engage, serialized as 'SOMETIMES ENGAGE'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L110)
+[Source](../../src/tables/fleets/FleetsModel.ts#L113)
 
 ```typescript
 SOMETIMES_ENGAGE = 'SOMETIMES ENGAGE'
@@ -29532,7 +29571,7 @@ SOMETIMES_ENGAGE = 'SOMETIMES ENGAGE'
 
 Combat setting value for always engage, serialized as 'ALWAYS ENGAGE'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L112)
+[Source](../../src/tables/fleets/FleetsModel.ts#L115)
 
 ```typescript
 ALWAYS_ENGAGE = 'ALWAYS ENGAGE'
@@ -29542,7 +29581,7 @@ ALWAYS_ENGAGE = 'ALWAYS ENGAGE'
 
 Combat setting value for always flee, serialized as 'ALWAYS FLEE'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L114)
+[Source](../../src/tables/fleets/FleetsModel.ts#L117)
 
 ```typescript
 ALWAYS_FLEE = 'ALWAYS FLEE'
@@ -29552,7 +29591,7 @@ ALWAYS_FLEE = 'ALWAYS FLEE'
 
 Active mission states
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L120)
+[Source](../../src/tables/fleets/FleetsModel.ts#L123)
 
 ```typescript
 export enum MissionString {
@@ -29562,7 +29601,7 @@ export enum MissionString {
 
 Mission string value for idle, serialized as 'IDLE'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L122)
+[Source](../../src/tables/fleets/FleetsModel.ts#L125)
 
 ```typescript
 IDLE = 'IDLE'
@@ -29572,7 +29611,7 @@ IDLE = 'IDLE'
 
 Mission string value for idle sentry, serialized as 'IDLE - SENTRY'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L124)
+[Source](../../src/tables/fleets/FleetsModel.ts#L127)
 
 ```typescript
 IDLE_SENTRY = 'IDLE - SENTRY'
@@ -29582,7 +29621,7 @@ IDLE_SENTRY = 'IDLE - SENTRY'
 
 Mission string value for sentry formation, serialized as 'SENTRY - FORMATION'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L126)
+[Source](../../src/tables/fleets/FleetsModel.ts#L129)
 
 ```typescript
 SENTRY_FORMATION = 'SENTRY - FORMATION'
@@ -29592,7 +29631,7 @@ SENTRY_FORMATION = 'SENTRY - FORMATION'
 
 Mission string value for callback to carrier, serialized as 'CALLBACK TO CARRIER'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L128)
+[Source](../../src/tables/fleets/FleetsModel.ts#L131)
 
 ```typescript
 CALLBACK_TO_CARRIER = 'CALLBACK TO CARRIER'
@@ -29602,7 +29641,7 @@ CALLBACK_TO_CARRIER = 'CALLBACK TO CARRIER'
 
 Mission string value for mining, serialized as 'MINING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L130)
+[Source](../../src/tables/fleets/FleetsModel.ts#L133)
 
 ```typescript
 MINING = 'MINING'
@@ -29612,7 +29651,7 @@ MINING = 'MINING'
 
 Mission string value for patrolling, serialized as 'PATROLLING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L132)
+[Source](../../src/tables/fleets/FleetsModel.ts#L135)
 
 ```typescript
 PATROLLING = 'PATROLLING'
@@ -29622,7 +29661,7 @@ PATROLLING = 'PATROLLING'
 
 Mission string value for trading, serialized as 'TRADING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L134)
+[Source](../../src/tables/fleets/FleetsModel.ts#L137)
 
 ```typescript
 TRADING = 'TRADING'
@@ -29632,7 +29671,7 @@ TRADING = 'TRADING'
 
 Mission string value for moving, serialized as 'MOVING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L136)
+[Source](../../src/tables/fleets/FleetsModel.ts#L139)
 
 ```typescript
 MOVING = 'MOVING'
@@ -29642,7 +29681,7 @@ MOVING = 'MOVING'
 
 Mission string value for repairing, serialized as 'REPAIRING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L138)
+[Source](../../src/tables/fleets/FleetsModel.ts#L141)
 
 ```typescript
 REPAIRING = 'REPAIRING'
@@ -29652,7 +29691,7 @@ REPAIRING = 'REPAIRING'
 
 Mission string value for standoff, serialized as 'STANDOFF'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L140)
+[Source](../../src/tables/fleets/FleetsModel.ts#L143)
 
 ```typescript
 STANDOFF = 'STANDOFF'
@@ -29662,7 +29701,7 @@ STANDOFF = 'STANDOFF'
 
 Mission string value for attacking, serialized as 'ATTACKING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L142)
+[Source](../../src/tables/fleets/FleetsModel.ts#L145)
 
 ```typescript
 ATTACKING = 'ATTACKING'
@@ -29672,7 +29711,7 @@ ATTACKING = 'ATTACKING'
 
 Mission string value for sentry, serialized as 'SENTRY'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L144)
+[Source](../../src/tables/fleets/FleetsModel.ts#L147)
 
 ```typescript
 SENTRY = 'SENTRY'
@@ -29682,7 +29721,7 @@ SENTRY = 'SENTRY'
 
 Mission string value for defending, serialized as 'DEFENDING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L146)
+[Source](../../src/tables/fleets/FleetsModel.ts#L149)
 
 ```typescript
 DEFENDING = 'DEFENDING'
@@ -29692,7 +29731,7 @@ DEFENDING = 'DEFENDING'
 
 Mission string value for escorting, serialized as 'ESCORTING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L148)
+[Source](../../src/tables/fleets/FleetsModel.ts#L151)
 
 ```typescript
 ESCORTING = 'ESCORTING'
@@ -29702,7 +29741,7 @@ ESCORTING = 'ESCORTING'
 
 Mission string value for cloaking, serialized as 'CLOAKING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L150)
+[Source](../../src/tables/fleets/FleetsModel.ts#L153)
 
 ```typescript
 CLOAKING = 'CLOAKING'
@@ -29712,7 +29751,7 @@ CLOAKING = 'CLOAKING'
 
 Mission string value for uncloaking, serialized as 'UNCLOAKING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L152)
+[Source](../../src/tables/fleets/FleetsModel.ts#L155)
 
 ```typescript
 UNCLOAKING = 'UNCLOAKING'
@@ -29722,7 +29761,7 @@ UNCLOAKING = 'UNCLOAKING'
 
 Mission string value for jamming, serialized as 'JAMMING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L154)
+[Source](../../src/tables/fleets/FleetsModel.ts#L157)
 
 ```typescript
 JAMMING = 'JAMMING'
@@ -29732,7 +29771,7 @@ JAMMING = 'JAMMING'
 
 Mission string value for stop jamming, serialized as 'STOP JAMMING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L156)
+[Source](../../src/tables/fleets/FleetsModel.ts#L159)
 
 ```typescript
 STOP_JAMMING = 'STOP JAMMING'
@@ -29742,7 +29781,7 @@ STOP_JAMMING = 'STOP JAMMING'
 
 Mission string value for ftl interdicting, serialized as 'FTL INTERDICTING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L158)
+[Source](../../src/tables/fleets/FleetsModel.ts#L161)
 
 ```typescript
 FTL_INTERDICTING = 'FTL INTERDICTING'
@@ -29752,7 +29791,7 @@ FTL_INTERDICTING = 'FTL INTERDICTING'
 
 Mission string value for stop ftl interdiction, serialized as 'STOP FTL INTERDICTION'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L160)
+[Source](../../src/tables/fleets/FleetsModel.ts#L163)
 
 ```typescript
 STOP_FTL_INTERDICTION = 'STOP FTL INTERDICTION'
@@ -29762,7 +29801,7 @@ STOP_FTL_INTERDICTION = 'STOP FTL INTERDICTION'
 
 Fleet type indicators from naming patterns
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L166)
+[Source](../../src/tables/fleets/FleetsModel.ts#L169)
 
 ```typescript
 export enum FleetType {
@@ -29772,7 +29811,7 @@ export enum FleetType {
 
 Fleet type value for attacking, serialized as 'ATTACKING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L168)
+[Source](../../src/tables/fleets/FleetsModel.ts#L171)
 
 ```typescript
 ATTACKING = 'ATTACKING'
@@ -29782,7 +29821,7 @@ ATTACKING = 'ATTACKING'
 
 Fleet type value for defending, serialized as 'DEFENDING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L170)
+[Source](../../src/tables/fleets/FleetsModel.ts#L173)
 
 ```typescript
 DEFENDING = 'DEFENDING'
@@ -29792,7 +29831,7 @@ DEFENDING = 'DEFENDING'
 
 Fleet type value for mining, serialized as 'MINING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L172)
+[Source](../../src/tables/fleets/FleetsModel.ts#L175)
 
 ```typescript
 MINING = 'MINING'
@@ -29802,7 +29841,7 @@ MINING = 'MINING'
 
 Fleet type value for trading, serialized as 'TRADING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L174)
+[Source](../../src/tables/fleets/FleetsModel.ts#L177)
 
 ```typescript
 TRADING = 'TRADING'
@@ -29812,7 +29851,7 @@ TRADING = 'TRADING'
 
 Fleet type value for scavenging, serialized as 'SCAVENGING'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L176)
+[Source](../../src/tables/fleets/FleetsModel.ts#L179)
 
 ```typescript
 SCAVENGING = 'SCAVENGING'
@@ -29822,7 +29861,7 @@ SCAVENGING = 'SCAVENGING'
 
 NPC fleet prefixes
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L182)
+[Source](../../src/tables/fleets/FleetsModel.ts#L185)
 
 ```typescript
 export enum NPCFleetPrefix {
@@ -29832,7 +29871,7 @@ export enum NPCFleetPrefix {
 
 Npcfleet prefix value for standard, serialized as 'NPCFLT'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L184)
+[Source](../../src/tables/fleets/FleetsModel.ts#L187)
 
 ```typescript
 STANDARD = 'NPCFLT'
@@ -29842,7 +29881,7 @@ STANDARD = 'NPCFLT'
 
 Npcfleet prefix value for general, serialized as 'GNPCFLT'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L186)
+[Source](../../src/tables/fleets/FleetsModel.ts#L189)
 
 ```typescript
 GENERAL = 'GNPCFLT'
@@ -29852,7 +29891,7 @@ GENERAL = 'GNPCFLT'
 
 Mission categories for classification
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L192)
+[Source](../../src/tables/fleets/FleetsModel.ts#L195)
 
 ```typescript
 export enum FleetMissionCategory {
@@ -29862,7 +29901,7 @@ export enum FleetMissionCategory {
 
 Fleet mission category value for idle, serialized as 'IDLE'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L194)
+[Source](../../src/tables/fleets/FleetsModel.ts#L197)
 
 ```typescript
 IDLE = 'IDLE'
@@ -29872,7 +29911,7 @@ IDLE = 'IDLE'
 
 Fleet mission category value for movement, serialized as 'MOVEMENT'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L196)
+[Source](../../src/tables/fleets/FleetsModel.ts#L199)
 
 ```typescript
 MOVEMENT = 'MOVEMENT'
@@ -29882,7 +29921,7 @@ MOVEMENT = 'MOVEMENT'
 
 Fleet mission category value for combat, serialized as 'COMBAT'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L198)
+[Source](../../src/tables/fleets/FleetsModel.ts#L201)
 
 ```typescript
 COMBAT = 'COMBAT'
@@ -29892,7 +29931,7 @@ COMBAT = 'COMBAT'
 
 Fleet mission category value for operations, serialized as 'OPERATIONS'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L200)
+[Source](../../src/tables/fleets/FleetsModel.ts#L203)
 
 ```typescript
 OPERATIONS = 'OPERATIONS'
@@ -29902,7 +29941,7 @@ OPERATIONS = 'OPERATIONS'
 
 Fleet mission category value for special, serialized as 'SPECIAL'.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L202)
+[Source](../../src/tables/fleets/FleetsModel.ts#L205)
 
 ```typescript
 SPECIAL = 'SPECIAL'
@@ -29912,7 +29951,7 @@ SPECIAL = 'SPECIAL'
 
 Mission state mappings
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L208)
+[Source](../../src/tables/fleets/FleetsModel.ts#L211)
 
 ```typescript
 export const FLEET_MISSION_CATEGORIES = {
@@ -29925,7 +29964,7 @@ Model for the FLEETS table - Enhanced Edition with Complete Relations
 Advanced fleet command and control with complete bidirectional relationships,
 comprehensive mission analytics, and hierarchical fleet management.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L251)
+[Source](../../src/tables/fleets/FleetsModel.ts#L254)
 
 ```typescript
 export class FleetsModel extends BaseModel {
@@ -29935,7 +29974,7 @@ export class FleetsModel extends BaseModel {
 
 SQL table name used to generate queries for this model.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L253)
+[Source](../../src/tables/fleets/FleetsModel.ts#L256)
 
 ```typescript
 public static tableName = 'FLEETS';
@@ -29945,7 +29984,7 @@ public static tableName = 'FLEETS';
 
 SQL column, key, index and validation definitions for this table.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L256)
+[Source](../../src/tables/fleets/FleetsModel.ts#L259)
 
 ```typescript
 public static schema: TableSchema = {
@@ -29956,7 +29995,7 @@ public static schema: TableSchema = {
 Define relationships for this model
 Similar to Objection.js relationMappings with optimized index usage
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L385)
+[Source](../../src/tables/fleets/FleetsModel.ts#L411)
 
 ```typescript
 public static get relationMappings(): RelationMappings
@@ -29966,7 +30005,7 @@ public static get relationMappings(): RelationMappings
 
 Read the FLEETS.ID column from this model. Numeric strings are converted to integers.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L445)
+[Source](../../src/tables/fleets/FleetsModel.ts#L471)
 
 ```typescript
 public getId(): number
@@ -29978,7 +30017,7 @@ public getId(): number
 
 Store the FLEETS.ID column in this model and return this for chaining.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L451)
+[Source](../../src/tables/fleets/FleetsModel.ts#L477)
 
 ```typescript
 public setId(id: number): this
@@ -29992,7 +30031,7 @@ public setId(id: number): this
 
 Read the FLEETS.FLAGSHIP_ID column from this model.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L457)
+[Source](../../src/tables/fleets/FleetsModel.ts#L483)
 
 ```typescript
 public getFlagshipId(): number
@@ -30004,7 +30043,7 @@ public getFlagshipId(): number
 
 Store the FLEETS.FLAGSHIP_ID column in this model and return this for chaining.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L463)
+[Source](../../src/tables/fleets/FleetsModel.ts#L489)
 
 ```typescript
 public setFlagshipId(flagshipId: number): this
@@ -30018,7 +30057,7 @@ public setFlagshipId(flagshipId: number): this
 
 Read the FLEETS.PARENT_FLEET column from this model. Numeric strings are converted to integers.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L469)
+[Source](../../src/tables/fleets/FleetsModel.ts#L495)
 
 ```typescript
 public getParentFleet(): number
@@ -30030,7 +30069,7 @@ public getParentFleet(): number
 
 Store the FLEETS.PARENT_FLEET column in this model and return this for chaining.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L475)
+[Source](../../src/tables/fleets/FleetsModel.ts#L501)
 
 ```typescript
 public setParentFleet(parentFleet: number): this
@@ -30044,7 +30083,7 @@ public setParentFleet(parentFleet: number): this
 
 Read the FLEETS.NAME column from this model.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L481)
+[Source](../../src/tables/fleets/FleetsModel.ts#L507)
 
 ```typescript
 public getName(): string | undefined
@@ -30056,7 +30095,7 @@ public getName(): string | undefined
 
 Store the FLEETS.NAME column in this model and return this for chaining.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L487)
+[Source](../../src/tables/fleets/FleetsModel.ts#L513)
 
 ```typescript
 public setName(name: string | undefined): this
@@ -30070,7 +30109,7 @@ public setName(name: string | undefined): this
 
 Read the FLEETS.OWNER column from this model.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L493)
+[Source](../../src/tables/fleets/FleetsModel.ts#L519)
 
 ```typescript
 public getOwner(): string | undefined
@@ -30082,7 +30121,7 @@ public getOwner(): string | undefined
 
 Store the FLEETS.OWNER column in this model and return this for chaining.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L499)
+[Source](../../src/tables/fleets/FleetsModel.ts#L525)
 
 ```typescript
 public setOwner(owner: string | undefined): this
@@ -30096,7 +30135,7 @@ public setOwner(owner: string | undefined): this
 
 Read the FLEETS.MISSION_STRING column from this model.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L505)
+[Source](../../src/tables/fleets/FleetsModel.ts#L531)
 
 ```typescript
 public getMissionString(): string | undefined
@@ -30108,7 +30147,7 @@ public getMissionString(): string | undefined
 
 Store the FLEETS.MISSION_STRING column in this model and return this for chaining.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L511)
+[Source](../../src/tables/fleets/FleetsModel.ts#L537)
 
 ```typescript
 public setMissionString(missionString: string | undefined): this
@@ -30122,7 +30161,7 @@ public setMissionString(missionString: string | undefined): this
 
 Read the FLEETS.COMMAND column from this model.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L517)
+[Source](../../src/tables/fleets/FleetsModel.ts#L543)
 
 ```typescript
 public getCommand(): Buffer | undefined
@@ -30134,7 +30173,7 @@ public getCommand(): Buffer | undefined
 
 Store the FLEETS.COMMAND column in this model and return this for chaining.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L523)
+[Source](../../src/tables/fleets/FleetsModel.ts#L549)
 
 ```typescript
 public setCommand(command: Buffer | undefined): this
@@ -30148,7 +30187,7 @@ public setCommand(command: Buffer | undefined): this
 
 Read the FLEETS.FACTION_ACCESS column from this model.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L529)
+[Source](../../src/tables/fleets/FleetsModel.ts#L555)
 
 ```typescript
 public getFactionAccess(): FactionAccess
@@ -30160,7 +30199,7 @@ public getFactionAccess(): FactionAccess
 
 Store the FLEETS.FACTION_ACCESS column in this model and return this for chaining.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L535)
+[Source](../../src/tables/fleets/FleetsModel.ts#L561)
 
 ```typescript
 public setFactionAccess(factionAccess: FactionAccess): this
@@ -30174,7 +30213,7 @@ public setFactionAccess(factionAccess: FactionAccess): this
 
 Read the FLEETS.SAVED_REMOTES column from this model.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L541)
+[Source](../../src/tables/fleets/FleetsModel.ts#L567)
 
 ```typescript
 public getSavedRemotes(): Buffer | undefined
@@ -30186,7 +30225,7 @@ public getSavedRemotes(): Buffer | undefined
 
 Store the FLEETS.SAVED_REMOTES column in this model and return this for chaining.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L547)
+[Source](../../src/tables/fleets/FleetsModel.ts#L573)
 
 ```typescript
 public setSavedRemotes(savedRemotes: Buffer | undefined): this
@@ -30200,7 +30239,7 @@ public setSavedRemotes(savedRemotes: Buffer | undefined): this
 
 Read the FLEETS.COMBAT_SETTING column from this model.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L553)
+[Source](../../src/tables/fleets/FleetsModel.ts#L579)
 
 ```typescript
 public getCombatSetting(): CombatSetting | undefined
@@ -30212,7 +30251,7 @@ public getCombatSetting(): CombatSetting | undefined
 
 Store the FLEETS.COMBAT_SETTING column in this model and return this for chaining.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L559)
+[Source](../../src/tables/fleets/FleetsModel.ts#L585)
 
 ```typescript
 public setCombatSetting(combatSetting: CombatSetting | undefined): this
@@ -30226,7 +30265,7 @@ public setCombatSetting(combatSetting: CombatSetting | undefined): this
 
 Get the flagship entity leading this fleet
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L566)
+[Source](../../src/tables/fleets/FleetsModel.ts#L592)
 
 ```typescript
 public getFlagship(): any | undefined
@@ -30236,7 +30275,7 @@ public getFlagship(): any | undefined
 
 Set the flagship entity leading this fleet
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L571)
+[Source](../../src/tables/fleets/FleetsModel.ts#L597)
 
 ```typescript
 public setFlagship(entity: any | undefined): this
@@ -30246,7 +30285,7 @@ public setFlagship(entity: any | undefined): this
 
 Get the parent fleet in hierarchy
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L576)
+[Source](../../src/tables/fleets/FleetsModel.ts#L602)
 
 ```typescript
 public getParentFleetEntity(): any | undefined
@@ -30256,7 +30295,7 @@ public getParentFleetEntity(): any | undefined
 
 Set the parent fleet in hierarchy
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L581)
+[Source](../../src/tables/fleets/FleetsModel.ts#L607)
 
 ```typescript
 public setParentFleetEntity(fleet: any | undefined): this
@@ -30266,7 +30305,7 @@ public setParentFleetEntity(fleet: any | undefined): this
 
 Get the player who owns this fleet
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L586)
+[Source](../../src/tables/fleets/FleetsModel.ts#L612)
 
 ```typescript
 public getOwnerPlayer(): any | undefined
@@ -30276,7 +30315,7 @@ public getOwnerPlayer(): any | undefined
 
 Set the player who owns this fleet
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L591)
+[Source](../../src/tables/fleets/FleetsModel.ts#L617)
 
 ```typescript
 public setOwnerPlayer(player: any | undefined): this
@@ -30286,7 +30325,7 @@ public setOwnerPlayer(player: any | undefined): this
 
 Get child fleets under this fleet
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L596)
+[Source](../../src/tables/fleets/FleetsModel.ts#L622)
 
 ```typescript
 public getChildFleets(): any[] | undefined
@@ -30296,7 +30335,7 @@ public getChildFleets(): any[] | undefined
 
 Set child fleets under this fleet
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L601)
+[Source](../../src/tables/fleets/FleetsModel.ts#L627)
 
 ```typescript
 public setChildFleets(fleets: any[] | undefined): this
@@ -30306,7 +30345,7 @@ public setChildFleets(fleets: any[] | undefined): this
 
 Check if flagship relation is loaded
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L606)
+[Source](../../src/tables/fleets/FleetsModel.ts#L632)
 
 ```typescript
 public hasFlagshipLoaded(): boolean
@@ -30316,7 +30355,7 @@ public hasFlagshipLoaded(): boolean
 
 Check if parent fleet relation is loaded
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L611)
+[Source](../../src/tables/fleets/FleetsModel.ts#L637)
 
 ```typescript
 public hasParentFleetLoaded(): boolean
@@ -30326,7 +30365,7 @@ public hasParentFleetLoaded(): boolean
 
 Check if owner player relation is loaded
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L616)
+[Source](../../src/tables/fleets/FleetsModel.ts#L642)
 
 ```typescript
 public hasOwnerPlayerLoaded(): boolean
@@ -30336,7 +30375,7 @@ public hasOwnerPlayerLoaded(): boolean
 
 Check if child fleets relation is loaded
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L621)
+[Source](../../src/tables/fleets/FleetsModel.ts#L647)
 
 ```typescript
 public hasChildFleetsLoaded(): boolean
@@ -30346,7 +30385,7 @@ public hasChildFleetsLoaded(): boolean
 
 Check if all relations are loaded
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L626)
+[Source](../../src/tables/fleets/FleetsModel.ts#L652)
 
 ```typescript
 public hasAllRelationsLoaded(): boolean
@@ -30356,7 +30395,7 @@ public hasAllRelationsLoaded(): boolean
 
 Check if critical relations are loaded (flagship and owner)
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L632)
+[Source](../../src/tables/fleets/FleetsModel.ts#L658)
 
 ```typescript
 public hasCriticalRelationsLoaded(): boolean
@@ -30366,7 +30405,7 @@ public hasCriticalRelationsLoaded(): boolean
 
 Get count of child fleets
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L641)
+[Source](../../src/tables/fleets/FleetsModel.ts#L667)
 
 ```typescript
 public getChildFleetsCount(): number
@@ -30376,7 +30415,7 @@ public getChildFleetsCount(): number
 
 Get flagship name from loaded relation
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L653)
+[Source](../../src/tables/fleets/FleetsModel.ts#L679)
 
 ```typescript
 public getFlagshipName(): string | undefined
@@ -30386,7 +30425,7 @@ public getFlagshipName(): string | undefined
 
 Get owner name from loaded relation
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L664)
+[Source](../../src/tables/fleets/FleetsModel.ts#L690)
 
 ```typescript
 public getOwnerName(): string | undefined
@@ -30396,7 +30435,7 @@ public getOwnerName(): string | undefined
 
 Get parent fleet name from loaded relation
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L677)
+[Source](../../src/tables/fleets/FleetsModel.ts#L703)
 
 ```typescript
 public getParentFleetName(): string | undefined
@@ -30406,7 +30445,7 @@ public getParentFleetName(): string | undefined
 
 Check if fleet has a parent
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L692)
+[Source](../../src/tables/fleets/FleetsModel.ts#L718)
 
 ```typescript
 public hasParent(): boolean
@@ -30416,7 +30455,7 @@ public hasParent(): boolean
 
 Check if fleet is a top-level fleet
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L699)
+[Source](../../src/tables/fleets/FleetsModel.ts#L725)
 
 ```typescript
 public isTopLevel(): boolean
@@ -30426,7 +30465,7 @@ public isTopLevel(): boolean
 
 Check if fleet has children
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L706)
+[Source](../../src/tables/fleets/FleetsModel.ts#L732)
 
 ```typescript
 public hasChildren(): boolean
@@ -30436,7 +30475,7 @@ public hasChildren(): boolean
 
 Check if fleet is a leaf node (no children)
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L713)
+[Source](../../src/tables/fleets/FleetsModel.ts#L739)
 
 ```typescript
 public isLeafNode(): boolean
@@ -30446,7 +30485,7 @@ public isLeafNode(): boolean
 
 Check if fleet is owned by a player
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L720)
+[Source](../../src/tables/fleets/FleetsModel.ts#L746)
 
 ```typescript
 public isPlayerOwned(): boolean
@@ -30456,7 +30495,7 @@ public isPlayerOwned(): boolean
 
 Check if fleet is NPC owned
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L729)
+[Source](../../src/tables/fleets/FleetsModel.ts#L755)
 
 ```typescript
 public isNPCOwned(): boolean
@@ -30466,7 +30505,7 @@ public isNPCOwned(): boolean
 
 Get normalized mission state
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L742)
+[Source](../../src/tables/fleets/FleetsModel.ts#L768)
 
 ```typescript
 public getMissionState(): MissionString | null
@@ -30476,7 +30515,7 @@ public getMissionState(): MissionString | null
 
 Get mission category
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L791)
+[Source](../../src/tables/fleets/FleetsModel.ts#L817)
 
 ```typescript
 public getMissionCategory(): FleetMissionCategory
@@ -30486,7 +30525,7 @@ public getMissionCategory(): FleetMissionCategory
 
 Check if fleet has a recognized mission state
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L807)
+[Source](../../src/tables/fleets/FleetsModel.ts#L833)
 
 ```typescript
 public hasRecognizedMission(): boolean
@@ -30496,7 +30535,7 @@ public hasRecognizedMission(): boolean
 
 Get current mission status
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L814)
+[Source](../../src/tables/fleets/FleetsModel.ts#L840)
 
 ```typescript
 public getCurrentMission(): string
@@ -30506,7 +30545,7 @@ public getCurrentMission(): string
 
 Check if fleet is idle
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L821)
+[Source](../../src/tables/fleets/FleetsModel.ts#L847)
 
 ```typescript
 public isIdle(): boolean
@@ -30516,7 +30555,7 @@ public isIdle(): boolean
 
 Check if fleet is in combat mode
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L829)
+[Source](../../src/tables/fleets/FleetsModel.ts#L855)
 
 ```typescript
 public isInCombat(): boolean
@@ -30526,7 +30565,7 @@ public isInCombat(): boolean
 
 Check if fleet is mining
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L837)
+[Source](../../src/tables/fleets/FleetsModel.ts#L863)
 
 ```typescript
 public isMining(): boolean
@@ -30536,7 +30575,7 @@ public isMining(): boolean
 
 Check if fleet is trading
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L845)
+[Source](../../src/tables/fleets/FleetsModel.ts#L871)
 
 ```typescript
 public isTrading(): boolean
@@ -30546,7 +30585,7 @@ public isTrading(): boolean
 
 Check if fleet is moving
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L853)
+[Source](../../src/tables/fleets/FleetsModel.ts#L879)
 
 ```typescript
 public isMoving(): boolean
@@ -30556,7 +30595,7 @@ public isMoving(): boolean
 
 Check if fleet is in sentry mode
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L861)
+[Source](../../src/tables/fleets/FleetsModel.ts#L887)
 
 ```typescript
 public isSentry(): boolean
@@ -30566,7 +30605,7 @@ public isSentry(): boolean
 
 Check if fleet is performing operations
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L871)
+[Source](../../src/tables/fleets/FleetsModel.ts#L897)
 
 ```typescript
 public isPerformingOperations(): boolean
@@ -30576,7 +30615,7 @@ public isPerformingOperations(): boolean
 
 Check if fleet is in special mode
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L879)
+[Source](../../src/tables/fleets/FleetsModel.ts#L905)
 
 ```typescript
 public isInSpecialMode(): boolean
@@ -30586,7 +30625,7 @@ public isInSpecialMode(): boolean
 
 Parse fleet type from name (according to TABLE_FLEETS.md patterns)
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L891)
+[Source](../../src/tables/fleets/FleetsModel.ts#L917)
 
 ```typescript
 public getFleetType(): FleetType | null
@@ -30596,7 +30635,7 @@ public getFleetType(): FleetType | null
 
 Check if fleet is an NPC fleet based on naming
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L910)
+[Source](../../src/tables/fleets/FleetsModel.ts#L936)
 
 ```typescript
 public isNPCFleet(): boolean
@@ -30606,7 +30645,7 @@ public isNPCFleet(): boolean
 
 Check if fleet is a General NPC fleet
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L918)
+[Source](../../src/tables/fleets/FleetsModel.ts#L944)
 
 ```typescript
 public isGeneralNPCFleet(): boolean
@@ -30616,7 +30655,7 @@ public isGeneralNPCFleet(): boolean
 
 Check if fleet is a standard NPC fleet
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L926)
+[Source](../../src/tables/fleets/FleetsModel.ts#L952)
 
 ```typescript
 public isStandardNPCFleet(): boolean
@@ -30626,7 +30665,7 @@ public isStandardNPCFleet(): boolean
 
 Parse faction ID from fleet name
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L934)
+[Source](../../src/tables/fleets/FleetsModel.ts#L960)
 
 ```typescript
 public getFactionIdFromName(): number | null
@@ -30636,7 +30675,7 @@ public getFactionIdFromName(): number | null
 
 Parse system coordinates from fleet name
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L945)
+[Source](../../src/tables/fleets/FleetsModel.ts#L971)
 
 ```typescript
 public getSystemCoordsFromName(): { x: number; y: number; z: number } | null
@@ -30646,7 +30685,7 @@ public getSystemCoordsFromName(): { x: number; y: number; z: number } | null
 
 Parse fleet index from name
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L964)
+[Source](../../src/tables/fleets/FleetsModel.ts#L990)
 
 ```typescript
 public getFleetIndexFromName(): number | null
@@ -30656,7 +30695,7 @@ public getFleetIndexFromName(): number | null
 
 Generate NPC fleet name according to pattern
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L975)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1001)
 
 ```typescript
 public static generateNPCFleetName(
@@ -30672,7 +30711,7 @@ public static generateNPCFleetName(
 
 Get combat behavior description
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L992)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1018)
 
 ```typescript
 public getCombatBehavior(): string
@@ -30682,7 +30721,7 @@ public getCombatBehavior(): string
 
 Check if fleet will engage in combat
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1013)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1039)
 
 ```typescript
 public willEngage(): boolean
@@ -30692,7 +30731,7 @@ public willEngage(): boolean
 
 Check if fleet is aggressive
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1022)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1048)
 
 ```typescript
 public isAggressive(): boolean
@@ -30702,7 +30741,7 @@ public isAggressive(): boolean
 
 Check if fleet will flee from combat
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1029)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1055)
 
 ```typescript
 public willFlee(): boolean
@@ -30712,7 +30751,7 @@ public willFlee(): boolean
 
 Check if fleet is passive
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1036)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1062)
 
 ```typescript
 public isPassive(): boolean
@@ -30722,7 +30761,7 @@ public isPassive(): boolean
 
 Get faction access level description
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1043)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1069)
 
 ```typescript
 public getAccessDescription(): string
@@ -30732,7 +30771,7 @@ public getAccessDescription(): string
 
 Check if user can access fleet
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1065)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1091)
 
 ```typescript
 public canUserAccess(userAccessLevel: FactionAccess): boolean
@@ -30742,7 +30781,7 @@ public canUserAccess(userAccessLevel: FactionAccess): boolean
 
 Check if fleet is publicly accessible
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1072)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1098)
 
 ```typescript
 public isPubliclyAccessible(): boolean
@@ -30752,7 +30791,7 @@ public isPubliclyAccessible(): boolean
 
 Check if fleet is restricted to owner only
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1079)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1105)
 
 ```typescript
 public isOwnerOnly(): boolean
@@ -30762,7 +30801,7 @@ public isOwnerOnly(): boolean
 
 Check if fleet has remote controls
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1090)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1116)
 
 ```typescript
 public hasRemoteControls(): boolean
@@ -30772,23 +30811,63 @@ public hasRemoteControls(): boolean
 
 Check if fleet has command data
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1098)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1124)
 
 ```typescript
 public hasCommandData(): boolean
 ```
 
+### FleetsModel.getCombinedTargeting
+
+Read the nullable combined targeting flag; an omitted legacy column remains undefined.
+
+[Source](../../src/tables/fleets/FleetsModel.ts#L1130)
+
+```typescript
+public getCombinedTargeting(): boolean | null | undefined
+```
+
+### FleetsModel.setCombinedTargeting
+
+Store the combined targeting flag for coordinated attacks.
+
+[Source](../../src/tables/fleets/FleetsModel.ts#L1132)
+
+```typescript
+public setCombinedTargeting(value: boolean | null): this
+```
+
+### FleetsModel.getMessageLog
+
+Read the nullable fleet message log.
+
+[Source](../../src/tables/fleets/FleetsModel.ts#L1134)
+
+```typescript
+public getMessageLog(): string | null | undefined
+```
+
+### FleetsModel.setMessageLog
+
+Store a JSON array of message strings (or empty/null), validated against VARCHAR(4096) on save.
+
+[Source](../../src/tables/fleets/FleetsModel.ts#L1136)
+
+```typescript
+public setMessageLog(value: string | null): this
+```
+
 ### FleetsModel.decodeCommand
 
-Decodes FLEETS.COMMAND into a typed FleetCommandObject.
+Decodes FLEETS.COMMAND using the current game or explicit legacy-sdk profile.
 
 Returns null when the column is empty; malformed bytes raise DecodeError.
 Requires starmade-decoder to be installed.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1117)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1152)
 
 ```typescript
-public decodeCommand(): import('starmade-decoder').FleetCommandObject | null
+public decodeCommand(profile: import('starmade-decoder').DatabaseProfile = 'current'): import('starmade-decoder').FleetCommandObject | null
 ```
 
 - **@example** const cmd = fleet.decodeCommand(); if (cmd) console.log(cmd.commandType, cmd.firstVec3iArg);
@@ -30800,7 +30879,7 @@ Decodes FLEETS.SAVED_REMOTES into a typed FleetRemotesObject.
 Handles both the network DataOutput format and the Java ObjectOutputStream
 format (AC ED magic). Returns an empty object for null/empty input.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1134)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1169)
 
 ```typescript
 public decodeRemotes(): import('starmade-decoder').FleetRemotesObject
@@ -30816,7 +30895,7 @@ FleetCommand structure.
 Passing null/undefined clears the column. Object inputs are padded to 1024
 bytes by default, matching the StarMade Java VARBINARY size.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1151)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1186)
 
 ```typescript
 public encodeCommand(
@@ -30836,7 +30915,7 @@ recovery objects raise DecodeError without replacing the stored value.
 
 Passing null/undefined clears the column.
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1177)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1212)
 
 ```typescript
 public encodeRemotes(
@@ -30850,7 +30929,7 @@ public encodeRemotes(
 
 Get comprehensive fleet summary with relationship data
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1203)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1238)
 
 ```typescript
 public getFleetSummary(): {
@@ -30886,7 +30965,7 @@ public getFleetSummary(): {
 
 Generate fleet display name with enhanced info
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1262)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1297)
 
 ```typescript
 public getDisplayName(): string
@@ -30896,7 +30975,7 @@ public getDisplayName(): string
 
 Get operational status assessment with relationship intelligence
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1289)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1324)
 
 ```typescript
 public getOperationalStatus(): {
@@ -30917,7 +30996,7 @@ public getOperationalStatus(): {
 
 Check if fleet can perform independent operations
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1384)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1419)
 
 ```typescript
 public canOperateIndependently(): boolean
@@ -30927,7 +31006,7 @@ public canOperateIndependently(): boolean
 
 Get fleet hierarchy depth (0 for top-level)
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1391)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1426)
 
 ```typescript
 public getHierarchyDepth(): number
@@ -30937,7 +31016,7 @@ public getHierarchyDepth(): number
 
 Check if fleet is suitable for combat
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1398)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1433)
 
 ```typescript
 public isCombatReady(): boolean
@@ -30947,7 +31026,7 @@ public isCombatReady(): boolean
 
 Get fleet command assessment
 
-[Source](../../src/tables/fleets/FleetsModel.ts#L1405)
+[Source](../../src/tables/fleets/FleetsModel.ts#L1440)
 
 ```typescript
 public getCommandAssessment(): {
@@ -41153,19 +41232,19 @@ Sector types in StarMade
 export enum SectorType {
 ```
 
-### SectorType.VOID
+### SectorType.SPACE_STATION
 
-Sector type value for void, serialized as 0.
+Game ordinal for space station.
 
 [Source](../../src/tables/sectors/SectorsModel.ts#L39)
 
 ```typescript
-VOID = 0
+SPACE_STATION = 0
 ```
 
 ### SectorType.ASTEROID
 
-Sector type value for asteroid, serialized as 1.
+Game ordinal for asteroid.
 
 [Source](../../src/tables/sectors/SectorsModel.ts#L41)
 
@@ -41175,7 +41254,7 @@ ASTEROID = 1
 
 ### SectorType.PLANET
 
-Sector type value for planet, serialized as 2.
+Game ordinal for planet.
 
 [Source](../../src/tables/sectors/SectorsModel.ts#L43)
 
@@ -41183,19 +41262,19 @@ Sector type value for planet, serialized as 2.
 PLANET = 2
 ```
 
-### SectorType.SPACE_STATION
+### SectorType.MAIN
 
-Sector type value for space station, serialized as 3.
+Game ordinal for main.
 
 [Source](../../src/tables/sectors/SectorsModel.ts#L45)
 
 ```typescript
-SPACE_STATION = 3
+MAIN = 3
 ```
 
 ### SectorType.SUN
 
-Sector type value for sun, serialized as 4.
+Game ordinal for sun.
 
 [Source](../../src/tables/sectors/SectorsModel.ts#L47)
 
@@ -41205,7 +41284,7 @@ SUN = 4
 
 ### SectorType.BLACK_HOLE
 
-Sector type value for black hole, serialized as 5.
+Game ordinal for black hole.
 
 [Source](../../src/tables/sectors/SectorsModel.ts#L49)
 
@@ -41213,44 +41292,44 @@ Sector type value for black hole, serialized as 5.
 BLACK_HOLE = 5
 ```
 
-### SectorType.WORMHOLE
+### SectorType.VOID
 
-Sector type value for wormhole, serialized as 6.
+Game ordinal for void.
 
 [Source](../../src/tables/sectors/SectorsModel.ts#L51)
 
 ```typescript
-WORMHOLE = 6
+VOID = 6
 ```
 
-### SectorType.NEBULA
+### SectorType.LOW_ASTEROID
 
-Sector type value for nebula, serialized as 7.
+Game ordinal for low asteroid.
 
 [Source](../../src/tables/sectors/SectorsModel.ts#L53)
 
 ```typescript
-NEBULA = 7
-```
-
-### SectorType.DOUBLE_STAR
-
-Sector type value for double star, serialized as 8.
-
-[Source](../../src/tables/sectors/SectorsModel.ts#L55)
-
-```typescript
-DOUBLE_STAR = 8
+LOW_ASTEROID = 7
 ```
 
 ### SectorType.GIANT
 
-Sector type value for giant, serialized as 9.
+Game ordinal for giant.
+
+[Source](../../src/tables/sectors/SectorsModel.ts#L55)
+
+```typescript
+GIANT = 8
+```
+
+### SectorType.DOUBLE_STAR
+
+Game ordinal for double star.
 
 [Source](../../src/tables/sectors/SectorsModel.ts#L57)
 
 ```typescript
-GIANT = 9
+DOUBLE_STAR = 9
 ```
 
 ### SectorProtection
@@ -42388,7 +42467,7 @@ public performSectorAnalysis(): SectorAnalysis
 
 Get ultimate sector summary with all information
 
-[Source](../../src/tables/sectors/SectorsModel.ts#L987)
+[Source](../../src/tables/sectors/SectorsModel.ts#L986)
 
 ```typescript
 public getSectorSummary(): {
@@ -42444,7 +42523,7 @@ public getSectorSummary(): {
 
 Check if sector meets performance criteria
 
-[Source](../../src/tables/sectors/SectorsModel.ts#L1101)
+[Source](../../src/tables/sectors/SectorsModel.ts#L1100)
 
 ```typescript
 public meetsPerformanceCriteria(hints?: SectorQueryHints): boolean
@@ -42454,7 +42533,7 @@ public meetsPerformanceCriteria(hints?: SectorQueryHints): boolean
 
 Generate cache key for this sector
 
-[Source](../../src/tables/sectors/SectorsModel.ts#L1128)
+[Source](../../src/tables/sectors/SectorsModel.ts#L1127)
 
 ```typescript
 public getCacheKey(operation: string = 'default'): string
@@ -42464,7 +42543,7 @@ public getCacheKey(operation: string = 'default'): string
 
 Check if sector data is stale
 
-[Source](../../src/tables/sectors/SectorsModel.ts#L1133)
+[Source](../../src/tables/sectors/SectorsModel.ts#L1132)
 
 ```typescript
 public isStale(maxAge: number = 300000): boolean
@@ -42474,7 +42553,7 @@ public isStale(maxAge: number = 300000): boolean
 
 Get the global coordinate key enforced by SectorTable.secCoordIndex
 
-[Source](../../src/tables/sectors/SectorsModel.ts#L1145)
+[Source](../../src/tables/sectors/SectorsModel.ts#L1144)
 
 ```typescript
 public getUniqueCoordinateKey(): string
@@ -42484,7 +42563,7 @@ public getUniqueCoordinateKey(): string
 
 Get unique identifier including system information for debugging
 
-[Source](../../src/tables/sectors/SectorsModel.ts#L1152)
+[Source](../../src/tables/sectors/SectorsModel.ts#L1151)
 
 ```typescript
 public getSystemContextCoordinateKey(): string
@@ -42494,7 +42573,7 @@ public getSystemContextCoordinateKey(): string
 
 Check if coordinates are unique within the system
 
-[Source](../../src/tables/sectors/SectorsModel.ts#L1159)
+[Source](../../src/tables/sectors/SectorsModel.ts#L1158)
 
 ```typescript
 public validateCoordinateUniqueness(): {
@@ -42510,7 +42589,7 @@ public validateCoordinateUniqueness(): {
 Compare coordinate conflict with another sector
 STELLAR does not participate in the unique coordinate index
 
-[Source](../../src/tables/sectors/SectorsModel.ts#L1181)
+[Source](../../src/tables/sectors/SectorsModel.ts#L1180)
 
 ```typescript
 public hasCoordinateConflictWith(other: SectorsModel): boolean
@@ -42520,7 +42599,7 @@ public hasCoordinateConflictWith(other: SectorsModel): boolean
 
 Get coordinate conflict message
 
-[Source](../../src/tables/sectors/SectorsModel.ts#L1191)
+[Source](../../src/tables/sectors/SectorsModel.ts#L1190)
 
 ```typescript
 public getCoordinateConflictMessage(): string
@@ -42530,7 +42609,7 @@ public getCoordinateConflictMessage(): string
 
 Derive system coordinates and local coordinates from global sector positions.
 
-[Source](../../src/tables/sectors/SectorsModel.ts#L1203)
+[Source](../../src/tables/sectors/SectorsModel.ts#L1202)
 
 ```typescript
 public calculateRelativeCoordinatesInSystem(systemSize: number = 16): {
@@ -42550,7 +42629,7 @@ public calculateRelativeCoordinatesInSystem(systemSize: number = 16): {
 
 Test whether this sector lies at the local origin of its system grid.
 
-[Source](../../src/tables/sectors/SectorsModel.ts#L1232)
+[Source](../../src/tables/sectors/SectorsModel.ts#L1231)
 
 ```typescript
 public isSystemOrigin(systemSize: number = 16): boolean
@@ -43319,7 +43398,7 @@ export const MAX_INFOS_SIZE = 8192;
 ### MAX_RESOURCES_SIZE
 
 Maximum size for RESOURCES binary data as per StarMade database specification.
-The extended StarMade-Open schema uses 19 bytes; the supplied game/fixture uses 16.
+The current game uses 16 bytes; extended historical layouts use 19.
 
 [Source](../../src/tables/systems/SystemsModel.ts#L40)
 
@@ -43350,52 +43429,52 @@ export enum SystemType {
 
 ### SystemType.SUN
 
-System type value for sun, serialized as 0.
+Game ordinal for sun.
 
 [Source](../../src/tables/systems/SystemsModel.ts#L57)
 
 ```typescript
-SUN = 0
+SUN = 4
 ```
 
 ### SystemType.GIANT
 
-System type value for giant, serialized as 1.
+Game ordinal for giant.
 
 [Source](../../src/tables/systems/SystemsModel.ts#L59)
 
 ```typescript
-GIANT = 1
+GIANT = 8
 ```
 
 ### SystemType.BLACK_HOLE
 
-System type value for black hole, serialized as 2.
+Game ordinal for black hole.
 
 [Source](../../src/tables/systems/SystemsModel.ts#L61)
 
 ```typescript
-BLACK_HOLE = 2
+BLACK_HOLE = 5
 ```
 
 ### SystemType.DOUBLE_STAR
 
-System type value for double star, serialized as 3.
+Game ordinal for double star.
 
 [Source](../../src/tables/systems/SystemsModel.ts#L63)
 
 ```typescript
-DOUBLE_STAR = 3
+DOUBLE_STAR = 9
 ```
 
 ### SystemType.VOID
 
-System type value for void, serialized as 4.
+Game ordinal for void.
 
 [Source](../../src/tables/systems/SystemsModel.ts#L65)
 
 ```typescript
-VOID = 4
+VOID = 6
 ```
 
 ### KnownSystemFactions
@@ -44159,7 +44238,7 @@ for decoding only; the stored bytes are preserved.
 [Source](../../src/tables/systems/SystemsModel.ts#L776)
 
 ```typescript
-public decodeStarSystem(): import('starmade-decoder').StarSystem | null
+public decodeStarSystem(profile: import('starmade-decoder').DatabaseProfile = 'current'): import('starmade-decoder').StarSystem | null
 ```
 
 - **@example** const sys = system.decodeStarSystem(); if (sys) {   console.log(sys.toString());          // StarSystem(sun=1, planets=3, ...)   console.log(sys.planets);             // SectorInfo[] for all planet sectors   console.log(sys.presentResources);    // SystemResource[] with density > 0   system.encodeStarSystem(             // preserve the target database layout     sys.withResourceDensity(0, 80));    // reject any lossy legacy conversion }
@@ -44192,20 +44271,20 @@ public encodeStarSystem(system: import('starmade-decoder').StarSystem, resourceS
 
 - **@param system** Typed system to encode.
 
-- **@param resourceSize** Target database column width: 16 (legacy) or 19 (extended).
+- **@param resourceSize** Target database column width: 16 (current) or 19 (extended).
 
-- **@throws** If the width is unsupported or a legacy write would lose resources.
+- **@throws** If the width is unsupported or a 16-byte write would lose resources.
 
 - **@example** const updated = system.decodeStarSystem()?.withResourceDensity(0, 80); if (updated) system.encodeStarSystem(updated);
 
 ### SystemsModel.encodeInfos
 
-Encodes and stores SYSTEMS.INFOS from typed sector entries.
+Encodes SYSTEMS.INFOS from typed entries using the current or explicit legacy-sdk profile.
 
 [Source](../../src/tables/systems/SystemsModel.ts#L821)
 
 ```typescript
-public encodeInfos(infos: import('starmade-decoder').SectorInfo[]): this
+public encodeInfos(infos: import('starmade-decoder').SectorInfo[], profile: import('starmade-decoder').DatabaseProfile = 'current'): this
 ```
 
 ### SystemsModel.encodeResources
@@ -44220,9 +44299,9 @@ public encodeResources(resources: import('starmade-decoder').SystemResource[], r
 
 - **@param resources** Densities to encode.
 
-- **@param resourceSize** Target database column width: 16 (legacy) or 19 (extended).
+- **@param resourceSize** Target database column width: 16 (current) or 19 (extended).
 
-- **@throws** If the width is unsupported or a legacy write would lose resources.
+- **@throws** If the width is unsupported or a 16-byte write would lose resources.
 
 ## src/tables/trade-history/TradeHistoryController.ts
 
@@ -46804,7 +46883,7 @@ Returns null when the column is null, empty, or malformed.
 [Source](../../src/tables/trade-nodes/TradeNodesModel.ts#L1131)
 
 ```typescript
-public decodeItems(): import('starmade-decoder').TradePricesObject | null
+public decodeItems(profile: import('starmade-decoder').DatabaseProfile = 'current'): import('starmade-decoder').TradePricesObject | null
 ```
 
 - **@example** const prices = node.decodeItems(); if (prices) {   console.log(prices.buyOrders.length, prices.sellOrders.length);   const entry = prices.getBuyOrder(259); // blockType 259 = Faction Module   // Immutable mutation + write-back:   const updated = prices.withBuyOrder(259, 100, 500);   node.setItems(updated.toBytes()); }
@@ -46818,7 +46897,8 @@ TradePrices structure.
 
 ```typescript
 public encodeItems(
-        prices: import('starmade-decoder').TradePricesObject | import('starmade-decoder').TradePrices
+        prices: import('starmade-decoder').TradePricesObject | import('starmade-decoder').TradePrices,
+        profile: import('starmade-decoder').DatabaseProfile = 'current'
     ): this
 ```
 
@@ -47948,7 +48028,7 @@ public assessObservationValue(): {
 
 Check if observation indicates potential threat
 
-[Source](../../src/tables/visibility/VisibilityModel.ts#L530)
+[Source](../../src/tables/visibility/VisibilityModel.ts#L529)
 
 ```typescript
 public isPotentialThreat(): {
@@ -47962,7 +48042,7 @@ public isPotentialThreat(): {
 
 Generate strategic intelligence report
 
-[Source](../../src/tables/visibility/VisibilityModel.ts#L572)
+[Source](../../src/tables/visibility/VisibilityModel.ts#L571)
 
 ```typescript
 public generateIntelligenceReport(): {
@@ -47992,7 +48072,7 @@ public generateIntelligenceReport(): {
 
 Get comprehensive visibility summary with intelligence data
 
-[Source](../../src/tables/visibility/VisibilityModel.ts#L636)
+[Source](../../src/tables/visibility/VisibilityModel.ts#L635)
 
 ```typescript
 public getVisibilitySummary(): {

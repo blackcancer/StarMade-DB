@@ -2,6 +2,13 @@
 
 TypeScript / ESM library for reading and managing StarMade’s HSQLDB data through JDBC. It provides connection pools, parameterized queries, transactions, schema analysis, caching, metrics, and table models/controllers.
 
+Version **2.0.2** corrects database compatibility with StarMade-Open
+`e5a3b49d8`, together with the updated sibling StarMade-Decoder checkout.
+Database codecs default to the current game contract; select `legacy-sdk`
+explicitly for data using the previous SDK interpretation. See the
+[qualification and migration notes](docs/SCHEMA_VALIDATION.md#corrections-open-20260923).
+Use StarMade-Decoder **2.0.2** alongside this release.
+
 ## Requirements and installation
 
 - Node.js 20.19+ on the 20.x line, or Node.js 22.12+.

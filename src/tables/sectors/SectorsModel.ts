@@ -35,26 +35,26 @@ import { relation, Model, type RelationMappings } from '../BaseModel.js';
  * Sector types in StarMade
  */
 export enum SectorType {
-    /** Sector type value for void, serialized as 0. */
-    VOID = 0,
-    /** Sector type value for asteroid, serialized as 1. */
+    /** Game ordinal for space station. */
+    SPACE_STATION = 0,
+    /** Game ordinal for asteroid. */
     ASTEROID = 1,
-    /** Sector type value for planet, serialized as 2. */
+    /** Game ordinal for planet. */
     PLANET = 2,
-    /** Sector type value for space station, serialized as 3. */
-    SPACE_STATION = 3,
-    /** Sector type value for sun, serialized as 4. */
+    /** Game ordinal for main. */
+    MAIN = 3,
+    /** Game ordinal for sun. */
     SUN = 4,
-    /** Sector type value for black hole, serialized as 5. */
+    /** Game ordinal for black hole. */
     BLACK_HOLE = 5,
-    /** Sector type value for wormhole, serialized as 6. */
-    WORMHOLE = 6,
-    /** Sector type value for nebula, serialized as 7. */
-    NEBULA = 7,
-    /** Sector type value for double star, serialized as 8. */
-    DOUBLE_STAR = 8,
-    /** Sector type value for giant, serialized as 9. */
-    GIANT = 9
+    /** Game ordinal for void. */
+    VOID = 6,
+    /** Game ordinal for low asteroid. */
+    LOW_ASTEROID = 7,
+    /** Game ordinal for giant. */
+    GIANT = 8,
+    /** Game ordinal for double star. */
+    DOUBLE_STAR = 9,
 }
 
 /**
@@ -950,7 +950,6 @@ export class SectorsModel extends BaseModel {
         const type = this.getType();
         if (type === SectorType.PLANET) strategicValue += 15;
         if (type === SectorType.SPACE_STATION) strategicValue += 10;
-        if (type === SectorType.WORMHOLE) strategicValue += 20;
 
         // Accessibility score
         const accessibilityScore = this.allowsEntry() && this.allowsExit() ? 

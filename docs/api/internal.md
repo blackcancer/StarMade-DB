@@ -7339,6 +7339,16 @@ Controller name attached to logging and diagnostics.
 protected controllerName = 'FleetMembersController';
 ```
 
+### FleetMembersController.validateMembershipKey
+
+Reject incomplete runtime keys before an omitted filter can select another membership.
+
+[Source](../../src/tables/fleet-members/FleetMembersController.ts#L372)
+
+```typescript
+private validateMembershipKey(id: { fleetId: number; entityId: number }): void
+```
+
 ## src/tables/fleets/FleetsController.ts
 
 ### FleetsController.ModelClass
@@ -7983,7 +7993,7 @@ protected async clearCachesForTable(tableName: string): Promise<void>
 
 ### SystemsModel.expandLegacyResources
 
-Expand a legacy cell for the decoder without changing the model's bytes.
+Expand a 16-byte cell into the canonical 19-slot SDK view without changing stored bytes.
 
 [Source](../../src/tables/systems/SystemsModel.ts#L841)
 

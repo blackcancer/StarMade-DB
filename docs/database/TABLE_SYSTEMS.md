@@ -34,16 +34,18 @@
 ### TYPE{#type}
 System classification that determines the primary stellar configuration and characteristics.
 
-| Value | Name          | Description                    | Characteristics                | Rarity        |
-|-------|---------------|--------------------------------|--------------------------------|---------------|
-| `0`   | `SUN`         | Regular star system            | Standard stellar configuration | Common        |
-| `1`   | `GIANT`       | Giant star system              | Massive stellar body           | Uncommon      |
-| `2`   | `BLACK_HOLE`  | Black hole system              | Gravitational anomaly          | Rare          |
-| `3`   | `DOUBLE_STAR` | Binary star system             | Dual star configuration        | Uncommon      |
-| `4`   | `VOID`        | Void system                    | Empty space, no star           | Most common   |
+The database stores the central sector's ordinal, not a separate sequence from zero:
+
+| Value | Name |
+| --- | --- |
+| `4` | `SUN` |
+| `8` | `GIANT` |
+| `5` | `BLACK_HOLE` |
+| `9` | `DOUBLE_STAR` |
+| `6` | `VOID` |
 
 ### INFOS{#infos}
-Binary data field containing additional system metadata and procedural generation parameters.
+An 8192-byte grid of 4096 sector records. Each record contains a sector ordinal and one metadata byte. Index: `(z * 256 + y * 16 + x) * 2`. Current VOID is 6. PLANET metadata uses `MARS=0`, `EARTH=1`, `DESERT=2`, `PURPLE=3`, `ICE=4`; values beyond the last entry are clamped as in the game. Explicit `legacy-sdk` decoding retains the historical SDK interpretation.
 
 #### OWNER_UID{#owner_uid}
 Unique identifier of the controlling entity, typically a homebase or system base.
@@ -70,22 +72,22 @@ The RESOURCES field contains 16 bytes representing the abundance of different ma
 
 | Index | Type | Resource          | Byte Value Range |
 |-------|------|-------------------|------------------|
-| `0`   | BYTE | Hattel Crystal    | -127 to +127     |
-| `1`   | BYTE | Sintyr Crystal    | -127 to +127     |
-| `2`   | BYTE | Mattise Crystal   | -127 to +127     |
-| `3`   | BYTE | Rammet Crystal    | -127 to +127     |
-| `4`   | BYTE | Varat Crystal     | -127 to +127     |
-| `5`   | BYTE | Bastyn Crystal    | -127 to +127     |
-| `6`   | BYTE | Parsen Crystal    | -127 to +127     |
-| `7`   | BYTE | Nocx Crystal      | -127 to +127     |
-| `8`   | BYTE | Threns Raw Ore    | -127 to +127     |
-| `9`   | BYTE | Jisper Raw Ore    | -127 to +127     |
-| `10`  | BYTE | Zercaner Raw Ore  | -127 to +127     |
-| `11`  | BYTE | Sertise Raw Ore   | -127 to +127     |
-| `12`  | BYTE | Hital Raw Ore     | -127 to +127     |
-| `13`  | BYTE | Fertikeen Raw Ore | -127 to +127     |
-| `14`  | BYTE | Parstun Raw Ore   | -127 to +127     |
-| `15`  | BYTE | Nacht Raw Ore     | -127 to +127     |
+| `0`   | BYTE | Hattel Crystal    | 0 to 255 (SDK)     |
+| `1`   | BYTE | Sintyr Crystal    | 0 to 255 (SDK)     |
+| `2`   | BYTE | Mattise Crystal   | 0 to 255 (SDK)     |
+| `3`   | BYTE | Rammet Crystal    | 0 to 255 (SDK)     |
+| `4`   | BYTE | Varat Crystal     | 0 to 255 (SDK)     |
+| `5`   | BYTE | Bastyn Crystal    | 0 to 255 (SDK)     |
+| `6`   | BYTE | Parsen Crystal    | 0 to 255 (SDK)     |
+| `7`   | BYTE | Nocx Crystal      | 0 to 255 (SDK)     |
+| `8`   | BYTE | Threns Raw Ore    | 0 to 255 (SDK)     |
+| `9`   | BYTE | Jisper Raw Ore    | 0 to 255 (SDK)     |
+| `10`  | BYTE | Zercaner Raw Ore  | 0 to 255 (SDK)     |
+| `11`  | BYTE | Sertise Raw Ore   | 0 to 255 (SDK)     |
+| `12`  | BYTE | Hital Raw Ore     | 0 to 255 (SDK)     |
+| `13`  | BYTE | Fertikeen Raw Ore | 0 to 255 (SDK)     |
+| `14`  | BYTE | Parstun Raw Ore   | 0 to 255 (SDK)     |
+| `15`  | BYTE | Nacht Raw Ore     | 0 to 255 (SDK)     |
 
 #### Resource Generation Algorithm
 The resource values are generated using a deterministic Perlin noise algorithm:
@@ -94,7 +96,7 @@ The resource values are generated using a deterministic Perlin noise algorithm:
 2. **Per-Resource Subseed**: For each resource index (0-15), generate a subseed
 3. **Perlin Noise**: Configure SinglePerlin noise with frequency 0.22
 4. **Sampling**: Sample noise at system coordinates (X, Y, Z)
-5. **Normalization**: Convert result (-1 to +1) to byte range (-127 to +127)
+5. **Normalization**: Convert result (-1 to +1) to byte range (0 to 255 (SDK))
 
 ---
 

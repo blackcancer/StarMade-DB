@@ -495,7 +495,6 @@ export class VisibilityModel extends BaseModel {
             // Higher value for special sector types
             if (sectorIntel.type?.includes('PLANET')) strategicValue += 25;
             if (sectorIntel.type?.includes('STATION')) strategicValue += 20;
-            if (sectorIntel.type?.includes('WORMHOLE')) strategicValue += 30;
             if (sectorIntel.type?.includes('SUN') || sectorIntel.type?.includes('BLACK_HOLE')) strategicValue += 15;
             
             // Protection adds strategic value

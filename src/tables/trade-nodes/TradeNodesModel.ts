@@ -1128,11 +1128,11 @@ export class TradeNodesModel extends BaseModel {
      *   node.setItems(updated.toBytes());
      * }
      */
-    public decodeItems(): import('starmade-decoder').TradePricesObject | null {
+    public decodeItems(profile: import('starmade-decoder').DatabaseProfile = 'current'): import('starmade-decoder').TradePricesObject | null {
         const raw = this.getItems();
         if (!raw || raw.length === 0) return null;
         const { TradePricesObject } = decoder;
-        return TradePricesObject.fromBytes(raw);
+        return TradePricesObject.fromBytes(raw, profile);
     }
 
     /**
@@ -1144,12 +1144,13 @@ export class TradeNodesModel extends BaseModel {
      * if (prices) node.encodeItems(prices.withBuyOrder(259, 100, 500));
      */
     public encodeItems(
-        prices: import('starmade-decoder').TradePricesObject | import('starmade-decoder').TradePrices
+        prices: import('starmade-decoder').TradePricesObject | import('starmade-decoder').TradePrices,
+        profile: import('starmade-decoder').DatabaseProfile = 'current'
     ): this {
         const anyPrices = prices as any;
         const raw = 'toBytes' in prices
             ? prices.toBytes()
-            : decoder.encodeTradeNodeItems(prices);
+            : decoder.encodeTradeNodeItems(prices, profile);
 
         return this.setItems(raw);
     }

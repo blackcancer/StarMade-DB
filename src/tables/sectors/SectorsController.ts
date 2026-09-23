@@ -1262,8 +1262,8 @@ export class SectorsController extends BaseController<SectorsModel> {
                 [SectorType.SPACE_STATION]: 0,
                 [SectorType.SUN]: 0,
                 [SectorType.BLACK_HOLE]: 0,
-                [SectorType.WORMHOLE]: 0,
-                [SectorType.NEBULA]: 0,
+                [SectorType.MAIN]: 0,
+                [SectorType.LOW_ASTEROID]: 0,
                 [SectorType.DOUBLE_STAR]: 0,
                 [SectorType.GIANT]: 0
             };

@@ -67,3 +67,11 @@ see [EXEMPLE_TRADE_NODES.md](./EXEMPLE_TRADE_NODES.md) for a curated list of exa
 | `1.0`   | 2025-01-09 | InitSysRev   | Initial creation of the TRADE_NODES table schema   |
 
 [INDEX](./INDEX.md)
+## ITEMS binary compatibility
+
+For Open `e5a3b49d8`, the cell begins with two big-endian 32-bit lengths
+(inflated size and compressed size), followed by a **zlib-wrapped** DEFLATE stream.
+The payload contains a 64-bit entity ID, a 32-bit entry count, then entries of
+14 bytes: signed short block type and three signed integers (amount, price, limit).
+Negative block types are buy orders. The old SDK's raw DEFLATE requires the explicit
+`legacy-sdk` profile; it is not the current game encoding.

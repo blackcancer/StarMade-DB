@@ -341,6 +341,7 @@ export class FleetMembersController extends BaseController<FleetMembersModel> {
         data: Partial<Record<string, any>>,
         options: FleetMemberUpdateOptions = {}
     ): Promise<FleetMembersModel> {
+        this.validateMembershipKey(id);
         const member = await this.findOne(id.fleetId, id.entityId);
         if (!member) {
             throw new ValidationError('fleetId/entityId', id, 'Fleet membership does not exist');
@@ -360,10 +361,18 @@ export class FleetMembersController extends BaseController<FleetMembersModel> {
         id: { fleetId: number; entityId: number },
         options: DeleteOptions = {}
     ): Promise<boolean> {
+        this.validateMembershipKey(id);
         const member = await this.findOne(id.fleetId, id.entityId);
         if (!member) return false;
         this.logger.info('Deleting fleet member record', { operation: 'delete', id });
         return super.delete(member.getId(), options);
+    }
+
+    /** Reject incomplete runtime keys before an omitted filter can select another membership. */
+    private validateMembershipKey(id: { fleetId: number; entityId: number }): void {
+        if (id === null || id === undefined || typeof id !== 'object' || id.fleetId == null || id.entityId == null) {
+            throw new ValidationError('fleetId/entityId', id, 'Both fleetId and entityId are required');
+        }
     }
 
     /**

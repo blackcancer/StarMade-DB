@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { readFileSync } from 'node:fs';
 import { ModelClasses } from '../../src/tables/index.js';
 
-/** Column names and identity metadata from the test database schema, without game source code. */
+/** Column names and identity metadata for Open e5a3b49d8, independently recorded without game source code. */
 const contract: Record<string, { columns: string[]; generated: string[] }> = JSON.parse(
     readFileSync(new URL('./schema-contract.json', import.meta.url), 'utf8')
 );

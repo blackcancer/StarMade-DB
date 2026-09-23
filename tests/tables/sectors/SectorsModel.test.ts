@@ -85,8 +85,8 @@ function createSectorOfType(type: SectorType, overrides: Partial<any> = {}): Sec
         [SectorType.SPACE_STATION]: 'Station Hub',
         [SectorType.SUN]: 'Solar Core',
         [SectorType.BLACK_HOLE]: 'Event Horizon',
-        [SectorType.WORMHOLE]: 'Jump Gate',
-        [SectorType.NEBULA]: 'Stellar Nursery',
+        [SectorType.MAIN]: 'Jump Gate',
+        [SectorType.LOW_ASTEROID]: 'Stellar Nursery',
         [SectorType.DOUBLE_STAR]: 'Binary System',
         [SectorType.GIANT]: 'Red Giant'
     };
@@ -489,8 +489,8 @@ describe('SectorsModel Complete Tests', function() {
             expect(createSectorOfType(SectorType.SPACE_STATION).getTypeName()).to.equal('SPACE_STATION');
             expect(createSectorOfType(SectorType.SUN).getTypeName()).to.equal('SUN');
             expect(createSectorOfType(SectorType.BLACK_HOLE).getTypeName()).to.equal('BLACK_HOLE');
-            expect(createSectorOfType(SectorType.WORMHOLE).getTypeName()).to.equal('WORMHOLE');
-            expect(createSectorOfType(SectorType.NEBULA).getTypeName()).to.equal('NEBULA');
+            expect(createSectorOfType(SectorType.MAIN).getTypeName()).to.equal('MAIN');
+            expect(createSectorOfType(SectorType.LOW_ASTEROID).getTypeName()).to.equal('LOW_ASTEROID');
             expect(createSectorOfType(SectorType.DOUBLE_STAR).getTypeName()).to.equal('DOUBLE_STAR');
             expect(createSectorOfType(SectorType.GIANT).getTypeName()).to.equal('GIANT');
         });
@@ -628,7 +628,7 @@ describe('SectorsModel Complete Tests', function() {
                 X: -10,
                 Y: 5,
                 Z: 20,
-                TYPE: SectorType.WORMHOLE,
+                TYPE: SectorType.MAIN,
                 NAME: 'Jump Gate Alpha',
                 ITEMS: 999,
                 PROTECTION: ProtectionLevel.SAFE_ZONE,
@@ -641,8 +641,8 @@ describe('SectorsModel Complete Tests', function() {
 
             expect(summary.id).to.equal(12345);
             expect(summary.coordinates).to.equal('(-10, 5, 20)');
-            expect(summary.type).to.equal(SectorType.WORMHOLE);
-            expect(summary.typeName).to.equal('WORMHOLE');
+            expect(summary.type).to.equal(SectorType.MAIN);
+            expect(summary.typeName).to.equal('MAIN');
             expect(summary.name).to.equal('Jump Gate Alpha');
             expect(summary.stellar).to.equal(42);
             expect(summary.protection).to.equal(ProtectionLevel.SAFE_ZONE);
@@ -662,8 +662,8 @@ describe('SectorsModel Complete Tests', function() {
 
         beforeEach(function() {
             sector = createValidSector({
-                TYPE: SectorType.WORMHOLE,
-                NAME: 'Strategic Wormhole',
+                TYPE: SectorType.MAIN,
+                NAME: 'Strategic Main',
                 PROTECTION: ProtectionLevel.NORMAL
             });
         });
@@ -689,18 +689,18 @@ describe('SectorsModel Complete Tests', function() {
         });
 
         it('should calculate strategic value based on sector type', function() {
-            const wormholeSector = createSectorOfType(SectorType.WORMHOLE);
+            const mainSector = createSectorOfType(SectorType.MAIN);
             const planetSector = createSectorOfType(SectorType.PLANET);
             const stationSector = createSectorOfType(SectorType.SPACE_STATION);
             const voidSector = createSectorOfType(SectorType.VOID);
 
-            const wormholeAnalysis = wormholeSector.performSectorAnalysis();
+            const mainAnalysis = mainSector.performSectorAnalysis();
             const planetAnalysis = planetSector.performSectorAnalysis();
             const stationAnalysis = stationSector.performSectorAnalysis();
             const voidAnalysis = voidSector.performSectorAnalysis();
 
-            // Wormhole should have highest strategic value bonus
-            expect(wormholeAnalysis.strategicValue).to.be.greaterThan(voidAnalysis.strategicValue);
+            // MAIN has no fabricated wormhole bonus in the current game contract
+            expect(mainAnalysis.strategicValue).to.equal(voidAnalysis.strategicValue);
             // Planet should have higher value than void
             expect(planetAnalysis.strategicValue).to.be.greaterThan(voidAnalysis.strategicValue);
             // Station should have higher value than void

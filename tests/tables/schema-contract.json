@@ -146,7 +146,9 @@
       "COMMAND",
       "FACTION_ACCESS",
       "SAVED_REMOTES",
-      "COMBAT_SETTING"
+      "COMBAT_SETTING",
+      "COMBINED_TARGETING",
+      "MESSAGE_LOG"
     ],
     "generated": [
       "ID"
@@ -160,7 +162,8 @@
       "MISSION_STRING",
       "LIST_INDEX",
       "DOCKED_TO",
-      "FACTION"
+      "FACTION",
+      "CARGO_CAPACITY"
     ],
     "generated": [
       "ID"

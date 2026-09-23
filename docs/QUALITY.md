@@ -1,5 +1,12 @@
 # Validation des corrections
 
+Les incompatibilités relevées le 23 septembre 2026 ont reçu des corrections
+dans StarMade-DB et StarMade-Decoder. Le
+[rapport de compatibilité](SCHEMA_VALIDATION.md#corrections-open-20260923)
+détaille les contrats, les profils de lecture et les limites de qualification.
+Le constat initial non conforme et les validations du 12 et du 20 septembre
+restent des résultats historiques.
+
 Les corrections reprennent les huit constats de l'audit initial et les régressions
 supplémentaires découvertes pendant l'extension des tests. Le schéma du jeu et les
 sources Java consultées uniquement en local servent de références (elles ne sont pas redistribuées) : voir [SCHEMA_VALIDATION.md](SCHEMA_VALIDATION.md).
@@ -38,6 +45,31 @@ Les références [publique](api/reference.md) et [interne](api/internal.md) sont
 Chaque exécution utilise une copie temporaire de `tests/sandbox` et des bases HSQLDB en
 mémoire. Le pilote est `/srv/StarMade/lib/hsqldb.jar`. Les tests de démarrage JVM isolés
 s'exécutent avant le démarrage du pont natif dans le processus principal de tests.
+
+## Résultat vérifié le 23 septembre 2026 après correction
+
+`npm run validate` réussit : **4 436 tests**, aucun échec ni test ignoré.
+Les 60 fichiers source respectent individuellement les seuils bloquants :
+
+| Mesure | Résultat |
+| --- | --- |
+| Lignes | 60 554 / 60 554 — 100 % |
+| Branches | 9 881 / 9 881 — 100 % |
+| Fonctions | 2 331 / 2 331 — 100 % |
+| Déclarations JSDoc publiques, protégées et privées | 5 008 / 5 008 — 100 % |
+
+Les références API sont régénérées. La recette JDBC des nouvelles colonnes,
+les contrats binaires indépendants et les 13 exemples SQL passent.
+Le décodeur voisin passe 1 547 tests, sans test ignoré, et son contrôle exact
+de couverture par fichier (28 422 lignes et 8 870 branches, toutes couvertes).
+Ses contrôles JSDoc, du paquet installé, des frontières de sources et
+d'interopérabilité Python réussissent. La lecture JDK des prix corrigés et
+le contrôle TypeScript du consommateur StarMade-3D réussissent également.
+
+Le contenu npm DB a été contrôlé : 285 fichiers, aucune source Java ni aucun
+binaire Java du jeu. Ces corrections sont livrées dans les versions 2.0.2 des deux dépôts.
+Les rapports c8 sont dans `coverage/` de chaque dépôt ; les journaux de cette
+recette sont dans `/tmp/starmade-db-compat-20260923/`.
 
 ## Résultat vérifié le 12 septembre 2026
 

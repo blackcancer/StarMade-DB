@@ -32,54 +32,57 @@ import {
 
 /**
  * Fleet command types — exact ordinal order from FleetCommandTypes.java.
- * Note: REPAIR_FLEET(4) was missing in the previous version, causing all
- * subsequent ordinals to be off by one.
+ * Targets StarMade-Open e5a3b49d8; historical SDK ordinals require an explicit decoder profile.
  */
 export enum FleetCommand {
-    /** Fleet command value for idle, serialized as 0. */
-    IDLE             = 0,
-    /** Fleet command value for move fleet, serialized as 1. */
-    MOVE_FLEET       = 1,
-    /** Fleet command value for patrol fleet, serialized as 2. */
-    PATROL_FLEET     = 2,
-    /** Fleet command value for trade fleet, serialized as 3. */
-    TRADE_FLEET      = 3,
-    /** Fleet command value for repair fleet, serialized as 4. */
-    REPAIR_FLEET     = 4,
-    /** Fleet command value for fleet attack, serialized as 5. */
-    FLEET_ATTACK     = 5,
-    /** Fleet command value for fleet defend, serialized as 6. */
-    FLEET_DEFEND     = 6,
-    /** Fleet command value for escort, serialized as 7. */
-    ESCORT           = 7,
-    /** Fleet command value for repair, serialized as 8. */
-    REPAIR           = 8,
-    /** Fleet command value for artillery, serialized as 9. */
-    ARTILLERY        = 9,
-    /** Fleet command value for sentry formation, serialized as 10. */
-    SENTRY_FORMATION = 10,
-    /** Fleet command value for sentry, serialized as 11. */
-    SENTRY           = 11,
-    /** Fleet command value for fleet idle formation, serialized as 12. */
-    FLEET_IDLE_FORMATION = 12,
-    /** Fleet command value for call to carrier, serialized as 13. */
-    CALL_TO_CARRIER  = 13,
-    /** Fleet command value for mine in sector, serialized as 14. */
-    MINE_IN_SECTOR   = 14,
-    /** Fleet command value for cloak, serialized as 15. */
-    CLOAK            = 15,
-    /** Fleet command value for uncloak, serialized as 16. */
-    UNCLOAK          = 16,
-    /** Fleet command value for jam, serialized as 17. */
-    JAM              = 17,
-    /** Fleet command value for unjam, serialized as 18. */
-    UNJAM            = 18,
-    /** Fleet command value for activate remote, serialized as 19. */
-    ACTIVATE_REMOTE  = 19,
-    /** Fleet command value for interdict, serialized as 20. */
-    INTERDICT        = 20,
-    /** Fleet command value for stop interdict, serialized as 21. */
-    STOP_INTERDICT   = 21,
+    /** Game ordinal for idle. */
+    IDLE = 0,
+    /** Game ordinal for move fleet. */
+    MOVE_FLEET = 1,
+    /** Game ordinal for patrol fleet. */
+    PATROL_FLEET = 2,
+    /** Game ordinal for trade fleet npc. */
+    TRADE_FLEET_NPC = 3,
+    /** Game ordinal for trade fleet active. */
+    TRADE_FLEET_ACTIVE = 4,
+    /** Game ordinal for trade fleet waiting. */
+    TRADE_FLEET_WAITING = 5,
+    /** Game ordinal for fleet attack. */
+    FLEET_ATTACK = 6,
+    /** Game ordinal for fleet defend. */
+    FLEET_DEFEND = 7,
+    /** Game ordinal for escort. */
+    ESCORT = 8,
+    /** Game ordinal for repair. */
+    REPAIR = 9,
+    /** Game ordinal for standoff. */
+    STANDOFF = 10,
+    /** Game ordinal for recon fleet. */
+    RECON_FLEET = 11,
+    /** Game ordinal for sentry formation. */
+    SENTRY_FORMATION = 12,
+    /** Game ordinal for sentry. */
+    SENTRY = 13,
+    /** Game ordinal for fleet idle formation. */
+    FLEET_IDLE_FORMATION = 14,
+    /** Game ordinal for call to carrier. */
+    CALL_TO_CARRIER = 15,
+    /** Game ordinal for mine in sector. */
+    MINE_IN_SECTOR = 16,
+    /** Game ordinal for cloak. */
+    CLOAK = 17,
+    /** Game ordinal for uncloak. */
+    UNCLOAK = 18,
+    /** Game ordinal for jam. */
+    JAM = 19,
+    /** Game ordinal for unjam. */
+    UNJAM = 20,
+    /** Game ordinal for activate remote. */
+    ACTIVATE_REMOTE = 21,
+    /** Game ordinal for interdict. */
+    INTERDICT = 22,
+    /** Game ordinal for stop interdict. */
+    STOP_INTERDICT = 23,
 }
 
 /**
@@ -301,6 +304,12 @@ export class FleetsModel extends BaseModel {
                 nullable: true,
                 comment: 'Serialized remote control data'
             }),
+            column('COMBINED_TARGETING', DataType.BOOLEAN, {
+                nullable: true, defaultValue: false, comment: 'Coordinate targeting across fleet members'
+            }),
+            column('MESSAGE_LOG', DataType.VARCHAR, {
+                nullable: true, length: 4096, comment: 'Fleet message log'
+            }),
             column('COMBAT_SETTING', DataType.VARCHAR, {
                 length: 128,
                 nullable: true,
@@ -331,6 +340,23 @@ export class FleetsModel extends BaseModel {
 
         validationRules: [
             validation('FLAGSHIP_ID', 'required'),
+            validation('COMBINED_TARGETING', 'custom', {
+                validator: (value: unknown) => value === null || value === undefined || typeof value === 'boolean' || 'Combined targeting must be a boolean or null'
+            }),
+            validation('MESSAGE_LOG', 'custom', {
+                validator: (value: unknown) => {
+                    if (value === null || value === undefined || value === '') return true;
+                    const error = 'Message log must be a JSON array of strings';
+                    if (typeof value !== 'string') return error;
+                    try {
+                        const entries: unknown = JSON.parse(value);
+                        return (Array.isArray(entries) && entries.every(entry => typeof entry === 'string')) || error;
+                    } catch {
+                        return error;
+                    }
+                }
+            }),
+            validation('MESSAGE_LOG', 'maxLength', { value: 4096, message: 'Message log cannot exceed 4096 characters' }),
             validation('NAME', 'maxLength', {
                 value: 128,
                 message: 'Name cannot exceed 128 characters'
@@ -1100,12 +1126,21 @@ export class FleetsModel extends BaseModel {
         return command !== null && command !== undefined && command.length > 0;
     }
 
+    /** Read the nullable combined targeting flag; an omitted legacy column remains undefined. */
+    public getCombinedTargeting(): boolean | null | undefined { return this.get('COMBINED_TARGETING'); }
+    /** Store the combined targeting flag for coordinated attacks. */
+    public setCombinedTargeting(value: boolean | null): this { return this.set('COMBINED_TARGETING', value); }
+    /** Read the nullable fleet message log. */
+    public getMessageLog(): string | null | undefined { return this.get('MESSAGE_LOG'); }
+    /** Store a JSON array of message strings (or empty/null), validated against VARCHAR(4096) on save. */
+    public setMessageLog(value: string | null): this { return this.set('MESSAGE_LOG', value); }
+
     // =============================================================================
     // STARMADE-DECODER INTEGRATION
     // =============================================================================
 
     /**
-     * Decodes FLEETS.COMMAND into a typed FleetCommandObject.
+     * Decodes FLEETS.COMMAND using the current game or explicit legacy-sdk profile.
      *
      * Returns null when the column is empty; malformed bytes raise DecodeError.
      * Requires starmade-decoder to be installed.
@@ -1114,11 +1149,11 @@ export class FleetsModel extends BaseModel {
      * const cmd = fleet.decodeCommand();
      * if (cmd) console.log(cmd.commandType, cmd.firstVec3iArg);
      */
-    public decodeCommand(): import('starmade-decoder').FleetCommandObject | null {
+    public decodeCommand(profile: import('starmade-decoder').DatabaseProfile = 'current'): import('starmade-decoder').FleetCommandObject | null {
         const raw = this.getCommand();
         if (!raw || raw.length === 0) return null;
         const { FleetCommandObject } = decoder;
-        return FleetCommandObject.fromBytes(raw);
+        return FleetCommandObject.fromBytes(raw, profile);
     }
 
     /**

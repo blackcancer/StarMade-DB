@@ -672,7 +672,7 @@ describe('FleetsModel Complete Tests', function() {
 
             expect(schema.tableName).to.equal('FLEETS');
             expect(schema.comment).to.equal('Fleet command and control system');
-            expect(schema.columns).to.be.an('array').with.length(10);
+            expect(schema.columns).to.be.an('array').with.length(12);
             expect(schema.primaryKey).to.deep.equal(['ID']);
             expect(schema.foreignKeys).to.be.an('array').with.length(2);
             expect(schema.indexes).to.be.an('array').with.length(3); // Correction: 3 au lieu de 5

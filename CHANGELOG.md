@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.2] – 2026-09-23
+
+### Fixed
+
+- Align fleet, sector, planet and system types with StarMade-Open `e5a3b49d8`, together with the sibling Decoder correction for zlib trade data and 16-byte resources.
+- Add combined targeting, JSON message history and cargo capacity columns, accessors and validation; reject incomplete fleet-member keys before lookup.
+- Preserve absent resource data and expose explicit `legacy-sdk` decoding for previous SDK bytes without automatic database migration.
+- Add independent format contracts and native JDBC acceptance tests; update schema guides, executable SQL examples and public/private API references.
+
 ## [2.0.1] – 2026-09-20
 
 ### Maintenance

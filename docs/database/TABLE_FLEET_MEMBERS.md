@@ -15,6 +15,7 @@
 | **MISSION_STRING** | `VARCHAR(1024)`  | `NULL`                   | Individual member mission                                          |
 | **LIST_INDEX**     | `INTEGER(32)`    | `NOT NULL`               | Position in fleet                                                  |
 | **DOCKED_TO**      | `BIGINT(64)`     | `NOT NULL`               | ID of entity docked to                                             |
+| **CARGO_CAPACITY** | `DOUBLE` | `NOT NULL DEFAULT 0` | Cargo capacity for trade deliveries |
 | **FACTION**        | `INTEGER(32)`    | `NOT NULL DEFAULT 0`     | Faction ID                                                         |
 
 **Primary Key:** `ID`  
